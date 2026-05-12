@@ -11,8 +11,9 @@ import { AmbassadorsSection } from "./sections/ambassadors";
 import { CommunitySection } from "./sections/community";
 import { MddSection } from "./sections/mdd";
 import { LeaderboardSection } from "./sections/leaderboard";
+import { PlaySection } from "./sections/play";
 
-type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | null;
+type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | null;
 
 // ─── Welcome Popup ───────────────────────────────────────────────────────────
 function WelcomePopup({ onDone }: { onDone: () => void }) {
@@ -207,6 +208,7 @@ export default function Dashboard() {
             {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
             {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
             {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
+            {activeSection === "play"        && <PlaySection onBack={handleBack} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -234,8 +236,57 @@ export default function Dashboard() {
 
         {/* Section cards grid */}
         <div className="grid grid-cols-2 gap-3">
-          {CARDS.map((card, i) => (
-            <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.1} onPress={() => setActiveSection(card.id)} />
+          {/* First card: عن المبادرة */}
+          <SectionCard key={CARDS[0].id} card={CARDS[0]} delay={0.1} onPress={() => setActiveSection(CARDS[0].id)} />
+
+          {/* ★ PLAY BUTTON ★ */}
+          <motion.button
+            onClick={() => setActiveSection("play")}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
+            whileTap={{ scale: 0.93 }}
+            className="col-span-2 relative overflow-hidden rounded-3xl py-6 flex flex-col items-center justify-center gap-2 border-2"
+            style={{
+              background: "linear-gradient(135deg, #7a5c00 0%, #d4af37 40%, #f0d060 60%, #d4af37 80%, #7a5c00 100%)",
+              borderColor: "rgba(255,255,255,0.25)",
+              boxShadow: "0 7px 0 rgba(100,75,0,0.7), 0 0 40px rgba(212,175,55,0.35)",
+            }}
+          >
+            {/* Shimmer overlay */}
+            <motion.div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)" }}
+              animate={{ x: ["-100%", "100%"] }}
+              transition={{ repeat: Infinity, duration: 2.4, ease: "linear", repeatDelay: 1.2 }}
+            />
+            {/* Pulsing ring */}
+            <motion.div
+              className="absolute inset-0 rounded-3xl border-2 border-white/30"
+              animate={{ opacity: [0.6, 0, 0.6] }}
+              transition={{ repeat: Infinity, duration: 1.8 }}
+            />
+            <div className="flex items-center gap-3 relative z-10">
+              <motion.span
+                className="text-4xl"
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ repeat: Infinity, duration: 1.6 }}
+              >🎯</motion.span>
+              <div className="text-right">
+                <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح و ادعم</div>
+                <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 relative z-10 mt-1">
+              {["⭐ ٣٢٥+ نقطة", "🔥 بونص السلسلة", "🏆 ٥ تحديات"].map((t) => (
+                <span key={t} className="font-arabic text-[10px] bg-black/15 rounded-full px-2.5 py-1 text-[#002b1b]/90">{t}</span>
+              ))}
+            </div>
+          </motion.button>
+
+          {/* Remaining section cards */}
+          {CARDS.slice(1).map((card, i) => (
+            <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.25} onPress={() => setActiveSection(card.id)} />
           ))}
         </div>
 
