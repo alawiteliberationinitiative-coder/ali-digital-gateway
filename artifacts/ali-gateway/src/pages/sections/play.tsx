@@ -108,7 +108,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-5 pb-20">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <AnimatePresence mode="wait">
 
           {/* Ready screen */}
@@ -153,81 +153,117 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
           {(gameState === "playing" || gameState === "answered") && (
             <motion.div key={`q-${current}`}
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-              className="space-y-5">
-              {/* Progress */}
-              <div className="space-y-2">
-                <div className="flex justify-between font-arabic text-xs text-muted-foreground">
-                  <span>السؤال {current + 1} من {QUESTIONS.length}</span>
-                  {streak >= 2 && (
-                    <span className="text-orange-400 font-bold">🔥 سلسلة ×{streak}</span>
-                  )}
-                </div>
-                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                  <motion.div className="h-full rounded-full bg-primary"
-                    animate={{ width: `${((current + (gameState === "answered" ? 1 : 0)) / QUESTIONS.length) * 100}%` }}
-                    transition={{ duration: 0.4 }} />
-                </div>
-              </div>
+              className="flex flex-col h-full">
 
-              {/* Question card */}
-              <div className="bg-card border-2 border-primary/30 rounded-3xl p-6 text-center"
-                style={{ boxShadow: "0 4px 0 rgba(0,43,27,0.5)" }}>
-                <div className="text-4xl mb-3">❓</div>
-                <p className="font-arabic font-bold text-foreground text-xl leading-relaxed">{q.q}</p>
-                <div className="mt-3 inline-flex items-center gap-1 bg-[#d4af37]/10 rounded-full px-3 py-1">
-                  <Zap className="w-3 h-3 text-[#d4af37]" />
-                  <span className="font-mono text-[#d4af37] text-xs">+{q.pts} نقطة</span>
+              {/* Scrollable upper area */}
+              <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4"
+                style={{ paddingBottom: gameState === "answered" ? "8px" : "16px" }}>
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="flex justify-between font-arabic text-xs text-muted-foreground">
+                    <span>السؤال {current + 1} من {QUESTIONS.length}</span>
+                    {streak >= 2 && (
+                      <span className="text-orange-400 font-bold">🔥 سلسلة ×{streak}</span>
+                    )}
+                  </div>
+                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                    <motion.div className="h-full rounded-full bg-primary"
+                      animate={{ width: `${((current + (gameState === "answered" ? 1 : 0)) / QUESTIONS.length) * 100}%` }}
+                      transition={{ duration: 0.4 }} />
+                  </div>
                 </div>
-              </div>
 
-              {/* Options */}
-              <div className="space-y-3">
-                {q.options.map((opt, idx) => {
-                  const col = optionColor(idx);
-                  return (
-                    <motion.button key={idx} onClick={() => handleAnswer(idx)} whileTap={{ scale: 0.97 }}
-                      disabled={gameState === "answered"}
-                      className="w-full p-4 rounded-2xl border-2 font-arabic text-base text-right transition-all"
-                      style={{
-                        backgroundColor: col ? col.bg : "var(--card)",
-                        borderColor: col ? col.border : "var(--border)",
-                        color: col ? col.text : "var(--foreground)",
-                        boxShadow: col ? undefined : "0 3px 0 rgba(0,0,0,0.2)",
-                      }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-mono text-xs font-bold"
-                          style={{ borderColor: col ? col.border : "rgba(255,255,255,0.2)", color: col?.text }}>
-                          {["أ", "ب", "ج", "د"][idx]}
+                {/* Question card */}
+                <div className="bg-card border-2 border-primary/30 rounded-3xl p-5 text-center"
+                  style={{ boxShadow: "0 4px 0 rgba(0,43,27,0.5)" }}>
+                  <div className="text-3xl mb-2">❓</div>
+                  <p className="font-arabic font-bold text-foreground text-lg leading-relaxed">{q.q}</p>
+                  <div className="mt-2 inline-flex items-center gap-1 bg-[#d4af37]/10 rounded-full px-3 py-1">
+                    <Zap className="w-3 h-3 text-[#d4af37]" />
+                    <span className="font-mono text-[#d4af37] text-xs">+{q.pts} نقطة</span>
+                  </div>
+                </div>
+
+                {/* Options */}
+                <div className="space-y-2.5">
+                  {q.options.map((opt, idx) => {
+                    const col = optionColor(idx);
+                    return (
+                      <motion.button key={idx} onClick={() => handleAnswer(idx)} whileTap={{ scale: 0.97 }}
+                        disabled={gameState === "answered"}
+                        className="w-full p-3.5 rounded-2xl border-2 font-arabic text-base text-right transition-all"
+                        style={{
+                          backgroundColor: col ? col.bg : "var(--card)",
+                          borderColor: col ? col.border : "var(--border)",
+                          color: col ? col.text : "var(--foreground)",
+                          boxShadow: col ? undefined : "0 3px 0 rgba(0,0,0,0.2)",
+                        }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-mono text-xs font-bold"
+                            style={{ borderColor: col ? col.border : "rgba(255,255,255,0.2)", color: col?.text }}>
+                            {["أ", "ب", "ج", "د"][idx]}
+                          </div>
+                          <span className="flex-1">{opt}</span>
+                          {gameState === "answered" && idx === q.correct && <span className="text-green-400 text-lg">✓</span>}
+                          {gameState === "answered" && idx === selected && idx !== q.correct && <span className="text-red-400 text-lg">✗</span>}
                         </div>
-                        <span className="flex-1">{opt}</span>
-                        {gameState === "answered" && idx === q.correct && <span className="text-green-400 text-lg">✓</span>}
-                        {gameState === "answered" && idx === selected && idx !== q.correct && <span className="text-red-400 text-lg">✗</span>}
-                      </div>
-                    </motion.button>
-                  );
-                })}
+                      </motion.button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Next button */}
+              {/* ── Fixed bottom bar: feedback + next (always visible) ── */}
               <AnimatePresence>
                 {gameState === "answered" && (
-                  <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className={`rounded-2xl p-4 text-center mb-4 ${selected === q.correct ? "bg-green-950/60 border border-green-500/30" : "bg-red-950/50 border border-red-500/30"}`}>
-                      <p className="font-arabic font-bold text-lg mb-1">
-                        {selected === q.correct ? "🎉 إجابة صحيحة!" : "❌ إجابة خاطئة"}
-                      </p>
-                      {selected === q.correct && streak >= 2 && (
-                        <p className="font-arabic text-orange-400 text-sm">🔥 بونص سلسلة! +{Math.floor(q.pts * 0.5)} نقطة</p>
-                      )}
+                  <motion.div
+                    initial={{ y: 80, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 80, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                    className="flex-shrink-0 px-4 py-3 border-t border-border"
+                    style={{
+                      background: selected === q.correct
+                        ? "linear-gradient(to top, rgba(5,46,22,0.97), rgba(5,46,22,0.92))"
+                        : "linear-gradient(to top, rgba(69,10,10,0.97), rgba(69,10,10,0.92))",
+                    }}>
+                    <div className="flex gap-3 items-stretch">
+                      {/* Feedback box */}
+                      <div className={`flex-1 rounded-2xl px-4 py-3 flex flex-col justify-center border ${selected === q.correct ? "border-green-600/40 bg-green-950/60" : "border-red-600/40 bg-red-950/60"}`}>
+                        <p className="font-arabic font-bold text-base leading-tight">
+                          {selected === q.correct ? "🎉 إجابة صحيحة!" : "❌ إجابة خاطئة"}
+                        </p>
+                        {selected === q.correct && streak >= 2 && (
+                          <p className="font-arabic text-orange-400 text-xs mt-0.5">
+                            🔥 بونص +{Math.floor(q.pts * 0.5)} نقطة
+                          </p>
+                        )}
+                        {selected !== q.correct && (
+                          <p className="font-arabic text-white/50 text-xs mt-0.5">
+                            الإجابة: {q.options[q.correct]}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Next button */}
+                      <motion.button
+                        onClick={handleNext}
+                        whileTap={{ scale: 0.94 }}
+                        className="flex-shrink-0 w-28 rounded-2xl font-arabic font-bold text-base flex flex-col items-center justify-center gap-1"
+                        style={{
+                          background: "linear-gradient(135deg,#002b1b,#004a2a)",
+                          boxShadow: "0 4px 0 rgba(0,0,0,0.5)",
+                          border: "1.5px solid rgba(212,175,55,0.5)",
+                          color: "#d4af37",
+                        }}>
+                        <span className="text-xl">{isLast ? "★" : "←"}</span>
+                        <span className="text-xs">{isLast ? "النتيجة" : "التالي"}</span>
+                      </motion.button>
                     </div>
-                    <motion.button onClick={handleNext} whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-arabic font-bold text-lg text-primary-foreground"
-                      style={{ background: "linear-gradient(135deg,#002b1b,#004a2a)", boxShadow: "0 4px 0 rgba(0,0,0,0.4)", border: "1.5px solid rgba(212,175,55,0.4)" }}>
-                      {isLast ? "عرض النتيجة ★" : "السؤال التالي ←"}
-                    </motion.button>
                   </motion.div>
                 )}
               </AnimatePresence>
+
             </motion.div>
           )}
 
