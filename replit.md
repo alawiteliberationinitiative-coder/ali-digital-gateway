@@ -1,6 +1,6 @@
-# [Project name]
+# Telegram Bot Project
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A server-side project integrating a Telegram bot with a Supabase backend.
 
 ## Run & Operate
 
@@ -9,20 +9,33 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+
+## Required Secrets
+
+These are stored in Replit Secrets (never hardcode them):
+
+- `TELEGRAM_BOT_TOKEN` — your Telegram bot token from @BotFather
+- `SUPABASE_URL` — your Supabase project URL
+- `DATABASE_URL` — Postgres connection string (auto-provisioned)
+
+Access in code via `process.env.TELEGRAM_BOT_TOKEN`, `process.env.SUPABASE_URL`, etc.
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
+- Supabase integration
+- Telegram Bot API
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src/` — Express server, routes, and bot logic
+- `lib/db/src/schema/` — Drizzle ORM database schema
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth)
 
 ## Architecture decisions
 
@@ -38,7 +51,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Never hardcode `TELEGRAM_BOT_TOKEN` or `SUPABASE_URL` — always use `process.env`
+- Always run `pnpm --filter @workspace/api-spec run codegen` after changing the OpenAPI spec
 
 ## Pointers
 
