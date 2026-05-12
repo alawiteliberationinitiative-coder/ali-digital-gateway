@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: progress
+    description: User progress operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /user-progress/{sessionId}:
+    get:
+      operationId: getUserProgress
+      tags: [progress]
+      summary: Get user progress
+      description: Retrieve progress for a given session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Progress record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgress"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: upsertUserProgress
+      tags: [progress]
+      summary: Upsert user progress
+      description: Save or update progress for a given session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProgressInput"
+      responses:
+        "200":
+          description: Updated progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgress"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +87,35 @@ components:
       required:
         - status
 
+    UserProgress:
+      type: object
+      required: [sessionId, completedNodes, currentNode, updatedAt]
+      properties:
+        sessionId:
+          type: string
+        completedNodes:
+          type: array
+          items:
+            type: integer
+        currentNode:
+          type: integer
+        updatedAt:
+          type: string
+
+    UserProgressInput:
+      type: object
+      required: [completedNodes, currentNode]
+      properties:
+        completedNodes:
+          type: array
+          items:
+            type: integer
+        currentNode:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

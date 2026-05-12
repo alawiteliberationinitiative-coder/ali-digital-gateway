@@ -5,18 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  HealthStatus,
+  UserProgress,
+  UserProgressInput,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +107,180 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Retrieve progress for a given session
+ * @summary Get user progress
+ */
+export const getGetUserProgressUrl = (sessionId: string) => {
+  return `/api/user-progress/${sessionId}`;
+};
+
+export const getUserProgress = async (
+  sessionId: string,
+  options?: RequestInit,
+): Promise<UserProgress> => {
+  return customFetch<UserProgress>(getGetUserProgressUrl(sessionId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserProgressQueryKey = (sessionId: string) => {
+  return [`/api/user-progress/${sessionId}`] as const;
+};
+
+export const getGetUserProgressQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserProgress>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserProgress>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUserProgressQueryKey(sessionId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserProgress>>> = ({
+    signal,
+  }) => getUserProgress(sessionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!sessionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserProgress>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserProgressQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserProgress>>
+>;
+export type GetUserProgressQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get user progress
+ */
+
+export function useGetUserProgress<
+  TData = Awaited<ReturnType<typeof getUserProgress>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserProgress>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserProgressQueryOptions(sessionId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Save or update progress for a given session
+ * @summary Upsert user progress
+ */
+export const getUpsertUserProgressUrl = (sessionId: string) => {
+  return `/api/user-progress/${sessionId}`;
+};
+
+export const upsertUserProgress = async (
+  sessionId: string,
+  userProgressInput: UserProgressInput,
+  options?: RequestInit,
+): Promise<UserProgress> => {
+  return customFetch<UserProgress>(getUpsertUserProgressUrl(sessionId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(userProgressInput),
+  });
+};
+
+export const getUpsertUserProgressMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertUserProgress>>,
+    TError,
+    { sessionId: string; data: BodyType<UserProgressInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertUserProgress>>,
+  TError,
+  { sessionId: string; data: BodyType<UserProgressInput> },
+  TContext
+> => {
+  const mutationKey = ["upsertUserProgress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertUserProgress>>,
+    { sessionId: string; data: BodyType<UserProgressInput> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return upsertUserProgress(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertUserProgressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertUserProgress>>
+>;
+export type UpsertUserProgressMutationBody = BodyType<UserProgressInput>;
+export type UpsertUserProgressMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert user progress
+ */
+export const useUpsertUserProgress = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertUserProgress>>,
+    TError,
+    { sessionId: string; data: BodyType<UserProgressInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertUserProgress>>,
+  TError,
+  { sessionId: string; data: BodyType<UserProgressInput> },
+  TContext
+> => {
+  return useMutation(getUpsertUserProgressMutationOptions(options));
+};

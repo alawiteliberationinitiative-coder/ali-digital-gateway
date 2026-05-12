@@ -5,22 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export interface UserProgress {
   sessionId: string;
   completedNodes: number[];
   currentNode: number;
   updatedAt: string;
-}
-
-export interface UserProgressInput {
-  completedNodes: number[];
-  currentNode: number;
-}
-
-export interface ErrorResponse {
-  error: string;
 }

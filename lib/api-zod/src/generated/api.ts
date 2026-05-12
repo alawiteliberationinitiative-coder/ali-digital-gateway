@@ -14,3 +14,38 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Retrieve progress for a given session
+ * @summary Get user progress
+ */
+export const GetUserProgressParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const GetUserProgressResponse = zod.object({
+  sessionId: zod.string(),
+  completedNodes: zod.array(zod.number()),
+  currentNode: zod.number(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * Save or update progress for a given session
+ * @summary Upsert user progress
+ */
+export const UpsertUserProgressParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const UpsertUserProgressBody = zod.object({
+  completedNodes: zod.array(zod.number()),
+  currentNode: zod.number(),
+});
+
+export const UpsertUserProgressResponse = zod.object({
+  sessionId: zod.string(),
+  completedNodes: zod.array(zod.number()),
+  currentNode: zod.number(),
+  updatedAt: zod.string(),
+});
