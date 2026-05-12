@@ -11,16 +11,33 @@ if (!token) {
 const bot = new TelegramBot(token, { polling: true });
 
 async function saveUserActivity(telegramId: number, username: string | undefined): Promise<void> {
+  const now = new Date().toISOString();
+
   const { error } = await supabase.from("users_activity").upsert(
     {
       telegram_id: telegramId,
       username: username ?? null,
-      last_seen: new Date().toISOString(),
+      last_seen: now,
     },
     { onConflict: "telegram_id" },
   );
 
   if (error) {
+    if (error.code === "PGRST204" && error.message.includes("last_seen")) {
+      logger.warn(
+        "last_seen column missing — falling back to insert without it. Run: ALTER TABLE users_activity ADD COLUMN last_seen timestamptz NOT NULL DEFAULT now();",
+      );
+      const { error: fallbackError } = await supabase.from("users_activity").upsert(
+        { telegram_id: telegramId, username: username ?? null },
+        { onConflict: "telegram_id" },
+      );
+      if (fallbackError) {
+        throw new Error(
+          `Supabase upsert failed — code: ${fallbackError.code}, message: ${fallbackError.message}, hint: ${fallbackError.hint ?? "none"}, details: ${fallbackError.details ?? "none"}`,
+        );
+      }
+      return;
+    }
     throw new Error(
       `Supabase upsert failed — code: ${error.code}, message: ${error.message}, hint: ${error.hint ?? "none"}, details: ${error.details ?? "none"}`,
     );
