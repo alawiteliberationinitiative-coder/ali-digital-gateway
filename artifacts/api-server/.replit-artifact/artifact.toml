@@ -1,0 +1,25 @@
+kind = "web"
+previewPath = "/api/"
+title = "API Server"
+version = "1.0.0"
+id = "artifacts/api-server"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "API Server"
+paths = ["/api/"]
+localPort = 22729
+
+[services.development]
+run = "pnpm --filter @workspace/api-server run dev"
+
+[services.production]
+run = "node dist/index.js"
+
+[services.env]
+PORT = "22729"
+BASE_PATH = "/api/"

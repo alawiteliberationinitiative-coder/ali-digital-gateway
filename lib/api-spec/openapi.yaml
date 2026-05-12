@@ -1,0 +1,185 @@
+openapi: "3.1.0"
+info:
+  title: Api
+  version: "1.0.0"
+servers:
+  - url: /api
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      tags: [health]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /users/register:
+    post:
+      operationId: registerUser
+      summary: Register or retrieve a user by Telegram ID
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "200":
+          description: Existing user returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "201":
+          description: New user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/me:
+    get:
+      operationId: getMe
+      summary: Get current user by Telegram ID header
+      tags: [users]
+      parameters:
+        - in: header
+          name: x-telegram-id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /users/confirm-keys:
+    post:
+      operationId: confirmKeys
+      summary: Mark user's Triple Key Vault as confirmed
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmKeysInput"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    User:
+      type: object
+      required:
+        [
+          id,
+          aliId,
+          pseudonym,
+          telegramId,
+          vaultKey,
+          identityKey,
+          masterKey,
+          mddBalance,
+          rank,
+          level,
+          keysConfirmed,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        aliId:
+          type: string
+          description: "Format: ALI-2026-XXXX"
+        pseudonym:
+          type: string
+        telegramId:
+          type: string
+        telegramUsername:
+          type: ["string", "null"]
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        vaultKey:
+          type: string
+          description: Vault recovery key (shown once)
+        identityKey:
+          type: string
+          description: Identity recovery key (shown once)
+        masterKey:
+          type: string
+          description: Master recovery key (shown once)
+        mddBalance:
+          type: number
+        rank:
+          type: string
+        level:
+          type: integer
+        keysConfirmed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    RegisterInput:
+      type: object
+      required: [telegramId]
+      properties:
+        telegramId:
+          type: string
+        telegramUsername:
+          type: ["string", "null"]
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+
+    ConfirmKeysInput:
+      type: object
+      required: [telegramId]
+      properties:
+        telegramId:
+          type: string
