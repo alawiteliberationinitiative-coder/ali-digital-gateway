@@ -8,7 +8,19 @@ if (!token) {
   throw new Error("TELEGRAM_BOT_TOKEN environment variable is required but was not provided.");
 }
 
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token, {
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 60,
+    },
+  },
+  request: {
+    url: "https://api.telegram.org",
+    timeout: 60000,
+  },
+});
 
 // In-memory store: tracks which users are waiting to submit an incident description
 const awaitingIncidentDescription = new Set<number>();
