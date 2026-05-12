@@ -12,15 +12,6 @@ env = { "CI" = "true" }
 runButton = "Project"
 
 [[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Telegram Bot"
-
-[[workflows.workflow]]
 name = "Telegram Bot"
 author = "agent"
 
@@ -30,6 +21,39 @@ args = "node index.js"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "artifacts/api-server: API Server"
+author = "agent"
+mode = "sequential"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+artifactId = "artifacts/api-server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/api-server: API Server"
+
+[[workflows.workflow]]
+name = "artifacts/ali-gateway: web"
+author = "agent"
+mode = "sequential"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+artifactId = "artifacts/ali-gateway"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/ali-gateway run dev"
+cwd = "./artifacts/ali-gateway"
+waitForPort = 19823
+router = "path"
+
+[workflows.workflow.tasks.env]
+PORT = "19823"
+BASE_PATH = "/"
 
 [agent]
 stack = "PNPM_WORKSPACE"
