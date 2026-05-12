@@ -21,7 +21,9 @@ async function saveUserActivity(telegramId: number, username: string | undefined
   );
 
   if (error) {
-    throw new Error(`Supabase upsert failed: ${error.message}`);
+    throw new Error(
+      `Supabase upsert failed — code: ${error.code}, message: ${error.message}, hint: ${error.hint ?? "none"}, details: ${error.details ?? "none"}`,
+    );
   }
 }
 
