@@ -19,18 +19,32 @@ bot.on('message', (msg) => {
 
   if (text === '/start') {
     if (webAppUrl) {
-      bot.sendMessage(chatId, 'Welcome to the ALI Digital Gateway. Launch your secure portal below.', {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: 'Launch ALI Secure Portal 🚀',
-              web_app: { url: webAppUrl }
-            }
-          ]]
+      bot.sendMessage(chatId,
+`🟢 *مبادرة التحرير العلوي — A.L.I*
+
+أهلاً بك في البوابة الرقمية السيادية.
+
+هذه المنصة حكر على أعضاء مبادرة التحرير العلوي المسجّلين.
+ستحصل على هويّة رقمية فريدة ومفاتيح التشفير الثلاثة لحماية حسابك.
+
+_"حق لا يموت"_
+
+🔰 *Alawite Liberation Initiative — A.L.I*
+_Management of Diversified Development · $MDD_`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '🚀 إطلاق البوابة الآمنة',
+                web_app: { url: webAppUrl }
+              }
+            ]]
+          }
         }
-      });
+      );
     } else {
-      bot.sendMessage(chatId, 'ALI Digital Gateway is initializing. Please try again shortly.');
+      bot.sendMessage(chatId, 'جارٍ تهيئة بوابة A.L.I الرقمية. يرجى المحاولة مجدداً بعد لحظات.');
     }
   }
 });

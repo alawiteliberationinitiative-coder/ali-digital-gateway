@@ -124,9 +124,10 @@
   --chart-4: 158 50% 20%;
   --chart-5: 158 60% 30%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'Cairo', 'Inter', sans-serif;
   --app-font-serif: 'Cinzel', serif;
   --app-font-mono: 'Space Mono', monospace;
+  --app-font-arabic: 'Amiri', 'Cairo', serif;
   --radius: 0.125rem;
   
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.50);
@@ -245,6 +246,12 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .font-arabic {
+    font-family: var(--app-font-arabic);
   }
 }
 
