@@ -15,46 +15,100 @@ import { PlaySection } from "./sections/play";
 
 type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | null;
 
-// ─── Welcome Popup ───────────────────────────────────────────────────────────
-function WelcomePopup({ onDone }: { onDone: () => void }) {
-  const [phase, setPhase] = useState<"main" | "slogan">("main");
+// ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
+function WelcomeSequence({ onDone }: { onDone: () => void }) {
+  const [phase, setPhase] = useState<"main" | "slogan" | "exit">("main");
 
+  // Phase 1 (main): 6 s  →  Phase 2 (slogan): 4 s  →  exit fade
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("slogan"), 4000);
-    const t2 = setTimeout(() => onDone(), 6500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t1 = setTimeout(() => setPhase("slogan"), 6000);
+    const t2 = setTimeout(() => setPhase("exit"),   10000);
+    const t3 = setTimeout(() => onDone(),            11000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [onDone]);
 
   return (
-    <motion.div className="fixed inset-0 z-50 flex items-end justify-center pb-10 px-5 pointer-events-none">
-      <motion.div className="w-full max-w-sm rounded-3xl overflow-hidden"
-        style={{ background: "linear-gradient(135deg,rgba(0,43,27,0.98) 0%,rgba(0,20,12,0.99) 100%)", border: "1.5px solid rgba(212,175,55,0.4)", boxShadow: "0 0 50px rgba(212,175,55,0.12),0 24px 60px rgba(0,0,0,0.7)" }}
-        initial={{ y: 100, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 60, opacity: 0 }} transition={{ type: "spring", stiffness: 280, damping: 24 }}>
-        <AnimatePresence mode="wait">
-          {phase === "main" && (
-            <motion.div key="main" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="p-6 text-center" dir="rtl">
-              <div className="w-20 h-[2px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent mx-auto mb-5" />
-              <p className="font-arabic text-[#d4af37] text-xl font-bold leading-snug mb-0.5">مبادرة التحرير العلوي</p>
-              <p className="text-[#d4af37] text-lg font-bold tracking-widest mb-4">A.L.I</p>
-              <div className="w-10 h-px bg-[#d4af37]/30 mx-auto mb-4" />
-              <p className="text-white/65 text-xs tracking-widest uppercase mb-1">Alawite Liberation Initiative</p>
-              <p className="text-white/40 text-xs mb-4">Management of Diversified Development</p>
-              <div className="inline-block px-5 py-1.5 rounded-full border border-[#d4af37]/40 bg-[#d4af37]/10">
-                <span className="text-[#d4af37] font-mono font-bold tracking-widest">$MDD</span>
-              </div>
-              <div className="w-20 h-[2px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent mx-auto mt-5" />
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center px-8"
+      style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 50%, #001208 100%)" }}
+      initial={{ opacity: 1 }}
+      animate={{ opacity: phase === "exit" ? 0 : 1 }}
+      transition={{ duration: 1, ease: "easeInOut" }}>
+
+      {/* Radial glow */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
+
+      <AnimatePresence mode="wait">
+
+        {/* ── Phase 1: Initiative name + token ── */}
+        {phase === "main" && (
+          <motion.div key="main"
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col items-center text-center w-full max-w-xs" dir="rtl">
+
+            {/* Emblem */}
+            <motion.div
+              initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+              className="w-28 h-28 rounded-full overflow-hidden border-2 border-[#d4af37]/50 mb-8 flex-shrink-0"
+              style={{ boxShadow: "0 0 50px rgba(212,175,55,0.25), 0 0 100px rgba(212,175,55,0.1)" }}>
+              <img src="/ali-emblem.jpg" alt="ALI" className="w-full h-full object-cover object-top" />
             </motion.div>
-          )}
-          {phase === "slogan" && (
-            <motion.div key="slogan" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="py-10 text-center">
-              <p className="font-arabic text-[#d4af37] text-3xl font-bold" style={{ textShadow: "0 0 30px rgba(212,175,55,0.5)" }}>
-                حقٌّ لا يموت
-              </p>
+
+            {/* Top divider */}
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
+              className="w-24 h-px mb-6" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
+
+            {/* Box 1: initiative name */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+              className="w-full rounded-2xl border border-[#d4af37]/30 bg-[#d4af37]/5 px-6 py-5 mb-4 text-center"
+              style={{ boxShadow: "0 0 24px rgba(212,175,55,0.08), inset 0 1px 0 rgba(212,175,55,0.15)" }}>
+              <p className="font-arabic text-[#d4af37] text-2xl font-bold leading-snug mb-1">مبادرة التحرير العلوي</p>
+              <p className="text-[#d4af37]/80 text-base font-bold tracking-[0.25em] mb-3">A.L.I</p>
+              <div className="w-10 h-px bg-[#d4af37]/25 mx-auto mb-3" />
+              <p className="text-white/55 text-xs tracking-widest uppercase mb-1">Alawite Liberation Initiative</p>
+              <p className="text-white/35 text-xs tracking-wider">Management of Diversified Development</p>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+
+            {/* Box 2: token */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
+              className="rounded-full border border-[#d4af37]/40 bg-[#d4af37]/10 px-8 py-2.5"
+              style={{ boxShadow: "0 0 20px rgba(212,175,55,0.15)" }}>
+              <span className="text-[#d4af37] font-mono font-bold text-xl tracking-widest">$MDD</span>
+            </motion.div>
+
+            {/* Bottom divider */}
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
+              className="w-24 h-px mt-6" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
+          </motion.div>
+        )}
+
+        {/* ── Phase 2: حق لا يموت ── */}
+        {(phase === "slogan" || phase === "exit") && (
+          <motion.div key="slogan"
+            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="text-center">
+            {/* Ornament top */}
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+              className="text-[#d4af37]/40 text-2xl mb-4 tracking-widest">✦  ✦  ✦</motion.p>
+
+            <p className="font-arabic text-[#d4af37] font-bold leading-tight"
+              style={{ fontSize: "clamp(2rem, 9vw, 3rem)", textShadow: "0 0 40px rgba(212,175,55,0.6), 0 0 80px rgba(212,175,55,0.3)" }}>
+              حقٌّ لا يموت
+            </p>
+
+            {/* Ornament bottom */}
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+              className="text-[#d4af37]/40 text-2xl mt-4 tracking-widest">✦  ✦  ✦</motion.p>
+          </motion.div>
+        )}
+
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -156,7 +210,6 @@ export default function Dashboard() {
   const telegramId = user?.id?.toString() || "";
 
   const [activeSection, setActiveSection] = useState<Section>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeDone, setWelcomeDone] = useState(false);
 
   const { data: userData, isLoading } = useGetMe({
@@ -168,133 +221,132 @@ export default function Dashboard() {
     if (!isLoading && userData && !userData.keysConfirmed) setLocation("/onboarding");
   }, [userData, isLoading, setLocation]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setShowWelcome(true), 3000);
-    return () => clearTimeout(t);
-  }, []);
-
   const handleBack = useCallback(() => setActiveSection(null), []);
 
+  // Show loading spinner while fetching user data
   if (isLoading || !userData) {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[100dvh] flex items-center justify-center"
+        style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 50%, #001208 100%)" }}>
+        <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground relative overflow-hidden">
-      {/* Welcome popup */}
+
+      {/* ── Full-screen welcome sequence (blocks dashboard until done) ── */}
       <AnimatePresence>
-        {showWelcome && !welcomeDone && activeSection === null && (
-          <WelcomePopup onDone={() => { setShowWelcome(false); setWelcomeDone(true); }} />
+        {!welcomeDone && (
+          <WelcomeSequence onDone={() => setWelcomeDone(true)} />
         )}
       </AnimatePresence>
 
-      <ProgressHeader userData={userData} />
-
-      {/* Section overlay */}
-      <AnimatePresence mode="wait">
-        {activeSection !== null && (
-          <motion.div key={activeSection}
-            className="fixed inset-0 z-30 bg-background overflow-y-auto"
-            initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
-            transition={{ type: "spring", stiffness: 320, damping: 32 }}>
-            {activeSection === "about"       && <AboutSection onBack={handleBack} />}
-            {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
-            {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
-            {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
-            {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
-            {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
-            {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
-            {activeSection === "play"        && <PlaySection onBack={handleBack} />}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Home grid */}
-      <div className="px-4 pt-5 pb-24 space-y-0" dir="rtl">
-        {/* Identity strip */}
+      {/* ── Dashboard content (fades in after welcome sequence) ── */}
+      {welcomeDone && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-          className="bg-card border border-border rounded-2xl px-4 py-3 mb-5 flex items-center justify-between"
-          style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.15)" }}>
-          <div>
-            <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">رقم الهوية</div>
-            <div className="font-mono text-primary text-sm font-bold tracking-widest">{userData.aliId}</div>
-          </div>
-          <div className="text-left">
-            <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">الرتبة</div>
-            <div className="font-mono text-primary text-sm uppercase">{userData.rank}</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">$MDD</div>
-            <div className="font-mono text-[#d4af37] text-sm font-bold">{userData.mddBalance.toLocaleString()}</div>
-          </div>
-        </motion.div>
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}>
 
-        {/* Section cards grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* First card: عن المبادرة */}
-          <SectionCard key={CARDS[0].id} card={CARDS[0]} delay={0.1} onPress={() => setActiveSection(CARDS[0].id)} />
+          <ProgressHeader userData={userData} />
 
-          {/* ★ PLAY BUTTON ★ */}
-          <motion.button
-            onClick={() => setActiveSection("play")}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
-            whileTap={{ scale: 0.93 }}
-            className="col-span-2 relative overflow-hidden rounded-3xl py-6 flex flex-col items-center justify-center gap-2 border-2"
-            style={{
-              background: "linear-gradient(135deg, #7a5c00 0%, #d4af37 40%, #f0d060 60%, #d4af37 80%, #7a5c00 100%)",
-              borderColor: "rgba(255,255,255,0.25)",
-              boxShadow: "0 7px 0 rgba(100,75,0,0.7), 0 0 40px rgba(212,175,55,0.35)",
-            }}
-          >
-            {/* Shimmer overlay */}
+          {/* Section overlay */}
+          <AnimatePresence mode="wait">
+            {activeSection !== null && (
+              <motion.div key={activeSection}
+                className="fixed inset-0 z-30 bg-background overflow-y-auto"
+                initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+                transition={{ type: "spring", stiffness: 320, damping: 32 }}>
+                {activeSection === "about"       && <AboutSection onBack={handleBack} />}
+                {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
+                {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
+                {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
+                {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
+                {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
+                {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
+                {activeSection === "play"        && <PlaySection onBack={handleBack} />}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Home grid */}
+          <div className="px-4 pt-5 pb-24 space-y-0" dir="rtl">
+            {/* Identity strip */}
             <motion.div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)" }}
-              animate={{ x: ["-100%", "100%"] }}
-              transition={{ repeat: Infinity, duration: 2.4, ease: "linear", repeatDelay: 1.2 }}
-            />
-            {/* Pulsing ring */}
-            <motion.div
-              className="absolute inset-0 rounded-3xl border-2 border-white/30"
-              animate={{ opacity: [0.6, 0, 0.6] }}
-              transition={{ repeat: Infinity, duration: 1.8 }}
-            />
-            <div className="flex items-center gap-3 relative z-10">
-              <motion.span
-                className="text-4xl"
-                animate={{ scale: [1, 1.15, 1] }}
-                transition={{ repeat: Infinity, duration: 1.6 }}
-              >🎯</motion.span>
-              <div className="text-right">
-                <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح و ادعم</div>
-                <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء</div>
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+              className="bg-card border border-border rounded-2xl px-4 py-3 mb-5 flex items-center justify-between"
+              style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.15)" }}>
+              <div>
+                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">رقم الهوية</div>
+                <div className="font-mono text-primary text-sm font-bold tracking-widest">{userData.aliId}</div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 relative z-10 mt-1">
-              {["⭐ ٣٢٥+ نقطة", "🔥 بونص السلسلة", "🏆 ٥ تحديات"].map((t) => (
-                <span key={t} className="font-arabic text-[10px] bg-black/15 rounded-full px-2.5 py-1 text-[#002b1b]/90">{t}</span>
+              <div className="text-left">
+                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">الرتبة</div>
+                <div className="font-mono text-primary text-sm uppercase">{userData.rank}</div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">$MDD</div>
+                <div className="font-mono text-[#d4af37] text-sm font-bold">{userData.mddBalance.toLocaleString()}</div>
+              </div>
+            </motion.div>
+
+            {/* Section cards grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* First card: عن المبادرة */}
+              <SectionCard key={CARDS[0].id} card={CARDS[0]} delay={0.1} onPress={() => setActiveSection(CARDS[0].id)} />
+
+              {/* ★ PLAY BUTTON ★ */}
+              <motion.button
+                onClick={() => setActiveSection("play")}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
+                whileTap={{ scale: 0.93 }}
+                className="col-span-2 relative overflow-hidden rounded-3xl py-6 flex flex-col items-center justify-center gap-2 border-2"
+                style={{
+                  background: "linear-gradient(135deg, #7a5c00 0%, #d4af37 40%, #f0d060 60%, #d4af37 80%, #7a5c00 100%)",
+                  borderColor: "rgba(255,255,255,0.25)",
+                  boxShadow: "0 7px 0 rgba(100,75,0,0.7), 0 0 40px rgba(212,175,55,0.35)",
+                }}>
+                <motion.div className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)" }}
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ repeat: Infinity, duration: 2.4, ease: "linear", repeatDelay: 1.2 }} />
+                <motion.div className="absolute inset-0 rounded-3xl border-2 border-white/30"
+                  animate={{ opacity: [0.6, 0, 0.6] }}
+                  transition={{ repeat: Infinity, duration: 1.8 }} />
+                <div className="flex items-center gap-3 relative z-10">
+                  <motion.span className="text-4xl"
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.6 }}>🎯</motion.span>
+                  <div className="text-right">
+                    <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح و ادعم</div>
+                    <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 relative z-10 mt-1">
+                  {["⭐ ٣٢٥+ نقطة", "🔥 بونص السلسلة", "🏆 ٥ تحديات"].map((t) => (
+                    <span key={t} className="font-arabic text-[10px] bg-black/15 rounded-full px-2.5 py-1 text-[#002b1b]/90">{t}</span>
+                  ))}
+                </div>
+              </motion.button>
+
+              {/* Remaining section cards */}
+              {CARDS.slice(1).map((card, i) => (
+                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.25} onPress={() => setActiveSection(card.id)} />
               ))}
             </div>
-          </motion.button>
 
-          {/* Remaining section cards */}
-          {CARDS.slice(1).map((card, i) => (
-            <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.25} onPress={() => setActiveSection(card.id)} />
-          ))}
-        </div>
+            {/* Footer motto */}
+            <div className="text-center pt-6">
+              <p className="font-arabic text-[#d4af37]/40 text-sm italic">حقٌّ لا يموت</p>
+            </div>
+          </div>
 
-        {/* Footer motto */}
-        <div className="text-center pt-6">
-          <p className="font-arabic text-[#d4af37]/40 text-sm italic">حقٌّ لا يموت</p>
-        </div>
-      </div>
+        </motion.div>
+      )}
+
     </div>
   );
 }
