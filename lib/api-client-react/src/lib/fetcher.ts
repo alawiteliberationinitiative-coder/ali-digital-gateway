@@ -6,6 +6,12 @@ interface RequestConfig {
   signal?: AbortSignal;
 }
 
+let _authHeaders: Record<string, string> = {};
+
+export function setAuthHeaders(headers: Record<string, string>) {
+  _authHeaders = headers;
+}
+
 export async function customFetch<T>(
   config: RequestConfig,
   options?: { headers?: Record<string, string> },
@@ -19,6 +25,7 @@ export async function customFetch<T>(
     signal,
     headers: {
       "Content-Type": "application/json",
+      ..._authHeaders,
       ...(configHeaders ?? {}),
       ...(options?.headers ?? {}),
     },

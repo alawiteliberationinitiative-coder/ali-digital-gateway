@@ -19,18 +19,21 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [keysSaved, setKeysSaved] = useState(false);
 
-  const { data: userData, isLoading } = useGetMe({
+  const { data: userData, isLoading, isError } = useGetMe({
     request: { headers: { "X-Telegram-ID": telegramId } },
-    query: { enabled: !!telegramId },
+    query: { enabled: !!telegramId, retry: 1 },
   });
 
   const confirmKeysMutation = useConfirmKeys();
 
   useEffect(() => {
-    if (userData?.keysConfirmed) {
-      setLocation("/dashboard");
-    }
+    if (userData?.keysConfirmed) setLocation("/dashboard");
   }, [userData, setLocation]);
+
+  // If user not found (404) — send back to splash for registration
+  useEffect(() => {
+    if (isError) setLocation("/");
+  }, [isError, setLocation]);
 
   const handleNextStep = () => {
     webApp?.HapticFeedback?.impactOccurred("light");

@@ -229,14 +229,19 @@ export default function Dashboard() {
   const [welcomeDone, setWelcomeDone] = useState(false);
   const [adarUnread, setAdarUnread] = useState(() => getAdarUnreadCount());
 
-  const { data: userData, isLoading } = useGetMe({
+  const { data: userData, isLoading, isError } = useGetMe({
     request: { headers: { "X-Telegram-ID": telegramId } },
-    query: { enabled: !!telegramId },
+    query: { enabled: !!telegramId, retry: 1 },
   });
 
   useEffect(() => {
     if (!isLoading && userData && !userData.keysConfirmed) setLocation("/onboarding");
   }, [userData, isLoading, setLocation]);
+
+  // If user not found (404) — send back to splash for re-registration
+  useEffect(() => {
+    if (isError) setLocation("/");
+  }, [isError, setLocation]);
 
   const handleBack = useCallback(() => setActiveSection(null), []);
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { configureApi } from "./api";
+import { setAuthHeaders } from "@workspace/api-client-react";
 
 export interface TelegramUser {
   id: number;
@@ -98,6 +99,11 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
       app.enableClosingConfirmation();
       const userId = String(app.initDataUnsafe?.user?.id ?? "");
       configureApi(userId, app.initData);
+      // Propagate auth headers to the generated API client fetcher
+      const authHeaders: Record<string, string> = {};
+      if (userId)         authHeaders["x-telegram-id"]        = userId;
+      if (app.initData)   authHeaders["x-telegram-init-data"] = app.initData;
+      setAuthHeaders(authHeaders);
       setWebApp(app);
     } else {
       console.warn("Telegram WebApp is not available.");

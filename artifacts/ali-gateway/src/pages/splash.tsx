@@ -187,7 +187,13 @@ export default function Splash() {
     await new Promise<void>((res) => setTimeout(res, 3000));
 
     const telegramId = resolvedUser?.id?.toString() || `dev-${Date.now()}`;
-    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param ?? null;
+    // start_param is set when opened via t.me/BOT/APP?startapp=CODE deep link.
+    // When the bot opens the WebApp via a keyboard button with ?startapp=CODE in the URL,
+    // the code lands in the URL query string instead — read both as fallback.
+    const startParam =
+      window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
+      new URLSearchParams(window.location.search).get("startapp") ??
+      null;
 
     registerMutation.mutate(
       {
