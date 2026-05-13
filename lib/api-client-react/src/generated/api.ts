@@ -19,10 +19,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdRewardResult,
   ApiError,
   ConfirmKeysInput,
   HealthStatus,
   RegisterInput,
+  TreasuryBalance,
   User
 } from './';
 
@@ -301,3 +303,135 @@ export const useConfirmKeys = <TError = ApiError,
       return useMutation(mutationOptions);
     }
     
+/**
+ * @summary Award loyalty points after watching a rewarded ad
+ */
+export const rewardAd = (
+    
+ options?: SecondParameter<typeof customFetch>,signal?: AbortSignal
+) => {
+      
+      
+      return customFetch<AdRewardResult>(
+      {url: `/ads/reward`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getRewardAdMutationOptions = <TError = ApiError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewardAd>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rewardAd>>, TError,void, TContext> => {
+
+const mutationKey = ['rewardAd'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rewardAd>>, void> = () => {
+          
+
+          return  rewardAd(requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RewardAdMutationResult = NonNullable<Awaited<ReturnType<typeof rewardAd>>>
+    
+    export type RewardAdMutationError = ApiError
+
+    /**
+ * @summary Award loyalty points after watching a rewarded ad
+ */
+export const useRewardAd = <TError = ApiError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewardAd>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rewardAd>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getRewardAdMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
+/**
+ * @summary Get TON treasury wallet public balance
+ */
+export const getTreasuryBalance = (
+    
+ options?: SecondParameter<typeof customFetch>,signal?: AbortSignal
+) => {
+      
+      
+      return customFetch<TreasuryBalance>(
+      {url: `/treasury/balance`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetTreasuryBalanceQueryKey = () => {
+    return [
+    `/treasury/balance`
+    ] as const;
+    }
+
+    
+export const getGetTreasuryBalanceQueryOptions = <TData = Awaited<ReturnType<typeof getTreasuryBalance>>, TError = unknown>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTreasuryBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTreasuryBalanceQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTreasuryBalance>>> = ({ signal }) => getTreasuryBalance(requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTreasuryBalance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTreasuryBalanceQueryResult = NonNullable<Awaited<ReturnType<typeof getTreasuryBalance>>>
+export type GetTreasuryBalanceQueryError = unknown
+
+
+/**
+ * @summary Get TON treasury wallet public balance
+ */
+
+export function useGetTreasuryBalance<TData = Awaited<ReturnType<typeof getTreasuryBalance>>, TError = unknown>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTreasuryBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTreasuryBalanceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+

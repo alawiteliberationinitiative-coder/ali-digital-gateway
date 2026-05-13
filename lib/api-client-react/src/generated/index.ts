@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './adRewardResult';
 export * from './apiError';
 export * from './confirmKeysInput';
 export * from './healthStatus';
@@ -12,6 +13,7 @@ export * from './registerInput';
 export * from './registerInputFirstName';
 export * from './registerInputLastName';
 export * from './registerInputTelegramUsername';
+export * from './treasuryBalance';
 export * from './user';
 export * from './userFirstName';
 export * from './userLastName';

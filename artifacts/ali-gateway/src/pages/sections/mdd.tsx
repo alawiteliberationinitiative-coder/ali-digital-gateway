@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight, TrendingUp, Layers, Droplets, Copy } from "lucide-react";
+import { ChevronRight, TrendingUp, Layers, Droplets, Copy, Vault } from "lucide-react";
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { useGetTreasuryBalance } from "@workspace/api-client-react";
 
 const slide = { initial: { x: -40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 }, transition: { duration: 0.3 } };
 
@@ -11,9 +13,24 @@ const priceData = [
   { t: "١٠", v: 0.035 }, { t: "١١", v: 0.038 }, { t: "١٢", v: 0.042 },
 ];
 
-const CONTRACT = "0xAL1...d4af37";
+const CONTRACT = "قيد الإطلاق · Solana";
+
+function shortAddr(addr: string) {
+  if (!addr || addr.length < 12) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+}
 
 export function MddSection({ onBack }: { onBack: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const { data: treasury, isLoading: treasuryLoading } = useGetTreasuryBalance();
+
+  function handleCopy(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <motion.div className="flex flex-col min-h-full" dir="rtl" {...slide}>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
@@ -79,6 +96,59 @@ export function MddSection({ onBack }: { onBack: () => void }) {
               <div className="font-arabic text-muted-foreground text-xs mt-0.5">{s.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* TON Treasury Balance — Transparency block */}
+        <div className="rounded-2xl border-2 p-5 space-y-3"
+          style={{ background: "linear-gradient(135deg, rgba(0,26,16,0.8), rgba(0,43,27,0.6))", borderColor: "rgba(212,175,55,0.35)", boxShadow: "0 4px 0 rgba(0,0,0,0.4)" }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Vault className="w-4 h-4 text-[#d4af37]" />
+            <h3 className="font-arabic font-bold text-[#d4af37] text-base">خزينة المبادرة · TON</h3>
+            <span className="mr-auto text-[10px] font-arabic bg-[#d4af37]/10 border border-[#d4af37]/30 rounded-full px-2 py-0.5 text-[#d4af37]">شفافية مباشرة</span>
+          </div>
+
+          {treasuryLoading ? (
+            <div className="flex items-center gap-2 py-2">
+              <div className="w-4 h-4 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+              <span className="font-arabic text-white/50 text-sm">جارٍ جلب الرصيد...</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="font-arabic text-white/50 text-xs mb-0.5">الرصيد الحالي</div>
+                  <div className="font-mono text-[#d4af37] text-2xl font-bold">
+                    {treasury?.balanceTon != null ? treasury.balanceTon.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "—"} TON
+                  </div>
+                  {treasury?.balanceUsd != null && treasury.balanceUsd > 0 && (
+                    <div className="font-mono text-white/40 text-xs mt-0.5">${treasury.balanceUsd.toLocaleString()} USD</div>
+                  )}
+                </div>
+                <div className="text-3xl">💎</div>
+              </div>
+
+              {treasury?.address && treasury.address !== "غير مُهيَّأ بعد" && (
+                <div className="bg-black/30 rounded-xl p-3 border border-[#d4af37]/20 flex items-center gap-2">
+                  <span className="font-mono text-[#d4af37]/70 text-xs flex-1 truncate">{shortAddr(treasury.address)}</span>
+                  <button onClick={() => handleCopy(treasury.address)}
+                    className="p-1.5 rounded-lg bg-[#d4af37]/10 active:scale-95 transition-transform flex-shrink-0">
+                    <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
+                  </button>
+                  {copied && <span className="font-arabic text-green-400 text-xs">نُسخ!</span>}
+                </div>
+              )}
+
+              {(!treasury?.address || treasury.address === "غير مُهيَّأ بعد") && (
+                <p className="font-arabic text-white/40 text-xs">الخزينة قيد التهيئة · ستظهر البيانات بعد الإطلاق الرسمي</p>
+              )}
+
+              {treasury?.lastUpdated && (
+                <p className="font-arabic text-white/30 text-[10px]">
+                  آخر تحديث: {new Date(treasury.lastUpdated).toLocaleString("ar-SY")}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Contract */}

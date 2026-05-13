@@ -94,6 +94,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /ads/reward:
+    post:
+      operationId: rewardAd
+      summary: Award loyalty points after watching a rewarded ad
+      tags: [ads]
+      parameters:
+        - in: header
+          name: x-telegram-id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Points awarded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdRewardResult"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /treasury/balance:
+    get:
+      operationId: getTreasuryBalance
+      summary: Get TON treasury wallet public balance
+      tags: [treasury]
+      responses:
+        "200":
+          description: Treasury balance info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryBalance"
+
 components:
   schemas:
     HealthStatus:
@@ -125,6 +163,7 @@ components:
           rank,
           level,
           keysConfirmed,
+          loyaltyPoints,
           createdAt,
         ]
       properties:
@@ -160,6 +199,9 @@ components:
           type: integer
         keysConfirmed:
           type: boolean
+        loyaltyPoints:
+          type: integer
+          description: Accumulated loyalty points from activities and rewarded ads
         createdAt:
           type: string
           format: date-time
@@ -183,3 +225,31 @@ components:
       properties:
         telegramId:
           type: string
+
+    AdRewardResult:
+      type: object
+      required: [loyaltyPoints, pointsAwarded]
+      properties:
+        loyaltyPoints:
+          type: integer
+          description: New total loyalty points balance
+        pointsAwarded:
+          type: integer
+          description: Points awarded for this ad view
+
+    TreasuryBalance:
+      type: object
+      required: [address, balanceTon, balanceUsd]
+      properties:
+        address:
+          type: string
+          description: Public TON wallet address
+        balanceTon:
+          type: number
+          description: Balance in TON
+        balanceUsd:
+          type: number
+          description: Estimated USD value
+        lastUpdated:
+          type: string
+          format: date-time

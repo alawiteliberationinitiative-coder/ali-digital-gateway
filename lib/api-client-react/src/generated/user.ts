@@ -27,5 +27,7 @@ export interface User {
   rank: string;
   level: number;
   keysConfirmed: boolean;
+  /** Accumulated loyalty points from activities and rewarded ads */
+  loyaltyPoints: number;
   createdAt: string;
 }

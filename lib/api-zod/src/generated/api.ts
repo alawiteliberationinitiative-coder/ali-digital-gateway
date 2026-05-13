@@ -39,6 +39,7 @@ export const registerUserResponse = zod.object({
   "rank": zod.string(),
   "level": zod.number(),
   "keysConfirmed": zod.boolean(),
+  "loyaltyPoints": zod.number().describe('Accumulated loyalty points from activities and rewarded ads'),
   "createdAt": zod.string().datetime({})
 })
 
@@ -65,6 +66,7 @@ export const getMeResponse = zod.object({
   "rank": zod.string(),
   "level": zod.number(),
   "keysConfirmed": zod.boolean(),
+  "loyaltyPoints": zod.number().describe('Accumulated loyalty points from activities and rewarded ads'),
   "createdAt": zod.string().datetime({})
 })
 
@@ -91,5 +93,30 @@ export const confirmKeysResponse = zod.object({
   "rank": zod.string(),
   "level": zod.number(),
   "keysConfirmed": zod.boolean(),
+  "loyaltyPoints": zod.number().describe('Accumulated loyalty points from activities and rewarded ads'),
   "createdAt": zod.string().datetime({})
+})
+
+
+/**
+ * @summary Award loyalty points after watching a rewarded ad
+ */
+export const rewardAdHeader = zod.object({
+  "x-telegram-id": zod.string()
+})
+
+export const rewardAdResponse = zod.object({
+  "loyaltyPoints": zod.number().describe('New total loyalty points balance'),
+  "pointsAwarded": zod.number().describe('Points awarded for this ad view')
+})
+
+
+/**
+ * @summary Get TON treasury wallet public balance
+ */
+export const getTreasuryBalanceResponse = zod.object({
+  "address": zod.string().describe('Public TON wallet address'),
+  "balanceTon": zod.number().describe('Balance in TON'),
+  "balanceUsd": zod.number().describe('Estimated USD value'),
+  "lastUpdated": zod.string().datetime({}).optional()
 })
