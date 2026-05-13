@@ -5,6 +5,7 @@ import adsRouter from "./ads.js";
 import quizRouter from "./quiz.js";
 import treasuryRouter from "./treasury.js";
 import articlesRouter from "./articles.js";
+import spacesRouter from "./spaces.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use(adsRouter);
 router.use(quizRouter);
 router.use(treasuryRouter);
 router.use(articlesRouter);
+router.use(spacesRouter);
 
 export default router;

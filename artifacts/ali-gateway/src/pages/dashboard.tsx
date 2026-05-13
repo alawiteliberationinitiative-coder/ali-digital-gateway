@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GuideSection } from "./sections/guide";
 import { GuardiansSection } from "./sections/guardians";
 import { AmbassadorsSection } from "./sections/ambassadors";
-import { CommunitySection } from "./sections/community";
+import { CommunitySection, SpaceAnnouncementBanner } from "./sections/community";
 import { MddSection } from "./sections/mdd";
 import { LeaderboardSection } from "./sections/leaderboard";
 import { PlaySection } from "./sections/play";
@@ -174,7 +174,7 @@ const CARDS: CardDef[] = [
   { id: "ambassadors", emoji: "🌍",  title: "سفراء القضية",          subtitle: "الشبكة الدولية",                      accent: "#60a5fa", shadow: "rgba(96,165,250,0.2)" },
   { id: "guardians",   emoji: "🌿",  title: "حراس الأرض",           subtitle: "التوثيق الميداني",                    accent: "#4ade80", shadow: "rgba(74,222,128,0.2)" },
   { id: "guide",       emoji: "📚",  title: "تعليمات الأنشطة",      subtitle: "دليل شامل لاستخدام المنصة",           accent: "#22c55e", shadow: "rgba(34,197,94,0.25)" },
-  { id: "community",   emoji: "💬",  title: "المجتمع",               subtitle: "غرف النقاش والتواصل",                 accent: "#a78bfa", shadow: "rgba(167,139,250,0.2)" },
+  { id: "community",   emoji: "🎙",  title: "المجلس الاجتماعي",      subtitle: "مساحات النقاش الصوتي",                accent: "#60a5fa", shadow: "rgba(96,165,250,0.22)" },
   { id: "mdd",         emoji: "💰",  title: "ركن $MDD",             subtitle: "أداء العملة والعقد الذكي",            accent: "#d4af37", shadow: "rgba(212,175,55,0.3)", wide: true },
   { id: "leaderboard", emoji: "🏆",  title: "المتصدرون",             subtitle: "ترتيب الأسماء المستعارة",             accent: "#fb923c", shadow: "rgba(251,146,60,0.25)", wide: true },
 ];
@@ -437,9 +437,16 @@ export default function Dashboard() {
               </motion.button>
 
               {/* Section cards */}
-              {CARDS.map((card, i) => (
-                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection(card.id)} />
-              ))}
+              {CARDS.map((card, i) =>
+                card.id === "community" ? (
+                  <div key="community-wrap" className="col-span-1 flex flex-col gap-1">
+                    <SectionCard card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection("community")} />
+                    <SpaceAnnouncementBanner onOpen={() => setActiveSection("community")} />
+                  </div>
+                ) : (
+                  <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection(card.id)} />
+                )
+              )}
             </div>
 
             {/* Footer motto */}
