@@ -184,7 +184,9 @@ export default function Splash() {
   const initApp = useCallback(async () => {
     await new Promise<void>((res) => setTimeout(res, 3000));
 
-    const telegramId = user?.id?.toString() || `dev-${Date.now()}`;
+    const telegramId  = user?.id?.toString() || `dev-${Date.now()}`;
+    // Read referral code passed via ?startapp=ALI-2026-XXXX
+    const startParam  = window.Telegram?.WebApp?.initDataUnsafe?.start_param ?? null;
 
     registerMutation.mutate(
       {
@@ -193,7 +195,8 @@ export default function Splash() {
           telegramUsername: user?.username ?? null,
           firstName:        user?.first_name ?? null,
           lastName:         user?.last_name  ?? null,
-        },
+          referredBy:       startParam,
+        } as Parameters<typeof registerMutation.mutate>[0]["data"],
       },
       {
         onSuccess: (data) => {

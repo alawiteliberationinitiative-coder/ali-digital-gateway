@@ -34,11 +34,12 @@ function generateKey(prefix: string): string {
 }
 
 router.post("/users/register", async (req, res): Promise<void> => {
-  const { telegramId, telegramUsername, firstName, lastName } = req.body as {
+  const { telegramId, telegramUsername, firstName, lastName, referredBy } = req.body as {
     telegramId?: string;
     telegramUsername?: string | null;
     firstName?: string | null;
     lastName?: string | null;
+    referredBy?: string | null;
   };
 
   if (!telegramId) {
@@ -72,6 +73,16 @@ router.post("/users/register", async (req, res): Promise<void> => {
     attempts++;
   }
 
+  // Validate referral code exists before storing
+  let validReferredBy: string | null = null;
+  if (referredBy) {
+    const [referrer] = await db
+      .select({ aliId: usersTable.aliId })
+      .from(usersTable)
+      .where(eq(usersTable.aliId, referredBy));
+    if (referrer) validReferredBy = referrer.aliId;
+  }
+
   const [created] = await db
     .insert(usersTable)
     .values({
@@ -88,6 +99,7 @@ router.post("/users/register", async (req, res): Promise<void> => {
       rank: "Initiate",
       level: 1,
       keysConfirmed: false,
+      referredBy: validReferredBy,
     })
     .returning();
 
@@ -180,6 +192,26 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded: 200 });
+});
+
+/* ── Referral count for current user ─────────────────────────────────────── */
+router.get("/users/me/referrals", async (req, res): Promise<void> => {
+  const telegramId = req.headers["x-telegram-id"] as string | undefined;
+  if (!telegramId) { res.status(400).json({ error: "x-telegram-id header required" }); return; }
+
+  const [me] = await db
+    .select({ aliId: usersTable.aliId })
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId));
+
+  if (!me) { res.status(404).json({ error: "User not found" }); return; }
+
+  const [result] = await db
+    .select({ total: count(usersTable.id) })
+    .from(usersTable)
+    .where(eq(usersTable.referredBy, me.aliId));
+
+  res.json({ count: result?.total ?? 0 });
 });
 
 /* ── Public leaderboard (top users by loyalty points) ─────────────────────── */

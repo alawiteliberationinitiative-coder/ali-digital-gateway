@@ -260,6 +260,35 @@ function ProfileFollowButton({ targetTelegramId, myTelegramId }: { targetTelegra
 }
 
 // ─── Network Section (Followers / Following) ───────────────────────────────────
+// ─── Referral Count (real-time) ───────────────────────────────────────────────
+function ReferralCount({ telegramId }: { telegramId: string }) {
+  const [count, setCount]     = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!telegramId) return;
+    fetch("/api/users/me/referrals", { headers: { "x-telegram-id": telegramId } })
+      .then(r => r.ok ? r.json() as Promise<{ count: number }> : Promise.reject())
+      .then(d => { setCount(d.count); setLoading(false); })
+      .catch(() => { setCount(0); setLoading(false); });
+  }, [telegramId]);
+
+  return (
+    <div className="text-center py-3 rounded-xl"
+      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      {loading ? (
+        <div className="h-9 flex items-center justify-center">
+          <div className="w-5 h-5 rounded-full border-2 border-[#22c55e] border-t-transparent animate-spin" />
+        </div>
+      ) : (
+        <p className="font-mono font-black text-3xl" style={{ color: GREEN }}>{count ?? 0}</p>
+      )}
+      <p className="font-arabic text-white/40 text-xs mt-0.5">صديق مدعو حتى الآن</p>
+      <p className="font-arabic text-white/25 text-[10px] mt-1">يُحدَّث تلقائياً عند تسجيل أصدقائك</p>
+    </div>
+  );
+}
+
 function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
   const [tab, setTab] = useState<"followers" | "following">("followers");
   const [expanded, setExpanded] = useState(false);
@@ -835,13 +864,8 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
             دعوة صديق إلى البوت عبر تيليغرام
           </button>
 
-          {/* Count placeholder */}
-          <div className="text-center py-3 rounded-xl"
-            style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="font-mono font-black text-3xl" style={{ color: GREEN }}>0</p>
-            <p className="font-arabic text-white/40 text-xs mt-0.5">صديق مدعو حتى الآن</p>
-            <p className="font-arabic text-white/25 text-[10px] mt-1">يُحدَّث تلقائياً عند تسجيل أصدقائك</p>
-          </div>
+          {/* Real referral count */}
+          <ReferralCount telegramId={telegramId} />
         </GlassCard>
 
         {/* ── NETWORK ── */}

@@ -19,6 +19,8 @@ const bot = new TelegramBot(token, {
 const verified   = new Set();
 // pending: chatId → { answer, attempts, msgId }
 const pending    = new Map();
+// refCodes: chatId → aliId referral code (from /start REF_CODE)
+const refCodes   = new Map();
 const MAX_WRONG  = 3;
 const COOLDOWN_MS = 60_000; // 1 min cooldown after max wrong answers
 const cooldowns  = new Map(); // chatId → unblockTimestamp
@@ -95,11 +97,13 @@ async function sendCaptcha(chatId, editMsgId = null) {
   pending.set(chatId, state);
 }
 
-async function sendAppMessage(chatId) {
+async function sendAppMessage(chatId, refCode = null) {
   if (!webAppUrl) {
     bot.sendMessage(chatId, 'جارٍ تهيئة بوابة A.L.I الرقمية. يرجى المحاولة مجدداً بعد لحظات.');
     return;
   }
+  // Append start_param so Mini App can read it via initDataUnsafe.start_param
+  const appUrl = refCode ? `${webAppUrl}?startapp=${encodeURIComponent(refCode)}` : webAppUrl;
   bot.sendMessage(chatId,
 `🟢 *مبادرة التحرير العلوي — A.L.I*
 
@@ -116,7 +120,7 @@ _Management of Diversified Development · $MDD_`,
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [[
-          { text: '🚀 إطلاق البوابة الآمنة', web_app: { url: webAppUrl } }
+          { text: '🚀 إطلاق البوابة الآمنة', web_app: { url: appUrl } }
         ]]
       }
     }
@@ -131,7 +135,12 @@ bot.on('message', async (msg) => {
   // Silently delete every user message immediately
   silentDelete(chatId, msg.message_id);
 
-  if (text === '/start') {
+  if (text?.startsWith('/start')) {
+    // Extract referral code if present: /start ALI-2026-XXXX
+    const parts   = text.trim().split(/\s+/);
+    const refCode = parts[1] || null;
+    if (refCode) refCodes.set(chatId, refCode);
+
     // Check cooldown
     const unblock = cooldowns.get(chatId);
     if (unblock && Date.now() < unblock) {
@@ -141,8 +150,8 @@ bot.on('message', async (msg) => {
     }
 
     if (verified.has(chatId)) {
-      // Already verified — go straight to app
-      sendAppMessage(chatId);
+      // Already verified — go straight to app (with any stored refCode)
+      sendAppMessage(chatId, refCodes.get(chatId) || null);
       return;
     }
 
@@ -246,7 +255,10 @@ bot.on('callback_query', async (query) => {
     // Remove captcha message
     try { await bot.deleteMessage(chatId, message.message_id); } catch (_) {}
 
-    await sendAppMessage(chatId);
+    // Pass stored referral code (if any) then clear it
+    const storedRef = refCodes.get(chatId) || null;
+    refCodes.delete(chatId);
+    await sendAppMessage(chatId, storedRef);
   } else {
     // ❌ Wrong
     state.attempts += 1;
