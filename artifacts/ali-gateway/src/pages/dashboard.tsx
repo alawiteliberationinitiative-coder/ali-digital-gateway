@@ -252,6 +252,7 @@ export default function Dashboard() {
       {/* ── Dashboard content (fades in after welcome sequence) ── */}
       {welcomeDone && (
         <motion.div
+          className="flex-1 flex flex-col min-h-0 overflow-hidden"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 0.7, ease: "easeOut" }}>
 
