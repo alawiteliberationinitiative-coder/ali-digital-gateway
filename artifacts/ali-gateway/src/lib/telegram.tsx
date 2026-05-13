@@ -64,6 +64,8 @@ interface WebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  enableClosingConfirmation: () => void;
+  disableClosingConfirmation: () => void;
 }
 
 declare global {
@@ -89,6 +91,7 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
     if (app) {
       app.ready();
       app.expand();
+      app.enableClosingConfirmation();
       setWebApp(app);
     } else {
       console.warn("Telegram WebApp is not available.");
@@ -119,6 +122,8 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
         ready: () => {},
         expand: () => {},
         close: () => {},
+        enableClosingConfirmation: () => {},
+        disableClosingConfirmation: () => {},
       });
     }
   }, []);
