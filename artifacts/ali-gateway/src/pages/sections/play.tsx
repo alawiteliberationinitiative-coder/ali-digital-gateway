@@ -221,7 +221,7 @@ function StageAdScreen({ score, telegramId, onDone }: {
       {phase === "ad" && skipSecs <= 0 && (
         <motion.button
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          onClick={advance}
+          onClick={onDone}
           className="font-arabic text-sm px-6 py-2 rounded-full border"
           style={{ borderColor: "rgba(212,175,55,0.35)", color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.06)" }}>
           تخطى ←
