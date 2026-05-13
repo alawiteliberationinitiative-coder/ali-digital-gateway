@@ -202,7 +202,7 @@ const mutanabbiSort = [
   "تعب كلها الحياة فما أعجب إلا من راغب في ازدياد",
   "هو الجدّ حتى تُلبس العين قُرّها وحتى تُبلى في الطعان الجماجم",
 ];
-mutanabbiSort.forEach(s => addSort("poetry", s, "ديوان المتنبي"));
+// mutanabbiSort — sort removed (poetry uses fill only)
 
 const mutanabbiFill = [
   ["على قدر أهل العزم تأتي ___","العزائم",["الأحلام","الأماني","الهموم"],"المتنبي"],
@@ -248,7 +248,7 @@ const abuFirasSort = [
   "سرت مهمومة أقود قلوب الأحباب بين الأسى والشجن",
   "صحوت ولم أقضِ من بانياس وطراً وقلبي في بانياس مثلك بائس",
 ];
-abuFirasSort.forEach(s => addSort("poetry", s, "أبو فراس الحمداني"));
+// abuFirasSort — sort removed (poetry uses fill only)
 
 const abuFirasFill = [
   ["أراك عصي الدمع شيمتك ___ أما للهوى نهي عليك ولا أمر","الصبر",["الجلد","الهدوء","الحزن"],"أبو فراس الحمداني"],
@@ -279,7 +279,7 @@ const abuNuwasSort = [
   "صفا الراح والليل قد قصّرا والبدر لاح وقد أسفرا",
   "هات اسقني يا ساقي الكأس حتى أرى الهلال لاح أو أغفو قسراً",
 ];
-abuNuwasSort.forEach(s => addSort("poetry", s, "أبو نواس"));
+// abuNuwasSort — sort removed (poetry uses fill only)
 
 const abuNuwasFill = [
   ["دع عنك لومي فإن اللوم ___ وداوني بالتي كانت هي الداء","إغراء",["عذاب","خطأ","جهل"],"أبو نواس"],
@@ -305,7 +305,7 @@ const badawiSort = [
   "لن تموت الأمة التي يحمل الشعر لواء أبنائها",
   "أنا من ذلك الجبل العالي الشامخ أهوى الأعالي ولا أرهب السحبا",
 ];
-badawiSort.forEach(s => addSort("poetry", s, "بدوي الجبل"));
+// badawiSort — sort removed (poetry uses fill only)
 
 const badawiFill = [
   ["لبيك يا ___ والمجد إذ تدعو قومي فليس بنا من أمرها لغو","سوريا",["وطني","أمتي","قضيتي"],"بدوي الجبل"],
@@ -361,7 +361,7 @@ const poetryChoice = [
   ["بدوي الجبل توفي في مدينة:",["دمشق","اللاذقية","بيروت","حلب"],"دمشق","بدوي الجبل"],
   ["المتنبي يُلقَّب بـ:",["أبي الطيب","شاعر العرب","المتنبي النبي","ملك القصيد"],"أبي الطيب","المتنبي"],
 ];
-poetryChoice.forEach(([text, opts, ans, src]) => addChoice("poetry", text, opts, ans, src));
+// poetryChoice — removed (poetry uses fill only)
 
 // ═══════════════════════════════════════════════════════════════════════
 // 8. الميثيولوجيا اليونانية (60 سؤال)
@@ -660,7 +660,7 @@ const geoFill = [
   ["أسّس مدينة اللاذقية الملك ___","سيلوقوس الأول",["الإسكندر الأكبر","بطليموس","أنطيوخس"],"جغرافيا اللاذقية"],
 ];
 geoFill.forEach(([text, ans, dist, src]) => {
-  if (Array.isArray(dist)) addFill("geography", text, ans, dist, src);
+  if (Array.isArray(dist)) addChoice("geography", text, [ans, ...dist], ans, src);
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1361,7 +1361,7 @@ const continentsSort = [
   "باطاغونيا شبه جزيرة في جنوب أمريكا الجنوبية",
   "شبه الجزيرة العربية تقع في جنوب غرب آسيا",
 ];
-continentsSort.forEach(s => addSort("earthScience", s, "علوم الأرض — القارات"));
+// continentsSort — sort removed (earthScience uses choice only)
 
 const continentsFill = [
   ["آسيا ___ قارات الأرض مساحةً","أكبر",["أوسع","أضخم","أعرض"],"القارات"],
@@ -1396,8 +1396,8 @@ const continentsFill = [
   ["ما اسم القارة التي تقع تحتها أكبر ذخيرة من الجليد؟",["أنتاركتيكا","الأرخبيل القطبي الشمالي","ألاسكا","گرينلاند"],"أنتاركتيكا","القارات"],
 ];
 continentsFill.forEach(([text, ans, dist, src]) => {
-  if (Array.isArray(dist)) addFill("earthScience", text, ans, dist, src);
-  else if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
 });
 
 const continentsChoice = [
@@ -1449,7 +1449,7 @@ const oceansSort = [
   "أعمق نقطة في المحيط الهادئ تقع في خندق ماريانا",
   "تيارات المحيطات تؤثر تأثيراً كبيراً في مناخ الأرض",
 ];
-oceansSort.forEach(s => addSort("earthScience", s, "علوم الأرض — المحيطات"));
+// oceansSort — sort removed (earthScience uses choice only)
 
 const oceansFill = [
   ["المحيط ___ أكبر المحيطات الخمسة","الهادئ",["الأطلسي","الهندي","المتجمد"],"المحيطات"],
@@ -1474,8 +1474,8 @@ const oceansFill = [
   ["نسبة ملوحة مياه المحيطات تبلغ نحو ___","3.5%",["5%","1%","10%"],"المحيطات"],
 ];
 oceansFill.forEach(([text, ans, dist, src]) => {
-  if (Array.isArray(dist)) addFill("earthScience", text, ans, dist, src);
-  else addChoice("earthScience", text, [ans, dist, src, "لا شيء مما سبق"], ans, src);
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
 });
 
 const oceansChoice = [
@@ -1527,7 +1527,7 @@ const riversSort = [
   "نهر أوب وأنيسي ولينا أكبر أنهار سيبيريا",
   "المنطقة الواقعة بين الفرات ودجلة سُميت بلاد الرافدين",
 ];
-riversSort.forEach(s => addSort("earthScience", s, "علوم الأرض — الأنهار"));
+// riversSort — sort removed (earthScience uses choice only)
 
 const riversFill = [
   ["النيل أطول أنهار العالم بطول تقريبي ___","6650 كم",["5500 كم","4000 كم","8000 كم"],"الأنهار"],
@@ -1557,8 +1557,8 @@ const riversFill = [
   ["نهر ___ الأطول في سيبيريا روسيا","أوب-إرتيش",["لينا","فولغا","يينيسي"],"الأنهار"],
 ];
 riversFill.forEach(([text, ans, dist, src]) => {
-  if (Array.isArray(dist)) addFill("earthScience", text, ans, dist, src);
-  else addChoice("earthScience", text, [ans, dist, src, "لا شيء مما سبق"], ans, src);
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
 });
 
 const riversChoice = [
@@ -1610,7 +1610,7 @@ const mountainsSort = [
   "قمة أكونكاغوا أعلى جبال أمريكا الجنوبية",
   "جبل الحرمون أعلى قمة في بلاد الشام بين سوريا ولبنان",
 ];
-mountainsSort.forEach(s => addSort("earthScience", s, "علوم الأرض — الجبال"));
+// mountainsSort — sort removed (earthScience uses choice only)
 
 const mountainsFill = [
   ["جبل ___ أعلى قمة في العالم","إيفرست",["K2","كانشنجونغا","لوتسه"],"الجبال"],
@@ -1634,7 +1634,10 @@ const mountainsFill = [
   ["أعلى قمة في جزيرة هاواي هي ___","مونا كيا",["مونا لوا","هاليآكالا","دياموند هيد"],"الجبال"],
   ["جبال ___ تمتد على طول الساحل الغربي لأمريكا الشمالية","روكي (الصخرية)‎",["آبالاتشيان","سيراليون","كاسكيد"],"الجبال"],
 ];
-mountainsFill.forEach(([text, ans, dist, src]) => addFill("earthScience", text, ans, dist, src));
+mountainsFill.forEach(([text, ans, dist, src]) => {
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
+});
 
 const mountainsChoice = [
   ["ما أعلى قمة في العالم؟",["جبل إيفرست","جبل K2","جبل كانشنجونغا","جبل مكالو"],"جبل إيفرست","الجبال"],
@@ -1686,7 +1689,7 @@ const modernLandmarksSort = [
   "متحف اللوفر أكبر متاحف الفن في العالم في باريس",
   "برلمان وستمنستر رمز الديمقراطية البريطانية على نهر التيمز",
 ];
-modernLandmarksSort.forEach(s => addSort("earthScience", s, "معالم العالم الحديثة"));
+// modernLandmarksSort — sort removed (earthScience uses choice only)
 
 const modernLandmarksFill = [
   ["برج ___ في دبي أطول مبنى في العالم","خليفة",["عرب","الصداقة","أبوظبي"],"معالم حديثة"],
@@ -1710,7 +1713,10 @@ const modernLandmarksFill = [
   ["تاج محل يقع في مدينة ___ بالهند","آغرا",["دلهي","مومباي","جايبور"],"معالم حديثة"],
   ["مطار ___ في دبي أحد أكثر مطارات العالم ازدحاماً","دبي الدولي (DXB)‎",["أبوظبي","الشارقة","مسقط"],"معالم حديثة"],
 ];
-modernLandmarksFill.forEach(([text, ans, dist, src]) => addFill("earthScience", text, ans, dist, src));
+modernLandmarksFill.forEach(([text, ans, dist, src]) => {
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
+});
 
 const modernLandmarksChoice = [
   ["ما أطول مبنى في العالم؟",["برج خليفة (دبي)","برج إيفل","برج المملكة","برج شنغهاي"],"برج خليفة (دبي)","معالم حديثة"],
@@ -1761,7 +1767,7 @@ const ancientLandmarksSort = [
   "بعلبك معابد رومانية شاهقة في شرق لبنان",
   "بومبي المدينة الرومانية التي دفنها بركان فيزوف",
 ];
-ancientLandmarksSort.forEach(s => addSort("earthScience", s, "معالم العالم القديمة"));
+// ancientLandmarksSort — sort removed (earthScience uses choice only)
 
 const ancientLandmarksFill = [
   ["أهرامات ___ من عجائب الدنيا السبع القديمة الباقية","الجيزة",["سقارة","دهشور","أبيدوس"],"معالم قديمة"],
@@ -1771,7 +1777,6 @@ const ancientLandmarksFill = [
   ["أكروبوليس أثينا يعلوه معبد ___","البارثينون",["الأوليمبوس","هيفايستوس","بوسيدون"],"معالم قديمة"],
   ["ماتشو بيتشو مدينة ___ القديمة تقع في البيرو","الإنكا",["الأزتيك","المايا","الأوارو"],"معالم قديمة"],
   ["ستونهنج يقع في ___","إنجلترا",["إيرلندا","اسكتلندا","ويلز"],"معالم قديمة"],
-  ["تدمر المدينة الأثرية السورية تقع في ___","البادية السورية وسط سوريا",["ريف دمشق","ريف حلب","ريف حماه"],"معالم قديمة"],
   ["معابد بعلبك الرومانية الكبرى تقع في ___","لبنان (البقاع)‎",["سوريا","الأردن","فلسطين"],"معالم قديمة"],
   ["بومبي المدينة الرومانية دمّرها بركان ___ عام 79م","فيزوف",["إتنا","سترومبولي","كراكاتوا"],"معالم قديمة"],
   ["حدائق بابل المعلقة كانت في مدينة ___ القديمة","بابل (العراق)‎",["أور","نينوى","أكد"],"معالم قديمة"],
@@ -1786,8 +1791,8 @@ const ancientLandmarksFill = [
   ["مدينة إيفيسوس الإغريقية الرومانية تقع في ___","تركيا (قرب إزمير)‎",["اليونان","إيطاليا","مصر"],"معالم قديمة"],
 ];
 ancientLandmarksFill.forEach(([text, ans, dist, src]) => {
-  if (Array.isArray(dist)) addFill("earthScience", text, ans, dist, src);
-  else addChoice("earthScience", text, [ans, dist, src, "لا شيء مما سبق"], ans, src);
+  if (Array.isArray(ans)) addChoice("earthScience", text, ans, dist, src);
+  else if (Array.isArray(dist)) addChoice("earthScience", text, [ans, ...dist], ans, src);
 });
 
 const ancientLandmarksChoice = [
@@ -1798,7 +1803,6 @@ const ancientLandmarksChoice = [
   ["أين تقع مدينة البتراء الأثرية؟",["الأردن","سوريا","فلسطين","السعودية"],"الأردن","معالم قديمة"],
   ["ما الحضارة التي بنت ماتشو بيتشو؟",["الإنكا","الأزتيك","المايا","تياواناكو"],"الإنكا","معالم قديمة"],
   ["في أي دولة تقع ماتشو بيتشو؟",["البيرو","البرازيل","تشيلي","الأرجنتين"],"البيرو","معالم قديمة"],
-  ["ما المدينة الأثرية السورية التي تضم أعمدة رومانية ضخمة؟",["تدمر","بصرى","دورا أوروبوس","حماه"],"تدمر","معالم قديمة"],
   ["ما الموقع الأثري الذي يُعدّ مهد الأبجدية الأولى؟",["أوغاريت (سوريا)","بابل (العراق)","إبلا (سوريا)","صور (لبنان)"],"أوغاريت (سوريا)","معالم قديمة"],
   ["في أي دولة تقع معابد بعلبك الرومانية؟",["لبنان","سوريا","الأردن","تركيا"],"لبنان","معالم قديمة"],
   ["أي بركان دمّر بومبي عام 79م؟",["فيزوف","إتنا","سترومبولي","فولكانو"],"فيزوف","معالم قديمة"],
@@ -1809,7 +1813,6 @@ const ancientLandmarksChoice = [
   ["كم يبلغ طول سور الصين العظيم تقريباً؟",["21000 كم","5000 كم","10000 كم","50000 كم"],"21000 كم","معالم قديمة"],
   ["ما مدينة الأنباط (النبطيين) المحفورة في الصخر؟",["البتراء (الأردن)","تدمر (سوريا)","صنعاء القديمة","قرطاج"],"البتراء (الأردن)","معالم قديمة"],
   ["ما أبرز آثار الحضارة السومرية؟",["الزقورات في العراق","الأهرامات في مصر","الأكروبوليس في اليونان","البارثينون"],"الزقورات في العراق","معالم قديمة"],
-  ["في أي مدينة تقع آثار المدينة الرومانية بصرى؟",["درعا (سوريا)","دمشق","حلب","حماه"],"درعا (سوريا)","معالم قديمة"],
   ["ما الذي يُميّز أبو سمبل في مصر؟",["معابد منحوتة في الصخر في عهد رمسيس الثاني","هرم صغير","قلعة رومانية","كنيسة قبطية"],"معابد منحوتة في الصخر في عهد رمسيس الثاني","معالم قديمة"],
   ["من أشهر ملكات التاريخ ارتبط اسمها بنهر النيل؟",["كليوباترا السابعة","نفرتيتي","نفرتاري","حتشبسوت"],"كليوباترا السابعة","معالم قديمة"],
   ["ما الحضارة التي بنت أشهر آثار أمريكا الوسطى (أهرامات تيوتيواكان)؟",["الأزتيك والمايا","الإنكا","المايا وحدهم","الأزتيك وحدهم"],"الأزتيك والمايا","معالم قديمة"],
