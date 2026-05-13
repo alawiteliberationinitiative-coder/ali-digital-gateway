@@ -78,11 +78,19 @@ function StageAdScreen({ score, levelNum, onDone }: {
   const [secs,     setSecs]     = useState(3);
   const [skipSecs, setSkipSecs] = useState(12);
   const launched               = useRef(false);
+  const calledDone             = useRef(false); // يمنع استدعاء onDone أكثر من مرة
   const onDoneRef              = useRef(onDone);
   const ad                     = useRewardedAd(0);
 
   // أبقِ المرجع محدثاً حتى تستخدم النسخة الأحدث دائماً عند الاستدعاء
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+
+  // الاستدعاء الآمن لـ onDone — يُنفَّذ مرة واحدة فقط مهما تعددت المسارات
+  const safeDone = useCallback(() => {
+    if (calledDone.current) return;
+    calledDone.current = true;
+    onDoneRef.current();
+  }, []);
 
   // العداد التنازلي ثم تشغيل الإعلان
   useEffect(() => {
@@ -93,11 +101,22 @@ function StageAdScreen({ score, levelNum, onDone }: {
     if (launched.current) return;
     launched.current = true;
     setPhase("ad");
-    ad.show().then(() => {
-      setPhase("done");
-      // انتقل بعد لحظة قصيرة لإظهار أيقونة النجاح
-      setTimeout(() => onDoneRef.current(), 600);
-    });
+
+    // ضمان إضافي: إذا لم يُحلّ الإعلان خلال 22 ثانية، تقدّم تلقائياً
+    const hardTimeout = setTimeout(() => safeDone(), 22_000);
+
+    ad.show()
+      .then(() => {
+        clearTimeout(hardTimeout);
+        setPhase("done");
+        setTimeout(() => safeDone(), 600);
+      })
+      .catch(() => {
+        clearTimeout(hardTimeout);
+        safeDone();
+      });
+
+    return () => clearTimeout(hardTimeout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secs]);
 
@@ -207,7 +226,7 @@ function StageAdScreen({ score, levelNum, onDone }: {
       {/* زر التخطي يظهر بعد ١٢ ثانية */}
       {phase === "ad" && skipSecs <= 0 && (
         <motion.button initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          onClick={() => onDoneRef.current()}
+          onClick={safeDone}
           className="font-arabic text-sm px-6 py-2 rounded-full border"
           style={{ borderColor: "rgba(212,175,55,0.35)", color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.06)" }}>
           تخطى ←
@@ -265,6 +284,29 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     if (gameState !== "next-level") return;
     const t = setTimeout(() => setGameState("playing"), 2500);
     return () => clearTimeout(t);
+  }, [gameState]);
+
+  // ── ضمان صلب: إذا ظل في ad-break أكثر من 30 ثانية، تقدّم قسراً ───────
+  useEffect(() => {
+    if (gameState !== "ad-break") return;
+    const lvl = playingLevel; // التقط القيمة الحالية في الـ closure
+    const t = setTimeout(() => {
+      const next = lvl + 1;
+      if (next <= MAX_LEVEL) {
+        setPlayingLevel(next);
+        setCurrent(0);
+        setSelected(null);
+        setScore(0);
+        setStreak(0);
+        setDoubleState("idle");
+        setDoubledScore(0);
+        setGameState("next-level");
+      } else {
+        setGameState("all-done");
+      }
+    }, 30_000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
   const questions = LEVELS[Math.min(playingLevel - 1, MAX_LEVEL - 1)];
