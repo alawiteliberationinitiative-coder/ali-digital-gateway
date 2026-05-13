@@ -33,8 +33,21 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
     const buffer = Buffer.from(cleanBase64, "base64");
     const blob = new Blob([buffer], { type: "image/jpeg" });
 
+    // Telegram private channels require the -100XXXXXXXXXX format.
+    // Auto-normalise all common formats users might paste:
+    //   "1234567890"         → "-1001234567890"
+    //   "-1234567890"        → "-1001234567890"
+    //   "-1001234567890"     → kept as-is
+    //   "@channelusername"   → kept as-is
+    let chatId = channelId.trim();
+    if (/^\d+$/.test(chatId)) {
+      chatId = `-100${chatId}`;
+    } else if (/^-(?!100)\d+$/.test(chatId)) {
+      chatId = `-100${chatId.slice(1)}`;
+    }
+
     const form = new FormData();
-    form.append("chat_id", channelId);
+    form.append("chat_id", chatId);
     form.append("document", blob, filename);
     form.append(
       "caption",
@@ -58,7 +71,8 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
     };
 
     if (!data.ok) {
-      res.json({ fileId: `local_${Date.now()}`, stored: false, reason: "telegram_error" });
+      const tgErr = (data as Record<string, unknown>).description ?? "unknown";
+      res.json({ fileId: `local_${Date.now()}`, stored: false, reason: "telegram_error", detail: tgErr, usedChatId: chatId });
       return;
     }
 
