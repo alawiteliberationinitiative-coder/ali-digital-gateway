@@ -18,7 +18,8 @@ localPort = 22729
 run = "pnpm --filter @workspace/api-server run dev"
 
 [services.production]
-run = "node dist/index.js"
+build = [ "pnpm", "--filter", "@workspace/api-server", "run", "build" ]
+run = "sh start.sh"
 
 [services.env]
 PORT = "22729"
