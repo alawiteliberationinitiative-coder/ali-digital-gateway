@@ -633,31 +633,41 @@ const FORM_DEFS = [
 
 export function DocsTab({ telegramId }: { telegramId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [submittedPoints, setSubmittedPoints] = useState(0);
-  const [submitCount, setSubmitCount] = useState(0);
-  const _ = telegramId;
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
+  const [totalPoints, setTotalPoints] = useState(0);
 
   const toggle = useCallback((id: string) => setOpenId(prev => prev === id ? null : id), []);
 
-  function handleSubmit() {
-    setSubmittedPoints(p => p + 200);
-    setSubmitCount(c => c + 1);
-  }
+  const handleSubmit = useCallback(async (formId: string) => {
+    setSubmittedIds(prev => new Set(prev).add(formId));
+    setTotalPoints(p => p + 200);
+    if (!telegramId) return;
+    try {
+      await fetch("/api/docs/submit", {
+        method: "POST",
+        headers: { "x-telegram-id": telegramId, "Content-Type": "application/json" },
+      });
+    } catch {
+      /* silent — points already shown locally */
+    }
+  }, [telegramId]);
+
+  const submitCount = submittedIds.size;
 
   return (
     <div>
       <AnimatePresence>
-        {submittedPoints > 0 && (
+        {totalPoints > 0 && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl px-4 py-3 flex items-center gap-3 mb-4"
             style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.35)" }}>
             <span className="text-2xl">🏆</span>
             <div>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>
-                +{submittedPoints} نقطة من {submitCount} {submitCount === 1 ? "نموذج" : "نماذج"} موثقة
+                +{totalPoints} نقطة من {submitCount} {submitCount === 1 ? "نموذج" : "نماذج"} موثقة
               </p>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(74,222,128,0.55)", marginTop: 1 }}>
-                تُضاف تلقائياً لسجل مساهماتك السيادية
+                أُضيفت تلقائياً لرصيدك السيادي ✓
               </p>
             </div>
           </motion.div>
@@ -674,20 +684,23 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         </p>
       </div>
 
-      {FORM_DEFS.map((form, i) => (
-        <AccordionShell key={form.id} index={i + 1} emoji={form.emoji}
-          title={form.title} subtitle={form.subtitle}
-          isOpen={openId === form.id}
-          onToggle={() => toggle(form.id)}
-          submitState="idle">
-          {form.id === "missing"   && <MissingPersonForm   onSubmit={handleSubmit} />}
-          {form.id === "martyr"    && <MartyrForm           onSubmit={handleSubmit} />}
-          {form.id === "kidnapped" && <KidnappedWomanForm   onSubmit={handleSubmit} />}
-          {form.id === "displaced" && <DisplacedFamilyForm  onSubmit={handleSubmit} />}
-          {form.id === "property"  && <StolenPropertyForm   onSubmit={handleSubmit} />}
-          {form.id === "employee"  && <DismissedEmployeeForm onSubmit={handleSubmit} />}
-        </AccordionShell>
-      ))}
+      {FORM_DEFS.map((form, i) => {
+        const isDone = submittedIds.has(form.id);
+        return (
+          <AccordionShell key={form.id} index={i + 1} emoji={form.emoji}
+            title={form.title} subtitle={form.subtitle}
+            isOpen={openId === form.id}
+            onToggle={() => !isDone && toggle(form.id)}
+            submitState={isDone ? "done" : "idle"}>
+            {form.id === "missing"   && <MissingPersonForm   onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "martyr"    && <MartyrForm           onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "kidnapped" && <KidnappedWomanForm   onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "displaced" && <DisplacedFamilyForm  onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "property"  && <StolenPropertyForm   onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "employee"  && <DismissedEmployeeForm onSubmit={() => handleSubmit(form.id)} />}
+          </AccordionShell>
+        );
+      })}
 
       <div className="mt-4 rounded-2xl px-4 py-3 flex items-start gap-2.5"
         style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
