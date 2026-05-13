@@ -6,6 +6,7 @@ import quizRouter from "./quiz.js";
 import treasuryRouter from "./treasury.js";
 import articlesRouter from "./articles.js";
 import spacesRouter from "./spaces.js";
+import followsRouter from "./follows.js";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use(quizRouter);
 router.use(treasuryRouter);
 router.use(articlesRouter);
 router.use(spacesRouter);
+router.use(followsRouter);
 
 export default router;

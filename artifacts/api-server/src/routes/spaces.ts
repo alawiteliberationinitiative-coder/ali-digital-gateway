@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   db, eq, and, usersTable,
-  spacesTable, spaceParticipantsTable, spaceSignalsTable,
+  spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
 } from "@workspace/db";
 
 const router = Router();
@@ -87,6 +87,32 @@ router.post("/spaces", async (req, res): Promise<void> => {
   });
 
   res.status(201).json(space);
+});
+
+/* ── My pending space invites (must be before /:id) ─────────────────────── */
+router.get("/spaces/my-invites", async (req, res): Promise<void> => {
+  const myId = req.headers["x-telegram-id"] as string | undefined;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const invites = await db
+    .select({
+      id: spaceInvitesTable.id,
+      spaceId: spaceInvitesTable.spaceId,
+      role: spaceInvitesTable.role,
+      seen: spaceInvitesTable.seen,
+      createdAt: spaceInvitesTable.createdAt,
+      inviterTelegramId: spaceInvitesTable.inviterTelegramId,
+      spaceTitle: spacesTable.title,
+      spaceStatus: spacesTable.status,
+      hostPseudonym: spacesTable.hostPseudonym,
+    })
+    .from(spaceInvitesTable)
+    .innerJoin(spacesTable, eq(spaceInvitesTable.spaceId, spacesTable.id))
+    .where(and(eq(spaceInvitesTable.inviteeTelegramId, myId), eq(spaceInvitesTable.seen, false)))
+    .orderBy(spaceInvitesTable.createdAt);
+
+  const active = invites.filter(i => i.spaceStatus === "live" || i.spaceStatus === "scheduled");
+  res.json(active);
 });
 
 /* ── Get space details + participants ──────────────────────────────────────── */

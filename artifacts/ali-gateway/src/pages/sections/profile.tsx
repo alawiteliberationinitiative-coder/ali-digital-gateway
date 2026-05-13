@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
+  UserPlus, UserCheck, Search, ChevronDown,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { useUpdatePseudonym, getGetMeQueryKey } from "@workspace/api-client-react";
@@ -211,6 +212,235 @@ function getRankInfo(pts: number) {
     }
   }
   return { current: RANKS[0], next: RANKS[1], progress: 0 };
+}
+
+// ─── Network Types ─────────────────────────────────────────────────────────────
+interface NetUser {
+  telegramId: string; aliId: string; pseudonym: string; rank: string; level: number;
+}
+
+// ─── Follow Button (profile context) ──────────────────────────────────────────
+function ProfileFollowButton({ targetTelegramId, myTelegramId }: { targetTelegramId: string; myTelegramId: string }) {
+  const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!myTelegramId || !targetTelegramId || myTelegramId === targetTelegramId) return;
+    fetch("/api/users/follow-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-telegram-id": myTelegramId },
+      body: JSON.stringify({ telegramIds: [targetTelegramId] }),
+    }).then(r => r.ok ? r.json() : {})
+      .then(map => setIsFollowing(!!map[targetTelegramId]));
+  }, [targetTelegramId, myTelegramId]);
+
+  if (myTelegramId === targetTelegramId || isFollowing === null) return null;
+
+  const toggle = async () => {
+    setLoading(true);
+    const method = isFollowing ? "DELETE" : "POST";
+    await fetch(`/api/users/follow/${targetTelegramId}`, { method, headers: { "x-telegram-id": myTelegramId } });
+    setIsFollowing(p => !p);
+    setLoading(false);
+  };
+
+  return (
+    <button onClick={toggle} disabled={loading}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all flex-shrink-0"
+      style={{
+        background: isFollowing ? "rgba(74,222,128,0.08)" : "rgba(96,165,250,0.1)",
+        border: `1px solid ${isFollowing ? "rgba(74,222,128,0.25)" : "rgba(96,165,250,0.25)"}`,
+        color: isFollowing ? "#4ade80" : "#60a5fa",
+      }}>
+      {loading ? <Loader2 className="w-3 h-3 animate-spin" />
+        : isFollowing ? <><UserCheck className="w-3 h-3" />متابَع</>
+        : <><UserPlus className="w-3 h-3" />متابعة</>}
+    </button>
+  );
+}
+
+// ─── Network Section (Followers / Following) ───────────────────────────────────
+function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
+  const [tab, setTab] = useState<"followers" | "following">("followers");
+  const [expanded, setExpanded] = useState(false);
+  const [followers, setFollowers] = useState<NetUser[]>([]);
+  const [following, setFollowing] = useState<NetUser[]>([]);
+  const [stats, setStats] = useState({ followersCount: 0, followingCount: 0 });
+  const [loadingList, setLoadingList] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchRes, setSearchRes] = useState<NetUser[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/users/me/network-stats", { headers: { "x-telegram-id": myTelegramId } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setStats(data); });
+  }, [myTelegramId]);
+
+  const loadList = useCallback(async (t: "followers" | "following") => {
+    setLoadingList(true);
+    const url = t === "followers" ? "/api/users/me/followers" : "/api/users/me/following";
+    const res = await fetch(url, { headers: { "x-telegram-id": myTelegramId } });
+    if (res.ok) {
+      const data = await res.json();
+      if (t === "followers") setFollowers(data); else setFollowing(data);
+    }
+    setLoadingList(false);
+  }, [myTelegramId]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    loadList(tab);
+  }, [expanded, tab, loadList]);
+
+  useEffect(() => {
+    if (!showSearch || query.length < 2) { setSearchRes([]); return; }
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`, { headers: { "x-telegram-id": myTelegramId } });
+      if (res.ok) setSearchRes(await res.json());
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, showSearch, myTelegramId]);
+
+  const displayList = tab === "followers" ? followers : following;
+
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.025)", border: "1.5px solid rgba(96,165,250,0.18)", backdropFilter: "blur(20px)" }}>
+
+      {/* Stats Row */}
+      <div className="flex items-center gap-0 divide-x divide-white/5" dir="rtl">
+        {/* Followers */}
+        <button onClick={() => { setTab("followers"); setExpanded(true); setShowSearch(false); }}
+          className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
+          <p className="font-mono font-black text-2xl" style={{ color: "#60a5fa", textShadow: "0 0 12px rgba(96,165,250,0.4)" }}>
+            {stats.followersCount}
+          </p>
+          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متابِع</p>
+        </button>
+
+        <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+        {/* Following */}
+        <button onClick={() => { setTab("following"); setExpanded(true); setShowSearch(false); }}
+          className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
+          <p className="font-mono font-black text-2xl" style={{ color: "#4ade80", textShadow: "0 0 12px rgba(74,222,128,0.4)" }}>
+            {stats.followingCount}
+          </p>
+          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متابَع</p>
+        </button>
+
+        <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+        {/* Search */}
+        <button onClick={() => { setShowSearch(p => !p); setExpanded(true); }}
+          className="px-4 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
+          <Search className="w-5 h-5 text-white/30" />
+          <p className="font-arabic text-[10px] text-white/30 mt-0.5">بحث</p>
+        </button>
+
+        {/* Expand toggle */}
+        <button onClick={() => setExpanded(p => !p)}
+          className="px-3 self-stretch flex items-center active:bg-white/5 transition-colors">
+          <ChevronDown className={`w-4 h-4 text-white/25 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+
+      {/* Expandable Panel */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div key="panel"
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
+            style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+
+            {/* Tab bar + search (when not in search mode) */}
+            {!showSearch && (
+              <div className="flex gap-2 px-4 pt-3 pb-2" dir="rtl">
+                {(["followers", "following"] as const).map(t => (
+                  <button key={t} onClick={() => setTab(t)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+                    style={{
+                      background: tab === t ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${tab === t ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.07)"}`,
+                      color: tab === t ? "#60a5fa" : "rgba(255,255,255,0.35)",
+                    }}>
+                    {t === "followers" ? `متابِعون (${stats.followersCount})` : `متابَعون (${stats.followingCount})`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Search mode */}
+            {showSearch && (
+              <div className="px-4 pt-3 pb-2 space-y-2">
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                  style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                  <Search className="w-4 h-4 text-white/25 flex-shrink-0" />
+                  <input value={query} onChange={e => setQuery(e.target.value)}
+                    placeholder="ابحث بالاسم المستعار أو رقم الهوية..."
+                    className="flex-1 bg-transparent font-arabic text-sm text-white/75 outline-none placeholder:text-white/20"
+                    dir="rtl" autoFocus />
+                  {query && <button onClick={() => { setQuery(""); setSearchRes([]); }} className="text-white/30"><X className="w-3.5 h-3.5" /></button>}
+                </div>
+              </div>
+            )}
+
+            {/* List */}
+            <div className="px-4 pb-4 space-y-2 max-h-64 overflow-y-auto">
+              {loadingList && !showSearch ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                </div>
+              ) : showSearch ? (
+                searchRes.length === 0 ? (
+                  <p className="font-arabic text-xs text-white/20 text-center py-4">
+                    {query.length < 2 ? "اكتب للبحث..." : "لا نتائج"}
+                  </p>
+                ) : (
+                  searchRes.map(u => (
+                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} />
+                  ))
+                )
+              ) : displayList.length === 0 ? (
+                <p className="font-arabic text-xs text-white/20 text-center py-6">
+                  {tab === "followers" ? "لا يتابعك أحد بعد" : "لا تتابع أحداً بعد"}
+                </p>
+              ) : (
+                displayList.map(u => (
+                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} />
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function NetUserRow({ user, myTelegramId }: { user: NetUser; myTelegramId: string }) {
+  const RANKS: Record<string, string> = {
+    Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
+    Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
+  };
+  const rankColor = RANKS[user.rank] ?? "#94a3b8";
+
+  return (
+    <div className="flex items-center gap-3 py-2 rounded-xl px-2.5"
+      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}
+      dir="rtl">
+      <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
+        style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor }}>
+        {user.pseudonym.slice(0, 2).toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
+        <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
+      </div>
+      <ProfileFollowButton targetTelegramId={user.telegramId} myTelegramId={myTelegramId} />
+    </div>
+  );
 }
 
 // ─── Main Profile Section ─────────────────────────────────────────────────────
@@ -597,6 +827,16 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
             <p className="font-arabic text-white/25 text-[10px] mt-1">يُحدَّث تلقائياً عند تسجيل أصدقائك</p>
           </div>
         </GlassCard>
+
+        {/* ── NETWORK ── */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span style={{ color: "#60a5fa" }}><Users className="w-4 h-4" /></span>
+            <span className="font-arabic font-bold text-sm" style={{ color: "#60a5fa" }}>شبكتي الاجتماعية</span>
+            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(96,165,250,0.4),transparent)" }} />
+          </div>
+          <NetworkSection myTelegramId={telegramId} />
+        </div>
 
         {/* Bottom motto */}
         <p className="font-arabic text-center text-white/20 text-sm italic pt-2">حقٌّ لا يموت</p>
