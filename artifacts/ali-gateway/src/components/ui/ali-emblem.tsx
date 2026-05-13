@@ -9,9 +9,9 @@ export const AliEmblem = ({ className = "", animate = true }: AliEmblemProps) =>
   if (!animate) {
     return (
       <img
-        src="/ali-emblem.jpg"
+        src="/ali-emblem-sq.jpg"
         alt="A.L.I. Emblem"
-        className={`object-contain ${className}`}
+        className={`object-cover object-center rounded-full ${className}`}
         draggable={false}
       />
     );
@@ -19,9 +19,9 @@ export const AliEmblem = ({ className = "", animate = true }: AliEmblemProps) =>
 
   return (
     <motion.img
-      src="/ali-emblem.jpg"
+      src="/ali-emblem-sq.jpg"
       alt="A.L.I. Emblem"
-      className={`object-contain ${className}`}
+      className={`object-cover object-center rounded-full ${className}`}
       draggable={false}
       initial={{ opacity: 0, scale: 0.7, rotate: -10 }}
       animate={{ opacity: 1, scale: 1, rotate: 0 }}

@@ -41,7 +41,7 @@ export function MddSection({ onBack }: { onBack: () => void }) {
           <h1 className="font-arabic font-bold text-primary text-lg leading-tight">ركن <span className="font-mono">$MDD</span></h1>
           <p className="font-arabic text-muted-foreground text-xs">Management of Diversified Development</p>
         </div>
-        <img src="/ali-emblem.jpg" alt="MDD" className="w-9 h-9 object-contain mr-auto" />
+        <img src="/ali-emblem-sq.jpg" alt="MDD" className="w-9 h-9 object-cover object-center rounded-full mr-auto" />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 pb-20">
