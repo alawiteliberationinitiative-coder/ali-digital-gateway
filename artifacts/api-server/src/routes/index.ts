@@ -7,6 +7,7 @@ import treasuryRouter from "./treasury.js";
 import articlesRouter from "./articles.js";
 import spacesRouter from "./spaces.js";
 import followsRouter from "./follows.js";
+import docsRouter from "./docs.js";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use(treasuryRouter);
 router.use(articlesRouter);
 router.use(spacesRouter);
 router.use(followsRouter);
+router.use(docsRouter);
 
 export default router;

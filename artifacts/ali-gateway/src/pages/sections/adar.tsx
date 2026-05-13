@@ -8,6 +8,7 @@ import {
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
 import { DocsTab, ScrollingTicker } from "./adar-docs";
+import { ArchiveTab } from "./adar-archive";
 import { captureGeo } from "../../lib/geo";
 
 const adarLogoSrc = `${import.meta.env.BASE_URL}adar-logo.png`;
@@ -804,13 +805,14 @@ function CharterTab() {
 }
 
 // ─── Main ADAR Section ─────────────────────────────────────────────────────
-type AdarTab = "news" | "research" | "docs" | "articles" | "charter";
+type AdarTab = "news" | "research" | "docs" | "articles" | "archive" | "charter";
 
 const TABS: { id: AdarTab; label: string; icon: string }[] = [
   { id: "news",     label: "الأخبار",          icon: "📡" },
   { id: "research", label: "الرصد",             icon: "🔬" },
   { id: "docs",     label: "التوثيق",           icon: "📁" },
   { id: "articles", label: "دراسات ومقالات",   icon: "📝" },
+  { id: "archive",  label: "الأرشيف",           icon: "🔐" },
   { id: "charter",  label: "الميثاق",           icon: "⚖️" },
 ];
 
@@ -926,6 +928,7 @@ export function AdarSection({
             {activeTab === "research"     && <ResearchTab telegramId={telegramId} />}
             {activeTab === "docs"         && <DocsTab telegramId={telegramId} />}
             {activeTab === "articles"     && <ArticlesTab telegramId={telegramId} />}
+            {activeTab === "archive"      && <ArchiveTab telegramId={telegramId} />}
             {activeTab === "charter"      && <CharterTab />}
           </motion.div>
         </AnimatePresence>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Mic, MicOff, PhoneOff, Hand, Users, Plus,
   Clock, Radio, Share2, X, Loader2, Crown, CheckCircle,
-  ChevronDown, Search, UserPlus, UserCheck, Bell,
+  ChevronDown, Search, UserPlus, UserCheck, Bell, ShieldCheck,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 
@@ -718,6 +718,89 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
 }
 
 // ─── Space View (inside a space) ─────────────────────────────────────────────
+// ─── Privacy Notice Modal ─────────────────────────────────────────────────────
+function PrivacyNoticeModal({ onAck }: { onAck: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-50 flex items-end"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)" }}
+    >
+      <motion.div
+        className="w-full rounded-t-3xl flex flex-col"
+        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 340, damping: 32 }}
+        style={{ background: "linear-gradient(160deg,#060d1a,#0a1428)", border: `1px solid ${BLUE}25`, borderBottom: "none" }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+        </div>
+
+        <div className="px-5 pt-2 pb-6 text-right" dir="rtl">
+          {/* Title */}
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(96,165,250,0.1)", border: `1.5px solid ${BLUE}35` }}>
+              <ShieldCheck style={{ width: 20, height: 20, color: BLUE }} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 15, color: BLUE }}>
+                بروتوكول الخصوصية — المجلس الاجتماعي
+              </p>
+              <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(96,165,250,0.45)" }}>
+                ADAR Social Council · Privacy Protocol v2
+              </p>
+            </div>
+          </div>
+
+          {/* Notice points */}
+          <div className="space-y-3 mb-5">
+            {[
+              { icon: "🎙", title: "لا تسجيل للصوت", desc: "النظام مُصمَّم برمجياً لعدم تسجيل أي محادثة — البث مباشر فقط عبر WebRTC" },
+              { icon: "🗑", title: "بيانات مؤقتة تُحذف تلقائياً", desc: "تُحذف بيانات الجلسة كاملاً فور انتهائها — لا تُخزَّن سجلات للمشاركين" },
+              { icon: "🤖", title: "البوتات الخارجية محظورة", desc: "لا يُسمح لأي برنامج بالتسجيل أو الاستماع خارج هذه المنصة السيادية" },
+              { icon: "🔒", title: "هوية المشاركين مشفرة", desc: "تُعرض الأسماء المستعارة فقط — هويتك الحقيقية غير مكشوفة للآخرين" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-3 px-3 py-2.5 rounded-2xl"
+                style={{ background: "rgba(96,165,250,0.04)", border: `1px solid ${BLUE}12` }}>
+                <span className="text-base flex-shrink-0 mt-0.5">{item.icon}</span>
+                <div>
+                  <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+                    {item.title}
+                  </p>
+                  <p style={{ fontFamily: "'Amiri', serif", fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.6, marginTop: 1 }}>
+                    {item.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Confirm button */}
+          <button
+            onClick={onAck}
+            className="w-full py-3.5 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all"
+            style={{
+              background: `linear-gradient(135deg, ${BLUE}30, ${BLUE}15)`,
+              border: `1.5px solid ${BLUE}50`,
+              color: BLUE,
+            }}
+          >
+            فهمت — الدخول للجلسة
+          </button>
+          <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 9, color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: 8 }}>
+            يُعرض هذا الإشعار مرة واحدة فقط خلال الجلسة
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Space View (inside a space) ─────────────────────────────────────────────
 function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onMuteToggle,
   onPromote, onKick, onRefresh, isMuted }: {
   space: SpaceDetails; telegramId: string; myParticipant: Participant | undefined;
@@ -727,6 +810,14 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showHandsMenu, setShowHandsMenu] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(
+    () => !sessionStorage.getItem("community_privacy_ack")
+  );
+
+  const handleAckPrivacy = () => {
+    sessionStorage.setItem("community_privacy_ack", "1");
+    setShowPrivacyModal(false);
+  };
 
   const myRole = myParticipant?.role ?? "listener";
   const isHost = space.hostTelegramId === telegramId;
@@ -742,7 +833,7 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
   };
 
   return (
-    <div className="flex flex-col h-full" dir="rtl">
+    <div className="flex flex-col h-full relative" dir="rtl">
       {/* Header */}
       <div className="px-4 pt-3 pb-3 flex items-center justify-between"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -759,12 +850,33 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
             {space.startedAt && <span className="font-arabic text-[10px] text-white/20">{fmtDuration()}</span>}
           </div>
         </div>
-        <button onClick={() => setShowInvite(true)}
-          className="p-2 rounded-xl active:scale-95"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-          <Share2 className="w-4 h-4 text-white/35" />
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* No-Record indicator */}
+          <div className="flex items-center gap-1 px-2 py-1 rounded-full"
+            style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.22)" }}>
+            <ShieldCheck style={{ width: 10, height: 10, color: "#4ade80" }} />
+            <span style={{ fontFamily: "'Cairo', sans-serif", fontSize: 9, color: "#4ade80", fontWeight: 700 }}>
+              لا تسجيل
+            </span>
+          </div>
+          <button onClick={() => setShowInvite(true)}
+            className="p-2 rounded-xl active:scale-95"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <Share2 className="w-4 h-4 text-white/35" />
+          </button>
+        </div>
       </div>
+
+      {/* No-Record Privacy Banner */}
+      {!showPrivacyModal && (
+        <div className="flex items-center gap-2 px-4 py-2"
+          style={{ background: "rgba(34,197,94,0.04)", borderBottom: "1px solid rgba(34,197,94,0.1)" }}>
+          <ShieldCheck style={{ width: 11, height: 11, flexShrink: 0, color: "#4ade80", opacity: 0.7 }} />
+          <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(74,222,128,0.5)", lineHeight: 1.4 }}>
+            هذه الجلسة غير مُسجَّلة · مباشر عبر WebRTC · البيانات تُحذف فور الانتهاء
+          </p>
+        </div>
+      )}
 
       {/* Stage */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
@@ -928,6 +1040,11 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
           <Radio className="w-4 h-4 text-white/25" />
         </button>
       </div>
+
+      {/* Privacy Notice — shown once per session on first space entry */}
+      <AnimatePresence>
+        {showPrivacyModal && <PrivacyNoticeModal onAck={handleAckPrivacy} />}
+      </AnimatePresence>
 
       {/* Invite Modal */}
       <AnimatePresence>

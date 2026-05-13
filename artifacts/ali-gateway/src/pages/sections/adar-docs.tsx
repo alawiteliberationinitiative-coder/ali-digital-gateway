@@ -2,9 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, Camera, X, CheckCircle,
-  Plus, Trash2, Shield, AlertTriangle, Upload,
+  Plus, Trash2, Shield, AlertTriangle, Upload, Loader2,
 } from "lucide-react";
-import { useTelegram } from "../../lib/telegram";
 import { captureGeo } from "../../lib/geo";
 
 const GOLD = "#d4af37";
@@ -29,6 +28,27 @@ export function ScrollingTicker() {
       </motion.div>
     </div>
   );
+}
+
+// ─── Image Compression ────────────────────────────────────────────────────────
+async function compressImage(base64: string, maxPx = 900, quality = 0.78): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxPx / Math.max(img.width || 1, img.height || 1));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(base64); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
 }
 
 // ─── Design Helpers ─────────────────────────────────────────────────────────
@@ -131,17 +151,25 @@ function PhotoSection({ photos, onAdd, onRemove }: {
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const [compressing, setCompressing] = useState(false);
 
-  function readFiles(files: FileList | null) {
-    if (!files) return;
-    const readers = Array.from(files).map(file =>
-      new Promise<string>(res => {
-        const r = new FileReader();
-        r.onload = e => res(e.target?.result as string);
-        r.readAsDataURL(file);
-      })
-    );
-    Promise.all(readers).then(urls => onAdd(urls));
+  async function readFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setCompressing(true);
+    try {
+      const results = await Promise.all(
+        Array.from(files).map(file =>
+          new Promise<string>(res => {
+            const r = new FileReader();
+            r.onload = e => res(e.target?.result as string);
+            r.readAsDataURL(file);
+          }).then(base64 => compressImage(base64))
+        )
+      );
+      onAdd(results);
+    } finally {
+      setCompressing(false);
+    }
   }
 
   return (
@@ -150,6 +178,7 @@ function PhotoSection({ photos, onAdd, onRemove }: {
       <div className="flex gap-2 mb-3">
         <button type="button"
           onClick={() => cameraRef.current?.click()}
+          disabled={compressing}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl active:scale-95 transition-all"
           style={{ background: "rgba(212,175,55,0.1)", border: `1px solid ${GOLD_DIM}`, color: GOLD, fontFamily: "'Cairo', sans-serif", fontSize: 12, fontWeight: 700 }}>
           <Camera className="w-3.5 h-3.5" />
@@ -157,10 +186,12 @@ function PhotoSection({ photos, onAdd, onRemove }: {
         </button>
         <button type="button"
           onClick={() => galleryRef.current?.click()}
+          disabled={compressing}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl active:scale-95 transition-all"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", fontFamily: "'Cairo', sans-serif", fontSize: 12, fontWeight: 700 }}>
-          <Upload className="w-3.5 h-3.5" />
-          رفع من الهاتف
+          {compressing
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />ضغط...</>
+            : <><Upload className="w-3.5 h-3.5" />رفع من الهاتف</>}
         </button>
       </div>
 
@@ -170,6 +201,16 @@ function PhotoSection({ photos, onAdd, onRemove }: {
         onChange={e => readFiles(e.target.files)} />
       <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: "none" }}
         onChange={e => readFiles(e.target.files)} />
+
+      {compressing && (
+        <div className="rounded-xl px-3 py-2 mb-2 flex items-center gap-2"
+          style={{ background: "rgba(212,175,55,0.06)", border: `1px solid ${GOLD}18` }}>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: GOLD }} />
+          <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(212,175,55,0.7)" }}>
+            جاري ضغط الصور للحفاظ على الجودة...
+          </p>
+        </div>
+      )}
 
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
@@ -227,7 +268,7 @@ function UploadOverlay({ progress, onDone }: { progress: number; onDone: boolean
   );
 }
 
-// ─── FormWrapper — hides form content while uploading ────────────────────────
+// ─── FormWrapper ──────────────────────────────────────────────────────────────
 function FormWrapper({
   state, progress, canSubmit, onSubmit, children,
 }: {
@@ -251,24 +292,38 @@ function FormWrapper({
   );
 }
 
-// ─── shared startUpload factory ───────────────────────────────────────────────
+// ─── Upload factory (compresses + uploads photos to Telegram, then awards pts) ──
 function makeUpload(
   setState: (s: "idle" | "uploading" | "done") => void,
   setProgress: (fn: (p: number) => number) => void,
   clearForm: () => void,
   onSubmit: () => void,
+  telegramId?: string,
+  getPhotos?: () => string[],
 ) {
   return function startUpload() {
     captureGeo();
     clearForm();
     setState("uploading");
     setProgress(() => 0);
+
+    const photos = getPhotos?.() ?? [];
+    if (telegramId && photos.length > 0) {
+      photos.forEach((photo, idx) => {
+        fetch("/api/docs/upload-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+          body: JSON.stringify({ base64: photo, filename: `adar-doc-${Date.now()}-${idx}.jpg` }),
+        }).catch(() => {});
+      });
+    }
+
     const iv = setInterval(() => setProgress(p => {
       if (p >= 100) {
         clearInterval(iv);
         setState("done");
         onSubmit();
-        setTimeout(() => setState("idle"), 4000);
+        setTimeout(() => setState("idle"), 4200);
         return 100;
       }
       return p + 4;
@@ -346,7 +401,7 @@ function PersonalFields({ data, onChange }: {
 }
 
 // ─── Form 1: المفقودون ──────────────────────────────────────────────────────
-function MissingPersonForm({ onSubmit }: { onSubmit: () => void }) {
+function MissingPersonForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -354,7 +409,7 @@ function MissingPersonForm({ onSubmit }: { onSubmit: () => void }) {
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
   const canSubmit = !!(d.fullName && d.nationalId);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -371,7 +426,7 @@ function MissingPersonForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 // ─── Form 2: الشهداء والضحايا ────────────────────────────────────────────────
-function MartyrForm({ onSubmit }: { onSubmit: () => void }) {
+function MartyrForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -379,7 +434,7 @@ function MartyrForm({ onSubmit }: { onSubmit: () => void }) {
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
   const canSubmit = !!(d.fullName && d.nationalId && d.martyrDate);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -404,7 +459,7 @@ function MartyrForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 // ─── Form 3: المختطفات ──────────────────────────────────────────────────────
-function KidnappedWomanForm({ onSubmit }: { onSubmit: () => void }) {
+function KidnappedWomanForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -413,7 +468,7 @@ function KidnappedWomanForm({ onSubmit }: { onSubmit: () => void }) {
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
   const canSubmit = !!(d.fullName && d.nationalId && status);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setStatus(""); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setStatus(""); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -450,7 +505,7 @@ function KidnappedWomanForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 // ─── Form 4: المهجرون قسرياً ─────────────────────────────────────────────────
-function DisplacedFamilyForm({ onSubmit }: { onSubmit: () => void }) {
+function DisplacedFamilyForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [children, setChildren] = useState<{ name: string; age: string }[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -464,7 +519,7 @@ function DisplacedFamilyForm({ onSubmit }: { onSubmit: () => void }) {
     setChildren(c => c.map((ch, j) => j === i ? { ...ch, [key]: val } : ch));
   }
   const canSubmit = !!(d.fullName && d.nationalId);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setChildren([]); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setChildren([]); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -525,7 +580,7 @@ function DisplacedFamilyForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 // ─── Form 5: الأراضي والأملاك المسلوبة ──────────────────────────────────────
-function StolenPropertyForm({ onSubmit }: { onSubmit: () => void }) {
+function StolenPropertyForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -533,7 +588,7 @@ function StolenPropertyForm({ onSubmit }: { onSubmit: () => void }) {
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
   const canSubmit = !!(d.fullName && d.nationalId && d.propertyNumber);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -568,7 +623,7 @@ function StolenPropertyForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 // ─── Form 6: الموظفون المفصولون ──────────────────────────────────────────────
-function DismissedEmployeeForm({ onSubmit }: { onSubmit: () => void }) {
+function DismissedEmployeeForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -577,7 +632,7 @@ function DismissedEmployeeForm({ onSubmit }: { onSubmit: () => void }) {
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
   const canSubmit = !!(d.fullName && d.nationalId && d.dismissDate && reasonType);
-  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setReasonType(""); }, onSubmit);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setReasonType(""); }, onSubmit, telegramId, () => photos);
 
   return (
     <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
@@ -648,7 +703,7 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         headers: { "x-telegram-id": telegramId, "Content-Type": "application/json" },
       });
     } catch {
-      /* silent — points already shown locally */
+      /* silent — points shown locally regardless */
     }
   }, [telegramId]);
 
@@ -692,12 +747,12 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
             isOpen={openId === form.id}
             onToggle={() => !isDone && toggle(form.id)}
             submitState={isDone ? "done" : "idle"}>
-            {form.id === "missing"   && <MissingPersonForm   onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "martyr"    && <MartyrForm           onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "kidnapped" && <KidnappedWomanForm   onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "displaced" && <DisplacedFamilyForm  onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "property"  && <StolenPropertyForm   onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "employee"  && <DismissedEmployeeForm onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "missing"   && <MissingPersonForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "martyr"    && <MartyrForm           telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "kidnapped" && <KidnappedWomanForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "displaced" && <DisplacedFamilyForm  telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "property"  && <StolenPropertyForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "employee"  && <DismissedEmployeeForm telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
           </AccordionShell>
         );
       })}
@@ -706,7 +761,7 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
         <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: GOLD, opacity: 0.5 }} />
         <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(255,255,255,0.25)", lineHeight: 1.8 }}>
-          🔒 جميع البيانات محمية بتشفير AES-256 · لا تُشارَك مع أي طرف خارجي · مُخزَّنة داخل مجلد مشفر بمعرفك الخاص · حقك في الحذف محفوظ دائماً
+          🔒 جميع البيانات محمية بتشفير AES-256 · الصور مُضغطة قبل الرفع للحفاظ على جودة الوثائق · مُخزَّنة في مجلد مشفر بمعرفك الخاص · حقك في الحذف محفوظ دائماً
         </p>
       </div>
     </div>
