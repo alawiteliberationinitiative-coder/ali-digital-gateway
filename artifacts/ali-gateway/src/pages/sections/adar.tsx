@@ -1,57 +1,44 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio } from "lucide-react";
+import adarLogoSrc from "@assets/photo_2026-05-13_12-09-13_1778663374784.jpg";
+import { markRead } from "./adar-utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GOLD  = "#d4af37";
-const LS_KEY = "adar_read_posts";
+const GOLD = "#d4af37";
 
-function getReadSet(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) ?? "[]")); }
-  catch { return new Set(); }
-}
-function markRead(id: string) {
-  const s = getReadSet(); s.add(id);
-  localStorage.setItem(LS_KEY, JSON.stringify([...s]));
-}
-
-// ─── ADAR Emblem SVG ─────────────────────────────────────────────────────────
-export function AdarEmblem({ size = 52 }: { size?: number }) {
+// ─── ADAR Logo Image Component ────────────────────────────────────────────────
+export function AdarEmblem({ size = 52, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Background */}
-      <circle cx="40" cy="40" r="38" fill="rgba(0,26,10,0.92)" stroke="#d4af37" strokeWidth="1.8" />
-      <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(212,175,55,0.15)" strokeWidth="0.8" />
+    <img
+      src={adarLogoSrc}
+      alt="ADAR"
+      width={size}
+      height={size}
+      className={className}
+      style={{ objectFit: "contain", display: "block" }}
+    />
+  );
+}
 
-      {/* Zulfiqar — symmetrical bifurcated blade */}
-      {/* Main spine */}
-      <rect x="38.5" y="20" width="3" height="30" rx="1" fill="#d4af37" />
-      {/* Left prong */}
-      <path d="M38.5 22 L30 8 L38.5 20 Z" fill="#d4af37" />
-      {/* Right prong */}
-      <path d="M41.5 22 L50 8 L41.5 20 Z" fill="#d4af37" />
-      {/* Tip glow line between prongs */}
-      <path d="M30 8 L40 14 L50 8" stroke="rgba(212,175,55,0.4)" strokeWidth="0.8" fill="none" />
-
-      {/* Guard crosspiece */}
-      <rect x="21" y="49" width="38" height="3.5" rx="1.75" fill="#d4af37" />
-      {/* Guard gems */}
-      <circle cx="25" cy="50.8" r="1.2" fill="rgba(255,255,255,0.35)" />
-      <circle cx="55" cy="50.8" r="1.2" fill="rgba(255,255,255,0.35)" />
-
-      {/* Handle */}
-      <rect x="38.5" y="52.5" width="3" height="13" rx="1" fill="#d4af37" opacity="0.85" />
-      {/* Grip wrapping lines */}
-      <line x1="37.5" y1="56" x2="42.5" y2="56" stroke="rgba(0,26,10,0.6)" strokeWidth="0.8" />
-      <line x1="37.5" y1="59" x2="42.5" y2="59" stroke="rgba(0,26,10,0.6)" strokeWidth="0.8" />
-      <line x1="37.5" y1="62" x2="42.5" y2="62" stroke="rgba(0,26,10,0.6)" strokeWidth="0.8" />
-      {/* Pommel */}
-      <ellipse cx="40" cy="67" rx="4" ry="2.5" fill="#d4af37" />
-
-      {/* ADAR letters flanking the blade */}
-      <text x="27" y="41" textAnchor="middle" fill="rgba(212,175,55,0.65)" fontSize="6.5" fontWeight="bold" fontFamily="monospace">AD</text>
-      <text x="53" y="41" textAnchor="middle" fill="rgba(212,175,55,0.65)" fontSize="6.5" fontWeight="bold" fontFamily="monospace">AR</text>
-    </svg>
+// ─── Watermark overlay (semi-transparent logo for cards/reports) ───────────────
+function AdarWatermark({ opacity = 0.07, size = 80 }: { opacity?: number; size?: number }) {
+  return (
+    <img
+      src={adarLogoSrc}
+      alt=""
+      aria-hidden
+      style={{
+        position: "absolute",
+        width: size,
+        height: size,
+        objectFit: "contain",
+        opacity,
+        pointerEvents: "none",
+        userSelect: "none",
+        filter: "grayscale(30%) brightness(1.2)",
+      }}
+    />
   );
 }
 
@@ -164,11 +151,16 @@ function FoundingPostCard({ onRead }: { onRead: () => void }) {
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden"
+    <div className="rounded-2xl overflow-hidden relative"
       style={{ background: "rgba(255,255,255,0.03)", border: `1.5px solid ${GOLD}30`, boxShadow: `0 4px 24px rgba(0,0,0,0.4)` }}>
 
+      {/* Watermark — bottom-left corner */}
+      <div className="absolute bottom-3 left-3 z-0" style={{ opacity: 0.09 }}>
+        <AdarWatermark size={90} opacity={1} />
+      </div>
+
       {/* Pinned banner */}
-      <div className="flex items-center gap-2 px-4 py-2"
+      <div className="flex items-center gap-2 px-4 py-2 relative z-10"
         style={{ background: "rgba(212,175,55,0.08)", borderBottom: `1px solid ${GOLD}20` }}>
         <Pin className="w-3 h-3" style={{ color: GOLD }} />
         <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>مثبّت — بيان تأسيسي</span>
@@ -177,7 +169,7 @@ function FoundingPostCard({ onRead }: { onRead: () => void }) {
       </div>
 
       {/* Article header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="px-4 pt-4 pb-3 relative z-10">
         {/* Category + Date */}
         <div className="flex items-center gap-2 mb-3">
           <span className="font-arabic text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -204,14 +196,17 @@ function FoundingPostCard({ onRead }: { onRead: () => void }) {
         </h2>
         <p className="font-mono text-white/25 text-[10px] text-center mb-4">{FOUNDING_POST.titleEn}</p>
 
-        {/* Publisher */}
-        <div className="flex items-center gap-2 py-2 border-t border-b mb-3"
+        {/* Publisher — with real logo */}
+        <div className="flex items-center gap-2.5 py-2 border-t border-b mb-3"
           style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-          <Radio className="w-3.5 h-3.5 flex-shrink-0" style={{ color: GOLD }} />
+          <img src={adarLogoSrc} alt="ADAR" className="w-8 h-8 rounded-full flex-shrink-0"
+            style={{ objectFit: "contain", background: "rgba(0,26,10,0.8)", border: `1px solid ${GOLD}40`, padding: 2 }} />
           <div>
             <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>{FOUNDING_POST.broadcaster}</p>
             <p className="font-mono text-[9px] text-white/30">{FOUNDING_POST.broadcasterEn}</p>
           </div>
+          <div className="flex-1" />
+          <Radio className="w-3 h-3 flex-shrink-0" style={{ color: GOLD, opacity: 0.5 }} />
         </div>
 
         {/* Expandable article body */}
@@ -320,23 +315,27 @@ export function AdarSection({
 
         {/* Coming soon posts placeholder */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
-          className="rounded-2xl p-4 text-center"
-          style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}>
-          <p className="font-arabic text-white/25 text-xs">تقارير وبيانات إضافية قيد الإعداد</p>
-          <p className="font-mono text-white/15 text-[9px] mt-0.5">More reports coming soon</p>
+          className="rounded-2xl p-5 flex flex-col items-center gap-3 relative overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(212,175,55,0.15)" }}>
+          <div style={{ opacity: 0.07 }}>
+            <img src={adarLogoSrc} alt="" aria-hidden style={{ width: 56, height: 56, objectFit: "contain" }} />
+          </div>
+          <p className="font-arabic text-white/30 text-xs">تقارير وبيانات إضافية قيد الإعداد</p>
+          <p className="font-mono text-white/15 text-[9px]">More reports coming soon</p>
         </motion.div>
 
-        {/* Footer watermark */}
-        <div className="text-center pt-2 pb-1">
+        {/* Footer watermark strip */}
+        <div className="flex items-center justify-center gap-3 pt-2 pb-1">
+          <div style={{ opacity: 0.15 }}>
+            <img src={adarLogoSrc} alt="" aria-hidden style={{ width: 20, height: 20, objectFit: "contain" }} />
+          </div>
           <p className="font-mono text-[9px] text-white/15 tracking-widest">ADAR · Alawite Digital Archive & Research · 2026</p>
+          <div style={{ opacity: 0.15 }}>
+            <img src={adarLogoSrc} alt="" aria-hidden style={{ width: 20, height: 20, objectFit: "contain" }} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Unread Count Helper (for dashboard badge) ────────────────────────────────
-export function getAdarUnreadCount(): number {
-  const read = getReadSet();
-  return [FOUNDING_POST.id].filter(id => !read.has(id)).length;
-}

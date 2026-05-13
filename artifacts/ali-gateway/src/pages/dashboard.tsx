@@ -14,7 +14,8 @@ import { PlaySection } from "./sections/play";
 import { WatchSection } from "./sections/watch";
 import { KnowledgeSection } from "./sections/knowledge";
 import { ProfileSection } from "./sections/profile";
-import { AdarSection, AdarEmblem, getAdarUnreadCount } from "./sections/adar";
+import { AdarSection, AdarEmblem } from "./sections/adar";
+import { getAdarUnreadCount } from "./sections/adar-utils";
 
 type Section = "adar" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | "profile" | null;
 
