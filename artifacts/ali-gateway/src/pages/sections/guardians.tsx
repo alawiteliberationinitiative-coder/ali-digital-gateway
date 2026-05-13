@@ -1,23 +1,62 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, Camera, MapPin, BarChart2, ShieldAlert } from "lucide-react";
 
 const slide = { initial: { x: -40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 }, transition: { duration: 0.3 } };
 
-const stats = [
-  { label: "تقرير موثّق", value: "١٢٤" },
-  { label: "منطقة مرصودة", value: "٣٧" },
-  { label: "حارس نشط", value: "٢٨٩" },
-  { label: "نقطة مُكافأة", value: "٨٤٠٠" },
-];
+interface PlatformStats {
+  totalUsers:    number;
+  totalPoints:   number;
+  totalArticles: number;
+}
+
+function toArabicNumerals(n: number): string {
+  return n.toLocaleString("ar-SA");
+}
 
 const activities = [
-  { icon: Camera, color: "#22c55e", title: "التوثيق بالصور", desc: "التقط صوراً ميدانية وارفعها للتحقق والحفظ في السجل الموزّع." },
-  { icon: MapPin, color: "#d4af37", title: "تحديد المواقع", desc: "ضع إشارات جغرافية دقيقة للمناطق والمواقع ذات الأهمية." },
-  { icon: BarChart2, color: "#3b82f6", title: "الإحصاءات الميدانية", desc: "اطّلع على البيانات التراكمية وتقارير الحضور الميداني." },
-  { icon: ShieldAlert, color: "#f59e0b", title: "مشروع Bargylos", desc: "المنظومة السرية لجمع وتحليل البيانات الحساسة — يتطلب تصريحاً خاصاً." },
+  { icon: Camera,     color: "#22c55e", title: "التوثيق بالصور",      desc: "التقط صوراً ميدانية وارفعها للتحقق والحفظ في السجل الموزّع." },
+  { icon: MapPin,     color: "#d4af37", title: "تحديد المواقع",        desc: "ضع إشارات جغرافية دقيقة للمناطق والمواقع ذات الأهمية." },
+  { icon: BarChart2,  color: "#3b82f6", title: "الإحصاءات الميدانية", desc: "اطّلع على البيانات التراكمية وتقارير الحضور الميداني." },
+  { icon: ShieldAlert,color: "#f59e0b", title: "مشروع Bargylos",       desc: "المنظومة السرية لجمع وتحليل البيانات الحساسة — يتطلب تصريحاً خاصاً." },
 ];
 
+function StatCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      className="bg-card border border-border rounded-2xl p-4 text-center"
+      style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.2)" }}>
+      {loading ? (
+        <div className="h-9 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-full border-2 border-[#d4af37] border-t-transparent animate-spin" />
+        </div>
+      ) : (
+        <div className="font-arabic text-3xl font-bold text-primary mb-1">{value}</div>
+      )}
+      <div className="font-arabic text-xs text-muted-foreground">{label}</div>
+    </motion.div>
+  );
+}
+
 export function GuardiansSection({ onBack }: { onBack: () => void }) {
+  const [stats,   setStats]   = useState<PlatformStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/users/stats")
+      .then(r => r.ok ? r.json() as Promise<PlatformStats> : Promise.reject())
+      .then(data => { setStats(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const statCards = [
+    { label: "تقرير موثّق",    value: stats ? toArabicNumerals(stats.totalArticles) : "—" },
+    { label: "منطقة مرصودة",  value: "—" },
+    { label: "حارس نشط",      value: stats ? toArabicNumerals(stats.totalUsers)    : "—" },
+    { label: "نقطة مُكافأة",  value: stats ? toArabicNumerals(stats.totalPoints)   : "—" },
+  ];
+
   return (
     <motion.div className="flex flex-col h-full" dir="rtl" {...slide}>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
@@ -26,7 +65,7 @@ export function GuardiansSection({ onBack }: { onBack: () => void }) {
         </button>
         <div>
           <h1 className="font-arabic font-bold text-primary text-lg leading-tight">حراس الأرض</h1>
-          <p className="font-arabic text-muted-foreground text-xs">التوثيق الميداني والرصد</p>
+          <p className="font-arabic text-muted-foreground text-xs">إحصاءات حقيقية · تتحدّث تلقائياً</p>
         </div>
         <span className="mr-auto text-2xl">🌿</span>
       </div>
@@ -34,14 +73,8 @@ export function GuardiansSection({ onBack }: { onBack: () => void }) {
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 pb-20">
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
-          {stats.map((s) => (
-            <motion.div key={s.label}
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="bg-card border border-border rounded-2xl p-4 text-center"
-              style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.2)" }}>
-              <div className="font-arabic text-3xl font-bold text-primary mb-1">{s.value}</div>
-              <div className="font-arabic text-xs text-muted-foreground">{s.label}</div>
-            </motion.div>
+          {statCards.map((s) => (
+            <StatCard key={s.label} label={s.label} value={s.value} loading={loading} />
           ))}
         </div>
 
@@ -56,19 +89,12 @@ export function GuardiansSection({ onBack }: { onBack: () => void }) {
               style={{ backgroundColor: `${a.color}22`, border: `1.5px solid ${a.color}55` }}>
               <a.icon className="w-6 h-6" style={{ color: a.color }} />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 text-right">
               <h3 className="font-arabic font-bold text-foreground text-base mb-1">{a.title}</h3>
-              <p className="font-arabic text-muted-foreground text-sm leading-5">{a.desc}</p>
+              <p className="font-arabic text-muted-foreground text-sm leading-relaxed">{a.desc}</p>
             </div>
           </motion.button>
         ))}
-
-        {/* Coming soon badge */}
-        <div className="bg-card border border-[#d4af37]/30 rounded-2xl p-5 text-center">
-          <div className="text-3xl mb-2">🔐</div>
-          <p className="font-arabic text-[#d4af37] font-bold text-base mb-1">بروتوكول Bargylos</p>
-          <p className="font-arabic text-muted-foreground text-sm">في انتظار تصريح القيادة · قريباً</p>
-        </div>
       </div>
     </motion.div>
   );

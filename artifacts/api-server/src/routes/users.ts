@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, usersTable } from "@workspace/db";
+import { db, eq, sql, desc, count, usersTable, articlesTable } from "@workspace/db";
 
 const router = Router();
 
@@ -180,6 +180,43 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded: 200 });
+});
+
+/* ── Public leaderboard (top users by loyalty points) ─────────────────────── */
+router.get("/leaderboard", async (req, res): Promise<void> => {
+  const limit = Math.min(parseInt((req.query.limit as string) || "20", 10), 100);
+  const leaders = await db
+    .select({
+      aliId:         usersTable.aliId,
+      pseudonym:     usersTable.pseudonym,
+      loyaltyPoints: usersTable.loyaltyPoints,
+      level:         usersTable.level,
+      rank:          usersTable.rank,
+    })
+    .from(usersTable)
+    .orderBy(desc(usersTable.loyaltyPoints), desc(usersTable.level))
+    .limit(limit);
+  res.json(leaders);
+});
+
+/* ── Platform-wide stats (for guardians section etc.) ─────────────────────── */
+router.get("/users/stats", async (req, res): Promise<void> => {
+  const [userStats] = await db
+    .select({
+      totalUsers:  count(usersTable.id),
+      totalPoints: sql<string>`coalesce(sum(${usersTable.loyaltyPoints}), 0)`,
+    })
+    .from(usersTable);
+
+  const [articleStats] = await db
+    .select({ totalArticles: count(articlesTable.id) })
+    .from(articlesTable);
+
+  res.json({
+    totalUsers:    userStats?.totalUsers    ?? 0,
+    totalPoints:   Number(userStats?.totalPoints ?? 0),
+    totalArticles: articleStats?.totalArticles ?? 0,
+  });
 });
 
 router.post("/users/confirm-keys", async (req, res): Promise<void> => {
