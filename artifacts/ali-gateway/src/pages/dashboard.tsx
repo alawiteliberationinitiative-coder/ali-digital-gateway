@@ -4,7 +4,6 @@ import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { AboutSection } from "./sections/about";
 import { GuideSection } from "./sections/guide";
 import { GuardiansSection } from "./sections/guardians";
 import { AmbassadorsSection } from "./sections/ambassadors";
@@ -15,8 +14,9 @@ import { PlaySection } from "./sections/play";
 import { WatchSection } from "./sections/watch";
 import { KnowledgeSection } from "./sections/knowledge";
 import { ProfileSection } from "./sections/profile";
+import { AdarSection, AdarEmblem, getAdarUnreadCount } from "./sections/adar";
 
-type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | "profile" | null;
+type Section = "adar" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | "profile" | null;
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
@@ -170,7 +170,6 @@ interface CardDef {
 }
 
 const CARDS: CardDef[] = [
-  { id: "about",       emoji: "🏛",  title: "عن المبادرة",         subtitle: "رؤيتنا ومهمتنا وقيمنا",              accent: "#d4af37", shadow: "rgba(212,175,55,0.35)", wide: true },
   { id: "guide",       emoji: "📚",  title: "تعليمات الأنشطة",      subtitle: "دليل شامل لاستخدام المنصة",           accent: "#22c55e", shadow: "rgba(34,197,94,0.25)" },
   { id: "guardians",   emoji: "🌿",  title: "حراس الأرض",           subtitle: "التوثيق الميداني",                    accent: "#4ade80", shadow: "rgba(74,222,128,0.2)" },
   { id: "ambassadors", emoji: "🌍",  title: "سفراء القضية",          subtitle: "الشبكة الدولية",                      accent: "#60a5fa", shadow: "rgba(96,165,250,0.2)" },
@@ -216,6 +215,7 @@ export default function Dashboard() {
 
   const [activeSection, setActiveSection] = useState<Section>(null);
   const [welcomeDone, setWelcomeDone] = useState(false);
+  const [adarUnread, setAdarUnread] = useState(() => getAdarUnreadCount());
 
   const { data: userData, isLoading } = useGetMe({
     request: { headers: { "X-Telegram-ID": telegramId } },
@@ -263,7 +263,7 @@ export default function Dashboard() {
                 className="fixed inset-0 z-30 bg-background overflow-y-auto"
                 initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}>
-                {activeSection === "about"       && <AboutSection onBack={handleBack} />}
+                {activeSection === "adar"        && <AdarSection onBack={handleBack} onRead={() => setAdarUnread(0)} />}
                 {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
                 {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
                 {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
@@ -304,8 +304,67 @@ export default function Dashboard() {
 
             {/* Section cards grid */}
             <div className="grid grid-cols-2 gap-3">
-              {/* First card: عن المبادرة */}
-              <SectionCard key={CARDS[0].id} card={CARDS[0]} delay={0.1} onPress={() => setActiveSection(CARDS[0].id)} />
+
+              {/* ★ ADAR MEDIA CENTER BUTTON ★ */}
+              <motion.button
+                onClick={() => setActiveSection("adar")}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 20 }}
+                whileTap={{ scale: 0.96 }}
+                className="col-span-2 relative overflow-hidden rounded-3xl flex items-center gap-4 px-5 py-4 border-2"
+                style={{
+                  background: "linear-gradient(135deg, rgba(0,34,0,0.85) 0%, rgba(0,50,10,0.75) 50%, rgba(0,26,6,0.9) 100%)",
+                  borderColor: "rgba(212,175,55,0.45)",
+                  boxShadow: "0 6px 0 rgba(0,20,0,0.8), 0 0 32px rgba(212,175,55,0.18)",
+                  backdropFilter: "blur(12px)",
+                }}>
+                {/* Shimmer */}
+                <motion.div className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(212,175,55,0.08) 50%, transparent 70%)" }}
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
+
+                {/* Notification badge */}
+                {adarUnread > 0 && (
+                  <motion.div
+                    className="absolute top-2.5 left-3 z-20 w-5 h-5 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white"
+                    style={{ background: "radial-gradient(circle, #ef4444, #b91c1c)", boxShadow: "0 0 10px rgba(239,68,68,0.7), 0 0 20px rgba(239,68,68,0.35)" }}
+                    animate={{ scale: [1, 1.15, 1], boxShadow: ["0 0 10px rgba(239,68,68,0.7)", "0 0 18px rgba(239,68,68,0.9)", "0 0 10px rgba(239,68,68,0.7)"] }}
+                    transition={{ repeat: Infinity, duration: 1.6 }}>
+                    {adarUnread}
+                  </motion.div>
+                )}
+
+                {/* Emblem */}
+                <div className="relative z-10 flex-shrink-0">
+                  <AdarEmblem size={52} />
+                </div>
+
+                {/* Text */}
+                <div className="flex-1 text-right relative z-10 min-w-0">
+                  <div className="font-arabic font-bold text-white text-lg leading-tight">مركز ADAR للرصد الإعلامي</div>
+                  <div className="font-mono text-[10px] tracking-wide mt-0.5" style={{ color: "rgba(212,175,55,0.6)" }}>
+                    Alawite Digital Archive & Research
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mt-1.5">
+                    <span className="font-arabic text-[10px] rounded-full px-2 py-0.5"
+                      style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                      📡 بيانات رسمية
+                    </span>
+                    <span className="font-arabic text-[10px] rounded-full px-2 py-0.5"
+                      style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                      🗂 أرشيف رقمي
+                    </span>
+                  </div>
+                </div>
+
+                {/* Arrow */}
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 relative z-10"
+                  style={{ background: "rgba(212,175,55,0.15)", border: "1.5px solid rgba(212,175,55,0.4)" }}>
+                  <span style={{ color: "#d4af37" }} className="text-sm font-bold">›</span>
+                </div>
+              </motion.button>
 
               {/* ★ EARN & KNOWLEDGE BUTTON ★ */}
               <motion.button
@@ -376,8 +435,8 @@ export default function Dashboard() {
                 </div>
               </motion.button>
 
-              {/* Remaining section cards */}
-              {CARDS.slice(1).map((card, i) => (
+              {/* Section cards */}
+              {CARDS.map((card, i) => (
                 <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection(card.id)} />
               ))}
             </div>
