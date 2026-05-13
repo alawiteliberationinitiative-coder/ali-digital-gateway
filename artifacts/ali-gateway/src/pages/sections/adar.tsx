@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio,
   Send, CheckCircle, Trophy, FileText, Scale,
-  Loader2, RotateCcw,
+  Loader2, RotateCcw, Camera, X,
 } from "lucide-react";
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
