@@ -282,9 +282,9 @@ export default function Dashboard() {
               {/* First card: عن المبادرة */}
               <SectionCard key={CARDS[0].id} card={CARDS[0]} delay={0.1} onPress={() => setActiveSection(CARDS[0].id)} />
 
-              {/* ★ PLAY BUTTON ★ */}
+              {/* ★ EARN & KNOWLEDGE BUTTON ★ */}
               <motion.button
-                onClick={() => setActiveSection("play")}
+                onClick={() => setActiveSection("knowledge")}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
@@ -305,14 +305,14 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3 relative z-10">
                   <motion.span className="text-4xl"
                     animate={{ scale: [1, 1.15, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.6 }}>🎯</motion.span>
+                    transition={{ repeat: Infinity, duration: 1.6 }}>🧠</motion.span>
                   <div className="text-right">
-                    <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح و ادعم</div>
-                    <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء</div>
+                    <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح وادعم</div>
+                    <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء · محرك المعرفة</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 relative z-10 mt-1">
-                  {["⭐ ٣٢٥+ نقطة", "🔥 بونص السلسلة", "🏆 ٥ تحديات"].map((t) => (
+                  {["🧠 ٥٠٠ سؤال", "🔥 بونص السلسلة", "🏆 ١٠٠ مستوى"].map((t) => (
                     <span key={t} className="font-arabic text-[10px] bg-black/15 rounded-full px-2.5 py-1 text-[#002b1b]/90">{t}</span>
                   ))}
                 </div>
@@ -348,40 +348,6 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center gap-1 relative z-10 flex-shrink-0">
                   <span className="font-arabic text-[10px] bg-purple-900/50 border border-purple-400/30 rounded-full px-2.5 py-1 text-purple-200">⭐ حتى 25 نقطة</span>
                   <span className="font-arabic text-[10px] bg-purple-900/50 border border-purple-400/30 rounded-full px-2.5 py-1 text-purple-200">🔄 يومياً</span>
-                </div>
-              </motion.button>
-
-              {/* ★ KNOWLEDGE ENGINE BUTTON ★ */}
-              <motion.button
-                onClick={() => setActiveSection("knowledge")}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.36, duration: 0.4 }}
-                whileTap={{ scale: 0.96 }}
-                className="col-span-2 relative overflow-hidden rounded-3xl py-4 flex items-center justify-between gap-4 px-5 border-2"
-                style={{
-                  background: "linear-gradient(135deg, rgba(0,40,0,0.8) 0%, rgba(0,68,0,0.6) 50%, rgba(0,40,0,0.8) 100%)",
-                  borderColor: "rgba(212,175,55,0.5)",
-                  boxShadow: "0 5px 0 rgba(0,30,0,0.7), 0 0 28px rgba(212,175,55,0.15)",
-                }}>
-                <motion.div className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(105deg, transparent 35%, rgba(212,175,55,0.08) 50%, transparent 65%)" }}
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
-                <div className="flex items-center gap-3 relative z-10">
-                  <motion.span className="text-3xl"
-                    animate={{ rotate: [0, -8, 8, 0] }}
-                    transition={{ repeat: Infinity, duration: 3 }}>🧠</motion.span>
-                  <div className="text-right">
-                    <div className="font-arabic font-bold text-[#d4af37] text-xl leading-tight">محرك المعرفة</div>
-                    <div className="font-arabic text-[#d4af37]/60 text-xs mt-0.5">٥٠٠ سؤال · نهج البلاغة والأدب والفلسفة</div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-1 relative z-10 flex-shrink-0">
-                  <span className="font-arabic text-[10px] rounded-full px-2.5 py-1"
-                    style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", color: "#d4af37" }}>⭐ +١٠ نقاط</span>
-                  <span className="font-arabic text-[10px] rounded-full px-2.5 py-1"
-                    style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: "#d4af37" }}>🔓 ١٠٠ مستوى</span>
                 </div>
               </motion.button>
 
