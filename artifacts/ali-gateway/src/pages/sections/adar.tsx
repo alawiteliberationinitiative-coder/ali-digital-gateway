@@ -869,7 +869,7 @@ export function AdarSection({
             <ChevronRight className="w-5 h-5" style={{ color: GOLD }} />
           </button>
           <div className="flex items-center gap-2.5 flex-1" dir="rtl">
-            <AdarEmblem size={34} />
+            <AdarEmblem size={68} />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono font-black text-base tracking-[0.12em]" style={{ color: GOLD }}>ADAR</span>
