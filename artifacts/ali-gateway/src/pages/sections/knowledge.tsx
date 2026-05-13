@@ -315,9 +315,9 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
 }
 
 // ─── Stage Complete (Ad Gate) ──────────────────────────────────────────────────
-function StageGate({ stage, score, total, onWatch, loading, onSkip }: {
+function StageGate({ stage, score, total, onWatch, loading }: {
   stage: number; score: number; total: number;
-  onWatch: () => void; loading: boolean; onSkip: () => void;
+  onWatch: () => void; loading: boolean;
 }) {
   const stars = Math.round((score / total) * 3);
   return (
@@ -365,9 +365,6 @@ function StageGate({ stage, score, total, onWatch, loading, onSkip }: {
           : <>📺 شاهد وافتح المحطة التالية</>}
       </motion.button>
 
-      <button onClick={onSkip} className="font-arabic text-white/25 text-xs underline">
-        تخطي (بدون نقاط)
-      </button>
     </motion.div>
   );
 }
@@ -579,10 +576,6 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     setSelectedLevel(null);
   }
 
-  function handleSkip() {
-    playClick();
-    completeLevel();
-  }
 
   const qs = selectedLevel ? getLevelQuestions(selectedLevel) : [];
   const q = qs[qIdx];
@@ -690,6 +683,14 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                 )}
               </div>
 
+              {/* Nahj al-Balagha attribution */}
+              {q.category === "nahjBalagha" && (
+                <div className="flex justify-end" dir="rtl">
+                  <span className="font-arabic text-[10px] leading-relaxed text-[#d4af37]/50 text-right">
+                    من كلام أمير المؤمنين علي بن أبي طالب كرم الله وجهه
+                  </span>
+                </div>
+              )}
               {/* Question type badge */}
               <div className="flex justify-center">
                 <span className="font-arabic text-xs px-3 py-1 rounded-full font-bold"
@@ -731,7 +732,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
             <motion.div key="stage" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}>
               <StageGate stage={stage} score={score} total={qs.length}
-                onWatch={handleWatchAd} loading={adLoading} onSkip={handleSkip} />
+                onWatch={handleWatchAd} loading={adLoading} />
             </motion.div>
           )}
 
