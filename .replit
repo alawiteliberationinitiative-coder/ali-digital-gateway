@@ -86,3 +86,4 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_TELEGRAM_ID = "6213952907"
+MONETAG_ZONE_ID = "11001376"

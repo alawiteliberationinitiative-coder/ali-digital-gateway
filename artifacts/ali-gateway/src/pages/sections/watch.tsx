@@ -1,18 +1,13 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Star, CheckCircle, Play } from "lucide-react";
+import { ChevronRight, Star, CheckCircle, Play, Clock, XCircle } from "lucide-react";
 import { AliEmblem } from "../../components/ui/ali-emblem";
 import { useTelegram } from "../../lib/telegram";
-
-declare global {
-  interface Window {
-    show_11001376?: () => Promise<void>;
-  }
-}
+import { useRewardedAd } from "../../hooks/use-rewarded-ad";
+import { useState } from "react";
 
 const AD_POINTS = 10;
-
-type AdState = "idle" | "loading" | "rewarded" | "error";
+const COOLDOWN_MS = 25_000;
 
 const NOTICE_LINES = [
   "هذا الإعلان لا يمثّل توجهات المبادرة.",
@@ -27,44 +22,44 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
   const { user } = useTelegram();
   const telegramId = user?.id?.toString() || "";
 
-  const [adState,      setAdState]      = useState<AdState>("idle");
-  const [totalEarned,  setTotalEarned]  = useState(0);
-  const [watchCount,   setWatchCount]   = useState(0);
-  const [errorMsg,     setErrorMsg]     = useState("");
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [watchCount, setWatchCount] = useState(0);
+  const [apiError, setApiError] = useState("");
+
+  const ad = useRewardedAd(COOLDOWN_MS);
 
   const rewardOnServer = useCallback(async () => {
+    if (!telegramId) return null;
     const res = await fetch("/api/ads/reward", {
-      method:  "POST",
+      method: "POST",
       headers: { "x-telegram-id": telegramId },
     });
-    if (!res.ok) throw new Error("reward API failed");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? "reward API failed");
+    }
     return (await res.json()) as { loyaltyPoints: number; pointsAwarded: number };
   }, [telegramId]);
 
   async function handleWatch() {
-    if (adState === "loading" || !telegramId) return;
-    setAdState("loading");
-    setErrorMsg("");
-    try {
-      if (typeof window.show_11001376 === "function") {
-        await window.show_11001376();
-      } else {
-        // dev simulation
-        await new Promise(r => setTimeout(r, 2500));
+    if (ad.isActive || !telegramId) return;
+    setApiError("");
+    const completed = await ad.show();
+    if (completed) {
+      try {
+        const data = await rewardOnServer();
+        if (data) {
+          setTotalEarned(t => t + data.pointsAwarded);
+          setWatchCount(c => c + 1);
+        }
+      } catch (e: unknown) {
+        setApiError(e instanceof Error ? e.message : "خطأ في الخادم");
       }
-      const { pointsAwarded } = await rewardOnServer();
-      setTotalEarned(t => t + pointsAwarded);
-      setWatchCount(c => c + 1);
-      setAdState("rewarded");
-      setTimeout(() => setAdState("idle"), 2800);
-    } catch {
-      setAdState("error");
-      setErrorMsg("لم تكتمل المشاهدة. حاول مجدداً.");
-      setTimeout(() => setAdState("idle"), 3000);
     }
   }
 
-  const isLoading = adState === "loading";
+  const phase = ad.phase;
+  const cooldownLeft = ad.cooldownLeft;
 
   return (
     <motion.div
@@ -77,7 +72,9 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
 
       {/* ── Header ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
           <ChevronRight className="w-5 h-5" />
         </button>
         <div className="flex-1">
@@ -97,29 +94,18 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
 
         {/* Emblem */}
         <div className="relative flex items-center justify-center">
-          {/* Outer glow ring — pulses */}
           <motion.div
             className="absolute rounded-full"
-            style={{
-              width: 188, height: 188,
-              background: "transparent",
-              border: "2px solid rgba(212,175,55,0.25)",
-            }}
+            style={{ width: 188, height: 188, background: "transparent", border: "2px solid rgba(212,175,55,0.25)" }}
             animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.9, 0.4] }}
             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           />
-          {/* Mid ring */}
           <motion.div
             className="absolute rounded-full"
-            style={{
-              width: 164, height: 164,
-              background: "transparent",
-              border: "1.5px solid rgba(212,175,55,0.15)",
-            }}
+            style={{ width: 164, height: 164, background: "transparent", border: "1.5px solid rgba(212,175,55,0.15)" }}
             animate={{ scale: [1, 1.05, 1], opacity: [0.2, 0.6, 0.2] }}
             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.4 }}
           />
-          {/* Emblem */}
           <div
             className="relative z-10 rounded-full overflow-hidden"
             style={{
@@ -131,7 +117,7 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* Points badge */}
+        {/* Watch count badge */}
         {watchCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -144,39 +130,61 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
           </motion.div>
         )}
 
-        {/* Ad state feedback */}
+        {/* ── Phase feedback ── */}
         <AnimatePresence>
-          {adState !== "idle" && (
+          {phase !== "idle" && (
             <motion.div
+              key={phase}
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="w-full rounded-2xl px-4 py-3 flex items-center gap-3"
               style={{
-                background: adState === "rewarded" ? "rgba(34,197,94,0.1)"
-                  : adState === "error" ? "rgba(239,68,68,0.1)"
+                background:
+                  phase === "completed" ? "rgba(34,197,94,0.1)"
+                  : phase === "dismissed" ? "rgba(239,68,68,0.08)"
                   : "rgba(212,175,55,0.07)",
                 border: `1.5px solid ${
-                  adState === "rewarded" ? "rgba(34,197,94,0.4)"
-                  : adState === "error" ? "rgba(239,68,68,0.4)"
+                  phase === "completed" ? "rgba(34,197,94,0.4)"
+                  : phase === "dismissed" ? "rgba(239,68,68,0.35)"
                   : "rgba(212,175,55,0.3)"
                 }`,
               }}>
-              {adState === "loading" && (
-                <motion.div className="w-5 h-5 border-2 border-[#d4af37] border-t-transparent rounded-full flex-shrink-0"
-                  animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} />
+              {(phase === "loading" || phase === "showing") && (
+                <motion.div
+                  className="w-5 h-5 border-2 border-[#d4af37] border-t-transparent rounded-full flex-shrink-0"
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                />
               )}
-              {adState === "rewarded" && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
-              {adState === "error" && <span className="text-red-400 text-lg flex-shrink-0">✕</span>}
+              {phase === "completed" && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
+              {phase === "dismissed" && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
               <p className="font-arabic text-sm font-bold"
-                style={{ color: adState === "rewarded" ? "#4ade80" : adState === "error" ? "#f87171" : "#d4af37" }}>
-                {adState === "loading"  && "يُحضَّر الإعلان... شاهد حتى النهاية"}
-                {adState === "rewarded" && `🎉 شكراً! +${AD_POINTS} نقطة أُضيفت لرصيدك`}
-                {adState === "error"    && errorMsg}
+                style={{
+                  color:
+                    phase === "completed" ? "#4ade80"
+                    : phase === "dismissed" ? "#f87171"
+                    : "#d4af37",
+                }}>
+                {phase === "loading"   && "يُحضَّر الإعلان..."}
+                {phase === "showing"   && "شاهد الإعلان حتى النهاية ليُحتسب لك 📺"}
+                {phase === "completed" && `🎉 مشاهدة مكتملة! +${AD_POINTS} نقطة أُضيفت فوراً`}
+                {phase === "dismissed" && "❗ لم تكتمل المشاهدة — النقاط لا تُمنح إلا بعد الاكتمال"}
               </p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Blinking Notice ── */}
+        {/* API error */}
+        <AnimatePresence>
+          {apiError && (
+            <motion.p
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="font-arabic text-sm text-center text-red-400">
+              {apiError}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        {/* ── Notice card ── */}
         <motion.div
           className="w-full rounded-2xl px-5 py-5 space-y-3"
           style={{
@@ -185,9 +193,7 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
             boxShadow: "0 4px 0 rgba(212,175,55,0.12), inset 0 0 24px rgba(212,175,55,0.04)",
           }}>
 
-          {/* Header row */}
           <div className="flex items-center gap-2 mb-1">
-            {/* Blinking dot */}
             <motion.div
               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: "#d4af37" }}
@@ -199,7 +205,6 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
             </span>
           </div>
 
-          {/* Lines */}
           <div className="space-y-2.5">
             {NOTICE_LINES.map((line, i) => (
               <motion.p
@@ -215,7 +220,14 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
             ))}
           </div>
 
-          {/* Bottom shimmer line */}
+          {/* Security reminder */}
+          <div className="mt-2 pt-2 border-t border-[#d4af37]/15 flex items-start gap-2">
+            <span className="text-[10px] text-white/30 font-mono mt-0.5">🔒</span>
+            <p className="font-arabic text-[11px] text-white/25">
+              النقاط لا تُضاف إلا بعد التحقق من اكتمال المشاهدة على الخادم
+            </p>
+          </div>
+
           <motion.div
             className="h-px w-full mt-1"
             style={{ background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)" }}
@@ -227,27 +239,40 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
         {/* ── Watch Button ── */}
         <motion.button
           onClick={handleWatch}
-          disabled={isLoading}
-          whileTap={{ scale: isLoading ? 1 : 0.96 }}
+          disabled={ad.isActive || cooldownLeft > 0 || !telegramId}
+          whileTap={{ scale: (ad.isActive || cooldownLeft > 0) ? 1 : 0.96 }}
           className="w-full flex items-center justify-center gap-3 rounded-3xl font-arabic font-bold text-xl"
           style={{
             padding: "20px 0",
-            background: isLoading
-              ? "rgba(212,175,55,0.2)"
-              : "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)",
-            boxShadow: isLoading ? "none" : "0 6px 0 rgba(180,140,20,0.55)",
-            border: isLoading ? "1.5px solid rgba(212,175,55,0.4)" : "none",
-            color: isLoading ? "#d4af37" : "#002b1b",
-            opacity: isLoading ? 0.75 : 1,
+            background:
+              ad.isActive || cooldownLeft > 0
+                ? "rgba(212,175,55,0.15)"
+                : "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)",
+            boxShadow:
+              ad.isActive || cooldownLeft > 0
+                ? "none"
+                : "0 6px 0 rgba(180,140,20,0.55)",
+            border:
+              ad.isActive || cooldownLeft > 0
+                ? "1.5px solid rgba(212,175,55,0.35)"
+                : "none",
+            color:
+              ad.isActive || cooldownLeft > 0 ? "#d4af37" : "#002b1b",
+            opacity: !telegramId ? 0.5 : 1,
           }}>
-          {isLoading ? (
+          {ad.isActive ? (
             <>
               <motion.div
                 className="w-6 h-6 border-[2.5px] border-[#d4af37] border-t-transparent rounded-full"
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
               />
-              <span>جارٍ تحضير الإعلان...</span>
+              <span>{phase === "loading" ? "يُحضَّر الإعلان..." : "جارٍ العرض..."}</span>
+            </>
+          ) : cooldownLeft > 0 ? (
+            <>
+              <Clock className="w-6 h-6" />
+              <span>متاح بعد {cooldownLeft}ث</span>
             </>
           ) : (
             <>
@@ -257,9 +282,9 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
           )}
         </motion.button>
 
-        {/* Points per watch note */}
+        {/* Points note */}
         <p className="font-arabic text-xs text-muted-foreground text-center -mt-4">
-          كل مشاهدة مكتملة = <span className="text-[#d4af37] font-bold">+{AD_POINTS} نقاط ولاء</span> تُضاف فوراً لرصيدك
+          كل مشاهدة <span className="text-red-400 font-bold">مكتملة</span> = <span className="text-[#d4af37] font-bold">+{AD_POINTS} نقاط ولاء</span> تُضاف فوراً
         </p>
 
       </div>

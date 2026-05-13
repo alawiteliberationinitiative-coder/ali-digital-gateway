@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Star, Lock, CheckCircle, Volume2 } from "lucide-react";
+import { ChevronRight, Star, Lock, CheckCircle, Tv, XCircle } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
+import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Question {
@@ -26,11 +27,7 @@ interface KnowledgeBase {
 const QUESTIONS_PER_LEVEL = 5;
 const POINTS_PER_LEVEL    = 10;
 
-declare global {
-  interface Window {
-    show_11001376?: () => Promise<void>;
-  }
-}
+const BONUS_AD_POINTS = 5;
 
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -304,14 +301,16 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
   );
 }
 
-// ─── Stage Complete (Ad Gate) ──────────────────────────────────────────────────
-type AdGateState = "idle" | "loading" | "playing" | "error";
-
-function StageGate({ stage, score, total, onWatch, adState, adError }: {
+// ─── Stage Complete (Mandatory Ad Gate — every 5 levels) ───────────────────────
+function StageGate({ stage, score, total, onWatch, adPhase, adError }: {
   stage: number; score: number; total: number;
-  onWatch: () => void; adState: AdGateState; adError: string;
+  onWatch: () => void;
+  adPhase: "idle" | "loading" | "showing" | "completed" | "dismissed" | "error";
+  adError: string;
 }) {
   const stars = Math.round((score / total) * 3);
+  const isActive = adPhase === "loading" || adPhase === "showing";
+
   return (
     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center gap-5 px-5 py-10 text-center" dir="rtl">
@@ -351,9 +350,25 @@ function StageGate({ stage, score, total, onWatch, adState, adError }: {
         </p>
       </div>
 
-      {/* Error message */}
+      {/* Phase feedback */}
       <AnimatePresence>
-        {adError && (
+        {adPhase === "dismissed" && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="w-full rounded-xl p-3 flex items-center gap-2 font-arabic text-sm"
+            style={{ background: "rgba(239,68,68,0.10)", border: "1.5px solid rgba(239,68,68,0.35)", color: "#f87171" }}>
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            لم تكتمل المشاهدة — يجب إكمالها للمتابعة
+          </motion.div>
+        )}
+        {adPhase === "showing" && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="w-full rounded-xl p-3 flex items-center gap-2 font-arabic text-sm"
+            style={{ background: "rgba(212,175,55,0.08)", border: "1.5px solid rgba(212,175,55,0.3)", color: "#d4af37" }}>
+            <Tv className="w-4 h-4 flex-shrink-0" />
+            شاهد الإعلان حتى النهاية ليُفتح المستوى
+          </motion.div>
+        )}
+        {adError && adPhase !== "dismissed" && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="w-full rounded-xl p-3 text-center font-arabic text-sm"
             style={{ background: "rgba(239,68,68,0.12)", border: "1.5px solid rgba(239,68,68,0.35)", color: "#f87171" }}>
@@ -363,20 +378,125 @@ function StageGate({ stage, score, total, onWatch, adState, adError }: {
       </AnimatePresence>
 
       <motion.button onClick={onWatch}
-        disabled={adState !== "idle"}
-        whileTap={adState === "idle" ? { scale: 0.96 } : {}}
+        disabled={isActive}
+        whileTap={!isActive ? { scale: 0.96 } : {}}
         className="w-full py-4 rounded-2xl font-arabic font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-70"
         style={{ background: "linear-gradient(135deg,#5b21b6,#7c3aed)", boxShadow: "0 5px 0 rgba(55,10,90,0.6)", color: "#e9d5ff" }}>
-        {adState === "loading" && (
-          <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> جارٍ تحميل الإعلان...</>
+        {isActive ? (
+          <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            {adPhase === "loading" ? "يُحضَّر الإعلان..." : "جارٍ عرض الإعلان..."}</>
+        ) : adPhase === "dismissed" ? (
+          <>↺ حاول مشاهدة الإعلان مجدداً</>
+        ) : (
+          <>📺 شاهد وافتح المستوى التالي</>
         )}
-        {adState === "playing" && (
-          <><span className="w-5 h-5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin" /> جارٍ عرض الإعلان...</>
-        )}
-        {adState === "idle" && <>📺 شاهد وافتح المستوى التالي</>}
-        {adState === "error" && <>↺ حاول مشاهدة الإعلان مجدداً</>}
       </motion.button>
 
+    </motion.div>
+  );
+}
+
+// ─── Between-Level Bonus Ad (Optional — non-stage levels) ─────────────────────
+function BonusAdScreen({ level, onWatch, onSkip, adPhase }: {
+  level: number;
+  onWatch: () => void;
+  onSkip: () => void;
+  adPhase: "idle" | "loading" | "showing" | "completed" | "dismissed" | "error";
+}) {
+  const isActive = adPhase === "loading" || adPhase === "showing";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="flex flex-col items-center gap-5 px-5 py-8 text-center" dir="rtl">
+
+      <motion.div className="text-5xl"
+        animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
+        ✅
+      </motion.div>
+
+      <div>
+        <p className="font-arabic text-[#d4af37] font-bold text-xl mb-1">
+          المستوى {level} مكتمل!
+        </p>
+        <p className="font-arabic text-white/40 text-sm">
+          المستوى التالي جاهز
+        </p>
+      </div>
+
+      {/* Bonus offer */}
+      <div className="w-full rounded-2xl p-4 space-y-2"
+        style={{ background: "rgba(212,175,55,0.06)", border: "1.5px solid rgba(212,175,55,0.25)" }}>
+        <div className="flex items-center gap-2 justify-center">
+          <Tv className="w-4 h-4 text-[#d4af37]" />
+          <p className="font-arabic text-[#d4af37] font-bold text-sm">شاهد إعلاناً واحداً</p>
+        </div>
+        <p className="font-mono text-[#d4af37] font-bold text-2xl">+{BONUS_AD_POINTS} نقاط إضافية</p>
+        <p className="font-arabic text-white/30 text-xs">
+          اختياري — يُمنح فقط عند اكتمال المشاهدة
+        </p>
+      </div>
+
+      {/* Phase feedback */}
+      <AnimatePresence>
+        {adPhase === "completed" && (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            className="w-full rounded-xl p-3 flex items-center gap-2 font-arabic text-sm"
+            style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.4)", color: "#4ade80" }}>
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            مشاهدة مكتملة! +{BONUS_AD_POINTS} نقاط أُضيفت
+          </motion.div>
+        )}
+        {adPhase === "dismissed" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="w-full rounded-xl p-3 flex items-center gap-2 font-arabic text-sm"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1.5px solid rgba(239,68,68,0.3)", color: "#f87171" }}>
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            لم تكتمل المشاهدة — لا تُمنح نقاط
+          </motion.div>
+        )}
+        {adPhase === "showing" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="w-full rounded-xl p-3 flex items-center gap-2 font-arabic text-sm"
+            style={{ background: "rgba(212,175,55,0.08)", border: "1.5px solid rgba(212,175,55,0.3)", color: "#d4af37" }}>
+            <Tv className="w-4 h-4 flex-shrink-0" />
+            شاهد حتى النهاية للحصول على النقاط 📺
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Buttons */}
+      <div className="w-full space-y-3">
+        <motion.button onClick={onWatch}
+          disabled={isActive || adPhase === "completed"}
+          whileTap={!isActive ? { scale: 0.97 } : {}}
+          className="w-full py-4 rounded-2xl font-arabic font-bold text-base flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{
+            background: "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)",
+            boxShadow: "0 5px 0 rgba(180,140,20,0.5)",
+            color: "#002b1b",
+          }}>
+          {isActive ? (
+            <>
+              <motion.div className="w-5 h-5 border-[2px] border-[#002b1b] border-t-transparent rounded-full"
+                animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} />
+              {adPhase === "loading" ? "يُحضَّر الإعلان..." : "جارٍ العرض..."}
+            </>
+          ) : (
+            <>
+              <Tv className="w-5 h-5" />
+              شاهد وادعم (+{BONUS_AD_POINTS} نقطة)
+            </>
+          )}
+        </motion.button>
+
+        <button onClick={onSkip}
+          disabled={isActive}
+          className="w-full py-3 rounded-2xl font-arabic text-sm text-white/35 border border-white/10 bg-transparent disabled:opacity-30 active:scale-95 transition-all">
+          تخطّى — المتابعة بدون إعلان
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -556,10 +676,12 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [qIdx, setQIdx]                   = useState(0);
   const [score, setScore]                 = useState(0);
-  const [phase, setPhase]                 = useState<"map" | "quiz" | "stage">("map");
-  const [adState, setAdState]             = useState<AdGateState>("idle");
+  const [phase, setPhase]                 = useState<"map" | "quiz" | "bonus" | "stage">("map");
   const [adError, setAdError]             = useState("");
   const [totalPoints, setTotalPoints]     = useState(0);
+
+  const stageAd = useRewardedAd(0);
+  const bonusAd = useRewardedAd(0);
 
   // ── Load KB from JSON ──
   useEffect(() => {
@@ -602,8 +724,9 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     setSelectedLevel(lvl);
     setQIdx(0);
     setScore(0);
-    setAdState("idle");
     setAdError("");
+    stageAd.reset();
+    bonusAd.reset();
     setPhase("quiz");
   }
 
@@ -611,56 +734,57 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     if (correct) setScore(s => s + 1);
     const qs = getLevelQuestions(selectedLevel!);
     if (qIdx + 1 >= qs.length) {
-      setTimeout(() => setPhase("stage"), 600);
+      const lvl = selectedLevel!;
+      const isStage = lvl % 5 === 0;
+      setTimeout(() => setPhase(isStage ? "stage" : "bonus"), 600);
     } else {
       setTimeout(() => setQIdx(i => i + 1), 900);
     }
   }
 
-  async function handleWatchAd() {
-    if (adState !== "idle" && adState !== "error") return;
-    setAdState("loading");
+  async function handleStageAdWatch() {
     setAdError("");
+    const completed = await stageAd.show();
+    if (!completed) return;
 
-    try {
-      // ── Monetag (same as شاهد وادعم) ──
-      setAdState("playing");
-      if (typeof window.show_11001376 === "function") {
-        await window.show_11001376();
-      } else {
-        // dev simulation — identical to watch.tsx
-        await new Promise(res => setTimeout(res, 2500));
+    if (telegramId) {
+      const res = await fetch("/api/quiz/complete-level", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-telegram-id": telegramId },
+        body: JSON.stringify({ levelCompleted: selectedLevel }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        setAdError(err.error ?? "خطأ في الخادم. حاول مجدداً.");
+        return;
       }
-
-      // ── Persist to server with sequential validation ──
-      if (telegramId) {
-        const res = await fetch("/api/quiz/complete-level", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-telegram-id": telegramId },
-          body: JSON.stringify({ levelCompleted: selectedLevel }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({})) as { error?: string };
-          setAdState("error");
-          setAdError(err.error ?? "خطأ في الخادم. حاول مجدداً.");
-          return;
-        }
-        const data = await res.json() as { level: number; loyaltyPoints: number; pointsAwarded: number };
-        // Sync with server state
-        setCurrentLevel(data.level);
-        setTotalPoints(data.loyaltyPoints);
-      } else {
-        // No telegramId — local only fallback
-        setTotalPoints(p => p + POINTS_PER_LEVEL);
-      }
-
-      setAdState("idle");
-      completeLevel();
-
-    } catch {
-      setAdState("error");
-      setAdError("حدث خطأ أثناء تحميل الإعلان. حاول مجدداً.");
+      const data = await res.json() as { level: number; loyaltyPoints: number; pointsAwarded: number };
+      setCurrentLevel(data.level);
+      setTotalPoints(data.loyaltyPoints);
+    } else {
+      setTotalPoints(p => p + POINTS_PER_LEVEL);
     }
+    completeLevel();
+  }
+
+  async function handleBonusAdWatch() {
+    const completed = await bonusAd.show();
+    if (completed && telegramId) {
+      try {
+        const res = await fetch("/api/ads/reward", {
+          method: "POST",
+          headers: { "x-telegram-id": telegramId },
+        });
+        if (res.ok) {
+          const data = await res.json() as { loyaltyPoints: number };
+          setTotalPoints(data.loyaltyPoints);
+        }
+      } catch { /* non-critical */ }
+    }
+  }
+
+  function handleBonusSkip() {
+    completeLevel();
   }
 
   function completeLevel() {
@@ -827,12 +951,25 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
             </motion.div>
           )}
 
-          {/* ── STAGE GATE ── */}
+          {/* ── BONUS AD (optional, between non-stage levels) ── */}
+          {phase === "bonus" && (
+            <motion.div key="bonus" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }} className="overflow-y-auto">
+              <BonusAdScreen
+                level={selectedLevel!}
+                onWatch={handleBonusAdWatch}
+                onSkip={handleBonusSkip}
+                adPhase={bonusAd.phase}
+              />
+            </motion.div>
+          )}
+
+          {/* ── STAGE GATE (mandatory, every 5 levels) ── */}
           {phase === "stage" && (
             <motion.div key="stage" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}>
               <StageGate stage={stage} score={score} total={qs.length}
-                onWatch={handleWatchAd} adState={adState} adError={adError} />
+                onWatch={handleStageAdWatch} adPhase={stageAd.phase} adError={adError} />
             </motion.div>
           )}
 

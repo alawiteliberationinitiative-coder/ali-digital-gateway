@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Zap, Star, Trophy, RotateCcw, Tv } from "lucide-react";
+import { ChevronRight, Zap, Star, Trophy, RotateCcw, Tv, XCircle } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
-
-declare global {
-  interface Window {
-    show_11001376?: () => Promise<void>;
-  }
-}
+import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 
 const slide = {
   initial: { x: -40, opacity: 0 },
@@ -55,21 +50,6 @@ const QUESTIONS: Question[] = [
 type GameState  = "ready" | "playing" | "answered" | "ad-break" | "done";
 type DoubleState = "idle" | "loading" | "done" | "error";
 
-// ── Same ad call as watch.tsx ──────────────────────────────────────────────────
-async function triggerMonetagAd(): Promise<boolean> {
-  try {
-    if (typeof window.show_11001376 === "function") {
-      await window.show_11001376();
-    } else {
-      // dev simulation — identical to شاهد وادعم
-      await new Promise(r => setTimeout(r, 2500));
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ── Stage-Complete Ad Screen ───────────────────────────────────────────────────
 function StageAdScreen({ score, telegramId, onDone }: {
   score: number;
@@ -79,6 +59,7 @@ function StageAdScreen({ score, telegramId, onDone }: {
   const [phase, setPhase] = useState<"countdown" | "ad" | "done">("countdown");
   const [secs,  setSecs]  = useState(3);
   const launched          = useRef(false);
+  const ad                = useRewardedAd(0);
 
   useEffect(() => {
     if (secs > 0) {
@@ -88,8 +69,7 @@ function StageAdScreen({ score, telegramId, onDone }: {
     if (!launched.current) {
       launched.current = true;
       setPhase("ad");
-      triggerMonetagAd().then(async () => {
-        // ── Same reward call as "شاهد وادعم" tab ──
+      ad.show().then(async () => {
         if (telegramId) {
           try {
             await fetch("/api/ads/reward", {
@@ -102,6 +82,7 @@ function StageAdScreen({ score, telegramId, onDone }: {
         setTimeout(onDone, 800);
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secs, onDone, telegramId]);
 
   return (
@@ -239,6 +220,8 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   const [doubleState,  setDoubleState]  = useState<DoubleState>("idle");
   const [doubledScore, setDoubledScore] = useState(0);
 
+  const doubleAd = useRewardedAd(0);
+
   const q      = QUESTIONS[current];
   const isLast = current === QUESTIONS.length - 1;
 
@@ -275,8 +258,8 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   async function handleDoublePoints() {
     if (doubleState !== "idle" || !score) return;
     setDoubleState("loading");
-    const ok = await triggerMonetagAd();
-    if (ok) {
+    const completed = await doubleAd.show();
+    if (completed) {
       const doubled = score * 2;
       setDoubledScore(doubled);
       setScore(doubled);
