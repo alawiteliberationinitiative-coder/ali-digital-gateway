@@ -25,11 +25,10 @@ interface KnowledgeBase {
 
 const QUESTIONS_PER_LEVEL = 5;
 const POINTS_PER_LEVEL    = 10;
-const ADSGRAM_BLOCK_ID    = import.meta.env.VITE_ADSGRAM_BLOCK_ID as string | undefined;
 
 declare global {
   interface Window {
-    Adsgram?: { init: (o: { blockId: string }) => Promise<{ show: () => Promise<{ done: boolean }> }> };
+    show_11001376?: () => Promise<void>;
   }
 }
 
@@ -624,20 +623,13 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     setAdError("");
 
     try {
-      // ── Real Adsgram path ──
-      if (ADSGRAM_BLOCK_ID && window.Adsgram) {
-        const ctrl = await window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
-        setAdState("playing");
-        const r = await ctrl.show();
-        if (!r.done) {
-          setAdState("error");
-          setAdError("لم تكتمل المشاهدة. يجب إكمال الإعلان لفتح المستوى التالي.");
-          return;
-        }
+      // ── Monetag (same as شاهد وادعم) ──
+      setAdState("playing");
+      if (typeof window.show_11001376 === "function") {
+        await window.show_11001376();
       } else {
-        // ── Dev simulation (only when no block ID configured) ──
-        setAdState("playing");
-        await new Promise(res => setTimeout(res, 2000));
+        // dev simulation — identical to watch.tsx
+        await new Promise(res => setTimeout(res, 2500));
       }
 
       // ── Persist to server with sequential validation ──
