@@ -24,8 +24,8 @@ interface KnowledgeBase {
 }
 
 const QUESTIONS_PER_LEVEL = 5;
-const POINTS_PER_LEVEL = 10;
-const ADSGRAM_BLOCK_ID = import.meta.env.VITE_ADSGRAM_BLOCK_ID as string | undefined;
+const POINTS_PER_LEVEL    = 10;
+const ADSGRAM_BLOCK_ID    = import.meta.env.VITE_ADSGRAM_BLOCK_ID as string | undefined;
 
 declare global {
   interface Window {
@@ -50,17 +50,14 @@ function useSounds() {
     if (!ctxRef.current || ctxRef.current.state === "closed") {
       ctxRef.current = new AudioContext();
     }
-    if (ctxRef.current.state === "suspended") {
-      ctxRef.current.resume();
-    }
+    if (ctxRef.current.state === "suspended") ctxRef.current.resume();
     return ctxRef.current;
   }, []);
 
   const playClick = useCallback(() => {
     try {
       const ac = getCtx();
-      const osc = ac.createOscillator();
-      const g = ac.createGain();
+      const osc = ac.createOscillator(); const g = ac.createGain();
       osc.connect(g); g.connect(ac.destination);
       osc.frequency.value = 660; osc.type = "sine";
       g.gain.setValueAtTime(0.08, ac.currentTime);
@@ -73,8 +70,7 @@ function useSounds() {
     try {
       const ac = getCtx();
       [523, 659, 784].forEach((freq, i) => {
-        const osc = ac.createOscillator();
-        const g = ac.createGain();
+        const osc = ac.createOscillator(); const g = ac.createGain();
         osc.connect(g); g.connect(ac.destination);
         osc.frequency.value = freq; osc.type = "sine";
         const t = ac.currentTime + i * 0.14;
@@ -89,8 +85,7 @@ function useSounds() {
     try {
       const ac = getCtx();
       [300, 220].forEach((freq, i) => {
-        const osc = ac.createOscillator();
-        const g = ac.createGain();
+        const osc = ac.createOscillator(); const g = ac.createGain();
         osc.connect(g); g.connect(ac.destination);
         osc.type = "sawtooth"; osc.frequency.value = freq;
         const t = ac.currentTime + i * 0.15;
@@ -106,12 +101,12 @@ function useSounds() {
 
 // ─── Category Info ────────────────────────────────────────────────────────────
 const CAT: Record<string, { label: string; color: string; emoji: string }> = {
-  nahjBalagha: { label: "نهج البلاغة",     color: "#d4af37", emoji: "📜" },
-  poetry:      { label: "شعر وأدب",        color: "#60a5fa", emoji: "🖋" },
-  mythology:   { label: "الميثيولوجيا",    color: "#a78bfa", emoji: "⚡" },
-  geography:   { label: "جغرافيا",         color: "#34d399", emoji: "🗺" },
-  philosophy:  { label: "حكمة الفلاسفة",  color: "#f59e0b", emoji: "🏛" },
-  earthScience:{ label: "علوم الأرض",      color: "#22d3ee", emoji: "🌍" },
+  nahjBalagha:  { label: "نهج البلاغة",    color: "#d4af37", emoji: "📜" },
+  poetry:       { label: "شعر وأدب",       color: "#60a5fa", emoji: "🖋"  },
+  mythology:    { label: "الميثيولوجيا",   color: "#a78bfa", emoji: "⚡"  },
+  geography:    { label: "جغرافيا",        color: "#34d399", emoji: "🗺"  },
+  philosophy:   { label: "حكمة الفلاسفة", color: "#f59e0b", emoji: "🏛"  },
+  earthScience: { label: "علوم الأرض",     color: "#22d3ee", emoji: "🌍"  },
 };
 
 // ─── Word Sort ────────────────────────────────────────────────────────────────
@@ -120,10 +115,10 @@ function WordSort({ words, answer, onResult, playClick, playCorrect, playWrong }
   onResult: (c: boolean) => void;
   playClick: () => void; playCorrect: () => void; playWrong: () => void;
 }) {
-  const [avail, setAvail] = useState([...words]);
+  const [avail, setAvail]       = useState([...words]);
   const [arranged, setArranged] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [correct, setCorrect] = useState(false);
+  const [correct, setCorrect]   = useState(false);
 
   function pick(w: string, i: number) {
     if (submitted) return;
@@ -141,8 +136,7 @@ function WordSort({ words, answer, onResult, playClick, playCorrect, playWrong }
   function submit() {
     if (arranged.length !== answer.length) return;
     const ok = arranged.join(" ") === answer.join(" ");
-    setCorrect(ok);
-    setSubmitted(true);
+    setCorrect(ok); setSubmitted(true);
     ok ? playCorrect() : playWrong();
     setTimeout(() => onResult(ok), 1400);
   }
@@ -153,7 +147,6 @@ function WordSort({ words, answer, onResult, playClick, playCorrect, playWrong }
 
   return (
     <div className="space-y-4" dir="rtl">
-      {/* Drop zone */}
       <motion.div className="min-h-14 rounded-2xl p-3 flex flex-wrap gap-2 transition-all"
         animate={{ borderColor: submitted ? (correct ? "#4ade80" : "#f87171") : "rgba(212,175,55,0.35)" }}
         style={{ background: "rgba(0,20,10,0.6)", border: "2px dashed rgba(212,175,55,0.35)" }}>
@@ -169,21 +162,16 @@ function WordSort({ words, answer, onResult, playClick, playCorrect, playWrong }
           </motion.button>
         ))}
       </motion.div>
-
-      {/* Word bank */}
       <div className="flex flex-wrap gap-2 justify-center py-1">
         {avail.map((w, i) => (
           <motion.button key={`v-${i}-${w}`} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            onClick={() => pick(w, i)} disabled={submitted}
-            whileTap={{ scale: 0.93 }}
+            onClick={() => pick(w, i)} disabled={submitted} whileTap={{ scale: 0.93 }}
             className="font-arabic text-sm px-4 py-2 rounded-xl font-bold active:scale-95 transition-all"
             style={{ background: "rgba(0,60,30,0.5)", border: "1.5px solid rgba(212,175,55,0.3)", color: "#e8e8e8" }}>
             {w}
           </motion.button>
         ))}
       </div>
-
-      {/* Controls */}
       <div className="flex gap-3">
         <button onClick={reset} disabled={submitted || arranged.length === 0}
           className="flex-1 py-2.5 rounded-xl font-arabic text-sm border border-white/10 text-white/50 active:scale-95 transition-all disabled:opacity-30">
@@ -197,7 +185,6 @@ function WordSort({ words, answer, onResult, playClick, playCorrect, playWrong }
           تحقق ✓
         </motion.button>
       </div>
-
       <AnimatePresence>
         {submitted && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -219,7 +206,6 @@ function FillBlank({ text, options, answer, onResult, playClick, playCorrect, pl
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const isCorrect = selected === answer;
-  // shuffle once on mount so correct answer isn't always first
   const shuffledOptions = useMemo(() => shuffled(options), []);
 
   function choose(opt: string) {
@@ -235,7 +221,6 @@ function FillBlank({ text, options, answer, onResult, playClick, playCorrect, pl
 
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Sentence with blank */}
       <div className="rounded-2xl p-4 text-center"
         style={{ background: "rgba(0,50,25,0.4)", border: "1.5px solid rgba(212,175,55,0.2)" }}>
         <p className="font-arabic text-white text-lg leading-8 font-bold">
@@ -249,23 +234,18 @@ function FillBlank({ text, options, answer, onResult, playClick, playCorrect, pl
           {parts[1]}
         </p>
       </div>
-
-      {/* Options */}
       <div className="grid grid-cols-2 gap-3">
         {shuffledOptions.map((opt) => {
           const isOpt = selected === opt;
           const isAns = opt === answer;
-          let bg = "rgba(0,60,30,0.4)";
-          let border = "rgba(212,175,55,0.25)";
-          let color = "#e8e8e8";
+          let bg = "rgba(0,60,30,0.4)", border = "rgba(212,175,55,0.25)", color = "#e8e8e8";
           if (selected) {
-            if (isAns) { bg = "rgba(74,222,128,0.18)"; border = "#4ade80"; color = "#4ade80"; }
-            else if (isOpt) { bg = "rgba(239,68,68,0.18)"; border = "#f87171"; color = "#f87171"; }
-            else { bg = "rgba(0,0,0,0.15)"; border = "rgba(255,255,255,0.06)"; color = "rgba(255,255,255,0.25)"; }
+            if (isAns)      { bg = "rgba(74,222,128,0.18)";  border = "#4ade80"; color = "#4ade80"; }
+            else if (isOpt) { bg = "rgba(239,68,68,0.18)";   border = "#f87171"; color = "#f87171"; }
+            else            { bg = "rgba(0,0,0,0.15)"; border = "rgba(255,255,255,0.06)"; color = "rgba(255,255,255,0.25)"; }
           }
           return (
-            <motion.button key={opt}
-              onClick={() => choose(opt)}
+            <motion.button key={opt} onClick={() => choose(opt)}
               whileTap={!selected ? { scale: 0.96 } : {}}
               className="py-3 px-3 rounded-2xl font-arabic text-sm font-bold text-center transition-all"
               style={{ background: bg, border: `2px solid ${border}`, color, boxShadow: isAns && selected ? "0 0 14px rgba(74,222,128,0.25)" : "none" }}>
@@ -287,7 +267,6 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
   playClick: () => void; playCorrect: () => void; playWrong: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  // shuffle once on mount so correct answer isn't always first
   const shuffledOptions = useMemo(() => shuffled(options), []);
 
   function choose(opt: string) {
@@ -304,17 +283,14 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
       {shuffledOptions.map((opt) => {
         const isOpt = selected === opt;
         const isAns = opt === answer;
-        let bg = "rgba(0,60,30,0.35)";
-        let border = "rgba(212,175,55,0.2)";
-        let color = "#e8e8e8";
+        let bg = "rgba(0,60,30,0.35)", border = "rgba(212,175,55,0.2)", color = "#e8e8e8";
         if (selected) {
-          if (isAns) { bg = "rgba(74,222,128,0.18)"; border = "#4ade80"; color = "#4ade80"; }
-          else if (isOpt) { bg = "rgba(239,68,68,0.18)"; border = "#f87171"; color = "#f87171"; }
-          else { bg = "rgba(0,0,0,0.1)"; border = "rgba(255,255,255,0.05)"; color = "rgba(255,255,255,0.2)"; }
+          if (isAns)      { bg = "rgba(74,222,128,0.18)";  border = "#4ade80"; color = "#4ade80"; }
+          else if (isOpt) { bg = "rgba(239,68,68,0.18)";   border = "#f87171"; color = "#f87171"; }
+          else            { bg = "rgba(0,0,0,0.1)"; border = "rgba(255,255,255,0.05)"; color = "rgba(255,255,255,0.2)"; }
         }
         return (
-          <motion.button key={opt}
-            onClick={() => choose(opt)}
+          <motion.button key={opt} onClick={() => choose(opt)}
             whileTap={!selected ? { scale: 0.98 } : {}}
             className="w-full py-3.5 px-5 rounded-2xl font-arabic text-sm font-bold text-right transition-all"
             style={{ background: bg, border: `2px solid ${border}`, color, boxShadow: isAns && selected ? "0 0 16px rgba(74,222,128,0.2)" : "none" }}>
@@ -330,9 +306,11 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
 }
 
 // ─── Stage Complete (Ad Gate) ──────────────────────────────────────────────────
-function StageGate({ stage, score, total, onWatch, loading }: {
+type AdGateState = "idle" | "loading" | "playing" | "error";
+
+function StageGate({ stage, score, total, onWatch, adState, adError }: {
   stage: number; score: number; total: number;
-  onWatch: () => void; loading: boolean;
+  onWatch: () => void; adState: AdGateState; adError: string;
 }) {
   const stars = Math.round((score / total) * 3);
   return (
@@ -350,7 +328,6 @@ function StageGate({ stage, score, total, onWatch, loading }: {
         <p className="font-arabic text-white/50 text-sm">أجبت عن {score} من {total} إجابات صحيحة</p>
       </div>
 
-      {/* Stars */}
       <div className="flex gap-3">
         {[...Array(3)].map((_, i) => (
           <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.15 + i * 0.15 }}
@@ -363,21 +340,42 @@ function StageGate({ stage, score, total, onWatch, loading }: {
         style={{ background: "rgba(212,175,55,0.07)" }}>
         <p className="font-arabic text-[#d4af37]/60 text-xs mb-1">مكافأة المحطة</p>
         <p className="font-mono text-[#d4af37] font-bold text-2xl">+{POINTS_PER_LEVEL} نقطة ولاء</p>
+        <p className="font-arabic text-white/30 text-xs mt-1">تُضاف فوراً عند اكتمال مشاهدة الإعلان</p>
       </div>
 
-      {/* Ad gate */}
+      {/* Ad gate info */}
       <div className="w-full rounded-2xl border border-purple-500/30 p-4"
         style={{ background: "rgba(88,28,135,0.2)" }}>
         <p className="font-arabic text-purple-200 font-bold text-sm mb-1">📺 شاهد واستمر في الرحلة</p>
-        <p className="font-arabic text-purple-300/60 text-xs">شاهد إعلاناً لفتح المحطة التالية وادعم المبادرة</p>
+        <p className="font-arabic text-purple-300/60 text-xs">
+          يجب إكمال مشاهدة الإعلان لفتح المستوى التالي والحصول على النقاط
+        </p>
       </div>
 
-      <motion.button onClick={onWatch} disabled={loading} whileTap={{ scale: 0.96 }}
-        className="w-full py-4 rounded-2xl font-arabic font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-60"
+      {/* Error message */}
+      <AnimatePresence>
+        {adError && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="w-full rounded-xl p-3 text-center font-arabic text-sm"
+            style={{ background: "rgba(239,68,68,0.12)", border: "1.5px solid rgba(239,68,68,0.35)", color: "#f87171" }}>
+            {adError}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button onClick={onWatch}
+        disabled={adState !== "idle"}
+        whileTap={adState === "idle" ? { scale: 0.96 } : {}}
+        className="w-full py-4 rounded-2xl font-arabic font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-70"
         style={{ background: "linear-gradient(135deg,#5b21b6,#7c3aed)", boxShadow: "0 5px 0 rgba(55,10,90,0.6)", color: "#e9d5ff" }}>
-        {loading
-          ? <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> جارٍ التحميل...</>
-          : <>📺 شاهد وافتح المحطة التالية</>}
+        {adState === "loading" && (
+          <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> جارٍ تحميل الإعلان...</>
+        )}
+        {adState === "playing" && (
+          <><span className="w-5 h-5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin" /> جارٍ عرض الإعلان...</>
+        )}
+        {adState === "idle" && <>📺 شاهد وافتح المستوى التالي</>}
+        {adState === "error" && <>↺ حاول مشاهدة الإعلان مجدداً</>}
       </motion.button>
 
     </motion.div>
@@ -386,13 +384,25 @@ function StageGate({ stage, score, total, onWatch, loading }: {
 
 // ─── Duolingo Winding Path ─────────────────────────────────────────────────────
 const OFFSETS = [48, 20, 0, -20, -48, -20, 0, 20];
+const LEVELS_PER_PAGE = 50; // show this many at a time in the map
 
 function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
   totalLevels: number; completedLevels: Set<number>; currentLevel: number;
   onSelect: (l: number) => void;
 }) {
-  const displayLevels = Math.min(totalLevels, 50);
   const currentNodeRef = useRef<HTMLDivElement | null>(null);
+
+  // Show the page that contains the current level
+  const [page, setPage] = useState(() => Math.ceil(currentLevel / LEVELS_PER_PAGE));
+  const totalPages  = Math.ceil(totalLevels / LEVELS_PER_PAGE);
+  const startLevel  = (page - 1) * LEVELS_PER_PAGE + 1;
+  const endLevel    = Math.min(page * LEVELS_PER_PAGE, totalLevels);
+
+  // Jump to page containing currentLevel if it changes
+  useEffect(() => {
+    const targetPage = Math.ceil(currentLevel / LEVELS_PER_PAGE);
+    setPage(targetPage);
+  }, [currentLevel]);
 
   useEffect(() => {
     if (currentNodeRef.current) {
@@ -400,29 +410,53 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
         currentNodeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 350);
     }
-  }, [currentLevel]);
+  }, [currentLevel, page]);
+
+  const levelRange = Array.from({ length: endLevel - startLevel + 1 }, (_, i) => startLevel + i);
 
   return (
     <div className="px-4 pb-28 relative">
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-4 px-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="font-arabic text-xs px-3 py-1.5 rounded-xl border border-white/10 text-white/50 disabled:opacity-20 active:scale-95 transition-all">
+            ← السابق
+          </button>
+          <span className="font-arabic text-white/30 text-xs">
+            صفحة {page} من {totalPages} · مستويات {startLevel}–{endLevel}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="font-arabic text-xs px-3 py-1.5 rounded-xl border border-white/10 text-white/50 disabled:opacity-20 active:scale-95 transition-all">
+            التالي →
+          </button>
+        </div>
+      )}
+
       <div className="relative flex flex-col items-center gap-0 pt-2">
-        {[...Array(displayLevels)].map((_, i) => {
-          const lvl = i + 1;
-          const done = completedLevels.has(lvl);
+        {levelRange.map((lvl, i) => {
+          const done    = completedLevels.has(lvl);
           const current = lvl === currentLevel;
-          const locked = lvl > currentLevel && !done;
+          const locked  = lvl > currentLevel && !done;
           const isStage = lvl % 5 === 0;
-          const offsetX = OFFSETS[i % OFFSETS.length];
+          const offsetX = OFFSETS[(lvl - 1) % OFFSETS.length];
+          const nearby  = Math.abs(lvl - currentLevel) < 20;
 
           return (
             <div key={lvl} ref={current ? currentNodeRef : undefined}
               className="flex flex-col items-center" style={{ width: "100%" }}>
+
               {/* Stage milestone banner */}
-              {isStage && lvl <= currentLevel + 1 && (
+              {isStage && (lvl <= currentLevel + 1) && (
                 <motion.div
                   initial={{ opacity: 0, scaleX: 0.8 }} animate={{ opacity: 1, scaleX: 1 }}
                   className="w-full max-w-[220px] rounded-xl py-2 px-4 mb-1 mt-1 text-center"
                   style={{
-                    background: done ? "rgba(74,222,128,0.12)" : current || lvl === currentLevel + 1 ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.04)",
+                    background: done ? "rgba(74,222,128,0.12)" : "rgba(212,175,55,0.1)",
                     border: `1px solid ${done ? "rgba(74,222,128,0.35)" : "rgba(212,175,55,0.25)"}`,
                   }}>
                   <p className="font-arabic text-xs font-bold" style={{ color: done ? "#4ade80" : "#d4af37" }}>
@@ -431,7 +465,7 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
                 </motion.div>
               )}
 
-              {/* Connector line (above node, except first) */}
+              {/* Connector line */}
               {i > 0 && (
                 <div className="w-0.5 h-6 rounded-full"
                   style={{ background: done || current ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)" }} />
@@ -440,43 +474,34 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
               {/* Level node */}
               <motion.button
                 onClick={() => !locked && onSelect(lvl)}
-                initial={{ opacity: 0, scale: 0.7 }}
+                initial={nearby ? { opacity: 0, scale: 0.7 } : false}
                 animate={{ opacity: 1, scale: 1, x: offsetX }}
-                transition={{ delay: i * 0.025, type: "spring", stiffness: 300, damping: 22 }}
+                transition={nearby ? { delay: i * 0.02, type: "spring", stiffness: 300, damping: 22 } : { duration: 0 }}
                 whileTap={!locked ? { scale: 0.9 } : {}}
                 className="relative flex flex-col items-center justify-center rounded-full transition-all"
                 style={{
-                  width: isStage ? 72 : 58,
-                  height: isStage ? 72 : 58,
-                  background: done
-                    ? "linear-gradient(135deg,#16a34a,#22c55e)"
-                    : current
-                    ? "linear-gradient(135deg,#7a5c00,#d4af37)"
-                    : locked
-                    ? "rgba(255,255,255,0.04)"
-                    : "rgba(0,60,30,0.5)",
+                  width: isStage ? 72 : 58, height: isStage ? 72 : 58,
+                  background: done ? "linear-gradient(135deg,#16a34a,#22c55e)"
+                    : current ? "linear-gradient(135deg,#7a5c00,#d4af37)"
+                    : locked   ? "rgba(255,255,255,0.04)"
+                                : "rgba(0,60,30,0.5)",
                   border: `3px solid ${done ? "#4ade80" : current ? "#f0d060" : locked ? "rgba(255,255,255,0.08)" : "rgba(212,175,55,0.3)"}`,
-                  boxShadow: done
-                    ? "0 4px 0 rgba(22,163,74,0.5), 0 0 20px rgba(74,222,128,0.2)"
-                    : current
-                    ? "0 4px 0 rgba(100,75,0,0.7), 0 0 25px rgba(212,175,55,0.35)"
-                    : "0 3px 0 rgba(0,0,0,0.4)",
+                  boxShadow: done    ? "0 4px 0 rgba(22,163,74,0.5), 0 0 20px rgba(74,222,128,0.2)"
+                           : current ? "0 4px 0 rgba(100,75,0,0.7), 0 0 25px rgba(212,175,55,0.35)"
+                                      : "0 3px 0 rgba(0,0,0,0.4)",
                   cursor: locked ? "not-allowed" : "pointer",
                 }}>
 
-                {/* Pulse ring for current */}
                 {current && (
                   <motion.div className="absolute inset-0 rounded-full border-2 border-[#d4af37]"
                     animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0, 0.7] }}
                     transition={{ repeat: Infinity, duration: 1.8 }} />
                 )}
 
-                {done
-                  ? <CheckCircle className="w-6 h-6 text-white" />
-                  : locked
-                  ? <Lock className="w-4 h-4 text-white/20" />
-                  : <span className="font-mono font-bold text-sm" style={{ color: current ? "#002b1b" : "#d4af37" }}>{lvl}</span>
-                }
+                {done   ? <CheckCircle className="w-6 h-6 text-white" />
+                : locked ? <Lock className="w-4 h-4 text-white/20" />
+                         : <span className="font-mono font-bold text-sm" style={{ color: current ? "#002b1b" : "#d4af37" }}>{lvl}</span>}
+
                 {isStage && !locked && (
                   <span className="absolute -top-1 -right-1 text-xs">⭐</span>
                 )}
@@ -484,20 +509,16 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
             </div>
           );
         })}
-
-        {totalLevels > displayLevels && (
-          <p className="font-arabic text-center text-white/20 text-xs mt-6">
-            +{totalLevels - displayLevels} مستوى قادم
-          </p>
-        )}
       </div>
     </div>
   );
 }
 
 // ─── Quiz Progress Bar ────────────────────────────────────────────────────────
-function QuizProgress({ level, idx, total, catColor }: { level: number; idx: number; total: number; catColor: string }) {
-  const pct = ((idx) / total) * 100;
+function QuizProgress({ level, idx, total, catColor }: {
+  level: number; idx: number; total: number; catColor: string;
+}) {
+  const pct = (idx / total) * 100;
   return (
     <div className="space-y-2" dir="rtl">
       <div className="flex items-center justify-between text-xs">
@@ -510,11 +531,9 @@ function QuizProgress({ level, idx, total, catColor }: { level: number; idx: num
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.5, ease: "easeOut" }} />
       </div>
-      {/* Step dots */}
       <div className="flex gap-1.5 justify-center">
         {[...Array(total)].map((_, i) => (
-          <motion.div key={i}
-            className="rounded-full transition-all"
+          <motion.div key={i} className="rounded-full transition-all"
             animate={{ width: i === idx ? 20 : 8, height: 8, backgroundColor: i < idx ? catColor : i === idx ? catColor : "rgba(255,255,255,0.1)" }}
             transition={{ duration: 0.3 }} />
         ))}
@@ -529,24 +548,47 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   const telegramId = user?.id?.toString() || "";
   const { playClick, playCorrect, playWrong } = useSounds();
 
-  const [kb, setKb] = useState<KnowledgeBase | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [kb, setKb]                       = useState<KnowledgeBase | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [serverLevelLoaded, setServerLevelLoaded] = useState(false);
 
   const [completedLevels, setCompletedLevels] = useState<Set<number>>(new Set());
-  const [currentLevel, setCurrentLevel] = useState(1);
+  const [currentLevel, setCurrentLevel]   = useState(1);
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
-  const [qIdx, setQIdx] = useState(0);
-  const [score, setScore] = useState(0);
-  const [phase, setPhase] = useState<"map" | "quiz" | "stage">("map");
-  const [adLoading, setAdLoading] = useState(false);
-  const [totalPoints, setTotalPoints] = useState(0);
+  const [qIdx, setQIdx]                   = useState(0);
+  const [score, setScore]                 = useState(0);
+  const [phase, setPhase]                 = useState<"map" | "quiz" | "stage">("map");
+  const [adState, setAdState]             = useState<AdGateState>("idle");
+  const [adError, setAdError]             = useState("");
+  const [totalPoints, setTotalPoints]     = useState(0);
 
+  // ── Load KB from JSON ──
   useEffect(() => {
     fetch("/knowledge_base.json")
       .then(r => r.json())
       .then((d: KnowledgeBase) => { setKb(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  // ── Load saved level from server ──
+  useEffect(() => {
+    if (!telegramId) { setServerLevelLoaded(true); return; }
+    fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+      .then(r => r.ok ? r.json() : null)
+      .then((u: { level: number; loyaltyPoints: number } | null) => {
+        if (u && u.level >= 1) {
+          const savedLevel = u.level;
+          setCurrentLevel(savedLevel);
+          // Mark all levels before savedLevel as completed
+          const done = new Set<number>();
+          for (let l = 1; l < savedLevel; l++) done.add(l);
+          setCompletedLevels(done);
+          setTotalPoints(u.loyaltyPoints);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setServerLevelLoaded(true));
+  }, [telegramId]);
 
   const getLevelQuestions = useCallback((lvl: number): Question[] => {
     if (!kb) return [];
@@ -561,6 +603,8 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     setSelectedLevel(lvl);
     setQIdx(0);
     setScore(0);
+    setAdState("idle");
+    setAdError("");
     setPhase("quiz");
   }
 
@@ -575,39 +619,77 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   }
 
   async function handleWatchAd() {
-    setAdLoading(true);
+    if (adState !== "idle" && adState !== "error") return;
+    setAdState("loading");
+    setAdError("");
+
     try {
+      // ── Real Adsgram path ──
       if (ADSGRAM_BLOCK_ID && window.Adsgram) {
         const ctrl = await window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+        setAdState("playing");
         const r = await ctrl.show();
-        if (!r.done) { setAdLoading(false); return; }
+        if (!r.done) {
+          setAdState("error");
+          setAdError("لم تكتمل المشاهدة. يجب إكمال الإعلان لفتح المستوى التالي.");
+          return;
+        }
       } else {
-        await new Promise(r => setTimeout(r, 2000));
+        // ── Dev simulation (only when no block ID configured) ──
+        setAdState("playing");
+        await new Promise(res => setTimeout(res, 2000));
       }
+
+      // ── Persist to server with sequential validation ──
       if (telegramId) {
-        await fetch("/api/ads/reward", { method: "POST", headers: { "x-telegram-id": telegramId } });
+        const res = await fetch("/api/quiz/complete-level", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-telegram-id": telegramId },
+          body: JSON.stringify({ levelCompleted: selectedLevel }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({})) as { error?: string };
+          setAdState("error");
+          setAdError(err.error ?? "خطأ في الخادم. حاول مجدداً.");
+          return;
+        }
+        const data = await res.json() as { level: number; loyaltyPoints: number; pointsAwarded: number };
+        // Sync with server state
+        setCurrentLevel(data.level);
+        setTotalPoints(data.loyaltyPoints);
+      } else {
+        // No telegramId — local only fallback
+        setTotalPoints(p => p + POINTS_PER_LEVEL);
       }
-      setTotalPoints(p => p + POINTS_PER_LEVEL);
+
+      setAdState("idle");
       completeLevel();
-    } catch { /* silent */ }
-    setAdLoading(false);
+
+    } catch {
+      setAdState("error");
+      setAdError("حدث خطأ أثناء تحميل الإعلان. حاول مجدداً.");
+    }
   }
 
   function completeLevel() {
     const lvl = selectedLevel!;
-    setCompletedLevels(prev => new Set([...prev, lvl]));
-    setCurrentLevel(prev => Math.max(prev, lvl + 1));
+    setCompletedLevels(prev => {
+      const next = new Set(prev);
+      next.add(lvl);
+      return next;
+    });
     setPhase("map");
     setSelectedLevel(null);
   }
 
-
-  const qs = selectedLevel ? getLevelQuestions(selectedLevel) : [];
-  const q = qs[qIdx];
-  const cat = q ? (CAT[q.category] ?? { label: q.category, color: "#d4af37", emoji: "📖" }) : null;
+  const qs    = selectedLevel ? getLevelQuestions(selectedLevel) : [];
+  const q     = qs[qIdx];
+  const cat   = q ? (CAT[q.category] ?? { label: q.category, color: "#d4af37", emoji: "📖" }) : null;
   const stage = selectedLevel ? Math.ceil(selectedLevel / 5) : 0;
 
-  if (loading) {
+  const isReady = !loading && serverLevelLoaded;
+
+  if (!isReady) {
     return (
       <div className="min-h-screen flex items-center justify-center"
         style={{ background: "linear-gradient(160deg,#001a10,#002b1b)" }}>
@@ -633,13 +715,15 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
         </button>
         <div className="flex-1" dir="rtl">
           <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">اربح وادعم — محرك المعرفة</h1>
-          <p className="font-arabic text-white/35 text-xs">{totalLevels} مستوى · {kb?.totalQuestions ?? 0} سؤال</p>
+          <p className="font-arabic text-white/35 text-xs">
+            {totalLevels} مستوى · {kb?.totalQuestions ?? 0} سؤال · المستوى الحالي: {currentLevel}
+          </p>
         </div>
         {totalPoints > 0 && (
           <div className="flex items-center gap-1 rounded-full px-3 py-1"
             style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.4)" }}>
             <Star className="w-3.5 h-3.5 text-[#d4af37]" fill="#d4af37" />
-            <span className="font-mono text-[#d4af37] text-sm font-bold">+{totalPoints}</span>
+            <span className="font-mono text-[#d4af37] text-sm font-bold">{totalPoints}</span>
           </div>
         )}
       </div>
@@ -650,13 +734,17 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
           {/* ── MAP VIEW ── */}
           {phase === "map" && (
             <motion.div key="map" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -30 }}>
-              {/* Hero */}
               <div className="px-4 pt-6 pb-4 text-center" dir="rtl">
                 <motion.div className="text-5xl mb-3"
                   animate={{ rotate: [0, -6, 6, -4, 4, 0] }}
                   transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}>🧠</motion.div>
                 <p className="font-arabic text-[#d4af37] font-bold text-xl mb-1">خريطة الرحلة</p>
-                <p className="font-arabic text-white/40 text-sm mb-4">كل ٥ مستويات = محطة إعلان ودعم</p>
+                <p className="font-arabic text-white/40 text-sm mb-1">
+                  كل مستوى = إعلان + {POINTS_PER_LEVEL} نقاط ولاء
+                </p>
+                <p className="font-arabic text-white/25 text-xs mb-4">
+                  مكتمل: {completedLevels.size} / {totalLevels} مستوى
+                </p>
                 {/* Category legend */}
                 <div className="flex flex-wrap justify-center gap-2">
                   {Object.values(kb?.categories ?? {}).map(c => (
@@ -666,9 +754,8 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                     </span>
                   ))}
                 </div>
-                {/* Type legend */}
                 <div className="flex justify-center gap-3 mt-2">
-                  {[["↔", "ترتيب", "#d4af37"], ["📝", "ملء فراغ", "#60a5fa"], ["✅", "اختيار", "#34d399"]].map(([ic, lb, cl]) => (
+                  {[["↔","ترتيب","#d4af37"],["📝","ملء فراغ","#60a5fa"],["✅","اختيار","#34d399"]].map(([ic,lb,cl]) => (
                     <span key={String(lb)} className="font-arabic text-[10px] px-2 py-0.5 rounded-full"
                       style={{ background: `${cl}12`, border: `1px solid ${cl}30`, color: String(cl) }}>
                       {ic} {lb}
@@ -692,7 +779,6 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
               <QuizProgress level={selectedLevel!} idx={qIdx} total={qs.length}
                 catColor={cat?.color ?? "#d4af37"} />
 
-              {/* Category + source badge */}
               <div className="flex items-center gap-2 justify-end" dir="rtl">
                 {cat && (
                   <span className="font-arabic text-xs px-3 py-1 rounded-full"
@@ -708,7 +794,6 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                 )}
               </div>
 
-              {/* Nahj al-Balagha attribution */}
               {q.category === "nahjBalagha" && (
                 <div className="flex justify-end" dir="rtl">
                   <span className="font-arabic text-[10px] leading-relaxed text-[#d4af37]/50 text-right">
@@ -716,7 +801,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                   </span>
                 </div>
               )}
-              {/* Question type badge */}
+
               <div className="flex justify-center">
                 <span className="font-arabic text-xs px-3 py-1 rounded-full font-bold"
                   style={{ background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)", color: "rgba(212,175,55,0.7)" }}>
@@ -724,7 +809,6 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                 </span>
               </div>
 
-              {/* Instruction + Question Text */}
               <div className="rounded-2xl p-5" dir="rtl"
                 style={{ background: "rgba(0,50,25,0.35)", border: "1.5px solid rgba(212,175,55,0.18)", boxShadow: "0 4px 0 rgba(0,0,0,0.5)" }}>
                 <p className="font-arabic text-[#d4af37]/70 text-xs mb-2">{q.instruction}</p>
@@ -736,7 +820,6 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
                 )}
               </div>
 
-              {/* Interaction */}
               {q.type === "sort" && q.words && (
                 <WordSort key={q.id} words={q.words} answer={q.answer as string[]}
                   onResult={handleAnswer} playClick={playClick} playCorrect={playCorrect} playWrong={playWrong} />
@@ -757,7 +840,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
             <motion.div key="stage" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}>
               <StageGate stage={stage} score={score} total={qs.length}
-                onWatch={handleWatchAd} loading={adLoading} />
+                onWatch={handleWatchAd} adState={adState} adError={adError} />
             </motion.div>
           )}
 
