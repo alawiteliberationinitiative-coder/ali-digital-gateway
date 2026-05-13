@@ -264,8 +264,24 @@ bot.on('callback_query', async (query) => {
   }
 });
 
+let consecutiveConflicts = 0;
+
 bot.on('polling_error', (err) => {
-  console.error('Polling error:', err.message);
+  const is409 = err.message?.includes('409');
+  if (is409) {
+    consecutiveConflicts++;
+    if (consecutiveConflicts === 1) {
+      console.warn('Polling conflict detected — another bot instance is running.');
+    }
+    // After 6 consecutive 409s, yield to the deployed instance and stop polling
+    if (consecutiveConflicts >= 6) {
+      console.warn('Yielding to deployed bot instance. Dev polling stopped. Restart this workflow to resume.');
+      bot.stopPolling();
+    }
+  } else {
+    consecutiveConflicts = 0;
+    console.error('Polling error:', err.message);
+  }
 });
 
 async function silentDelete(chatId, messageId) {
@@ -291,6 +307,13 @@ async function setupBot() {
       }),
     }).catch(() => {});
   }
+}
+
+// In production deployments the bot runs via start.sh.
+// Prevent the dev workflow from competing with the deployed instance.
+if (process.env.REPLIT_DEPLOYMENT === '1') {
+  console.log('Deployed environment detected — bot disabled in dev workflow to avoid polling conflict.');
+  process.exit(0);
 }
 
 setupBot();

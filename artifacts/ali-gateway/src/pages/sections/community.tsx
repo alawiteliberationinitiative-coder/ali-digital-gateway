@@ -177,7 +177,10 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
     if (!enabled || myRole === "listener") return;
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => { localStreamRef.current = stream; setAudioReady(true); })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("Microphone access denied:", err?.message ?? err);
+        window.Telegram?.WebApp?.showAlert?.("❌ لم يتم منح إذن الميكروفون. يرجى السماح باستخدام الميكروفون من إعدادات التطبيق ثم المحاولة مجدداً.");
+      });
     return () => { localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null; };
   }, [enabled, myRole]);
 

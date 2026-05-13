@@ -1,4 +1,6 @@
 import express from "express";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { logger } from "./lib/logger.js";
 import router from "./routes/index.js";
@@ -6,29 +8,68 @@ import { verifyTelegram } from "./middleware/telegram-auth.js";
 
 const app = express();
 
-app.use(express.json());
-app.use(verifyTelegram as express.RequestHandler);
+// ── Trust Replit's reverse proxy (required for express-rate-limit) ───────────
+app.set("trust proxy", 1);
 
+// ── Security headers ─────────────────────────────────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: false,       // Telegram WebApp manages its own CSP
+    crossOriginEmbedderPolicy: false,   // Required for WebRTC / audio elements
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+// ── Body parsing with hard size cap ─────────────────────────────────────────
+app.use(express.json({ limit: "1mb" }));
+
+// ── Global rate limit: 300 req / min per IP ──────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many requests — حاول مجدداً بعد دقيقة" },
+});
+
+// ── Strict rate limit: 20 req / min for sensitive write endpoints ─────────────
+const strictLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many requests — حاول مجدداً بعد دقيقة" },
+});
+
+app.use(globalLimiter);
+
+// ── Structured request logging ───────────────────────────────────────────────
 app.use(
   pinoHttp({
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+        return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
-  }),
+  })
 );
 
+// ── Telegram auth middleware ─────────────────────────────────────────────────
+app.use(verifyTelegram as express.RequestHandler);
+
+// ── Strict limiters on write / reward endpoints ──────────────────────────────
+app.use("/api/users/register",       strictLimiter);
+app.use("/api/ads/reward",           strictLimiter);
+app.use("/api/quiz/complete-level",  strictLimiter);
+app.use("/api/docs/submit",          strictLimiter);
+app.use("/api/docs/upload-file",     strictLimiter);
+app.use("/api/spaces/:id/signals",   strictLimiter);
+
+// ── API router ───────────────────────────────────────────────────────────────
 app.use("/api", router);
 
 export default app;
