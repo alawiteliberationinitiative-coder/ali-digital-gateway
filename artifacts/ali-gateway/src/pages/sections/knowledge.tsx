@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Star, Lock, CheckCircle, Volume2 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
@@ -31,6 +31,15 @@ declare global {
   interface Window {
     Adsgram?: { init: (o: { blockId: string }) => Promise<{ show: () => Promise<{ done: boolean }> }> };
   }
+}
+
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 // ─── Sound System ─────────────────────────────────────────────────────────────
@@ -208,6 +217,8 @@ function FillBlank({ text, options, answer, onResult, playClick, playCorrect, pl
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const isCorrect = selected === answer;
+  // shuffle once on mount so correct answer isn't always first
+  const shuffledOptions = useMemo(() => shuffled(options), []);
 
   function choose(opt: string) {
     if (selected) return;
@@ -239,7 +250,7 @@ function FillBlank({ text, options, answer, onResult, playClick, playCorrect, pl
 
       {/* Options */}
       <div className="grid grid-cols-2 gap-3">
-        {options.map((opt) => {
+        {shuffledOptions.map((opt) => {
           const isOpt = selected === opt;
           const isAns = opt === answer;
           let bg = "rgba(0,60,30,0.4)";
@@ -274,6 +285,8 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
   playClick: () => void; playCorrect: () => void; playWrong: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  // shuffle once on mount so correct answer isn't always first
+  const shuffledOptions = useMemo(() => shuffled(options), []);
 
   function choose(opt: string) {
     if (selected) return;
@@ -286,7 +299,7 @@ function ChoiceQuestion({ options, answer, onResult, playClick, playCorrect, pla
 
   return (
     <div className="space-y-3" dir="rtl">
-      {options.map((opt) => {
+      {shuffledOptions.map((opt) => {
         const isOpt = selected === opt;
         const isAns = opt === answer;
         let bg = "rgba(0,60,30,0.35)";
@@ -377,6 +390,15 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
   onSelect: (l: number) => void;
 }) {
   const displayLevels = Math.min(totalLevels, 50);
+  const currentNodeRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (currentNodeRef.current) {
+      setTimeout(() => {
+        currentNodeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 350);
+    }
+  }, [currentLevel]);
 
   return (
     <div className="px-4 pb-28 relative">
@@ -390,7 +412,8 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
           const offsetX = OFFSETS[i % OFFSETS.length];
 
           return (
-            <div key={lvl} className="flex flex-col items-center" style={{ width: "100%" }}>
+            <div key={lvl} ref={current ? currentNodeRef : undefined}
+              className="flex flex-col items-center" style={{ width: "100%" }}>
               {/* Stage milestone banner */}
               {isStage && lvl <= currentLevel + 1 && (
                 <motion.div
