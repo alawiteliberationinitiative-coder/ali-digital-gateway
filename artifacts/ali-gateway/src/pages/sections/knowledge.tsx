@@ -106,10 +106,12 @@ function useSounds() {
 
 // ─── Category Info ────────────────────────────────────────────────────────────
 const CAT: Record<string, { label: string; color: string; emoji: string }> = {
-  nahjBalagha: { label: "نهج البلاغة", color: "#d4af37", emoji: "📜" },
-  poetry:      { label: "شعر وأدب",    color: "#60a5fa", emoji: "🖋" },
-  mythology:   { label: "الميثيولوجيا", color: "#a78bfa", emoji: "⚡" },
-  geography:   { label: "جغرافيا",     color: "#34d399", emoji: "🗺" },
+  nahjBalagha: { label: "نهج البلاغة",     color: "#d4af37", emoji: "📜" },
+  poetry:      { label: "شعر وأدب",        color: "#60a5fa", emoji: "🖋" },
+  mythology:   { label: "الميثيولوجيا",    color: "#a78bfa", emoji: "⚡" },
+  geography:   { label: "جغرافيا",         color: "#34d399", emoji: "🗺" },
+  philosophy:  { label: "حكمة الفلاسفة",  color: "#f59e0b", emoji: "🏛" },
+  earthScience:{ label: "علوم الأرض",      color: "#22d3ee", emoji: "🌍" },
 };
 
 // ─── Word Sort ────────────────────────────────────────────────────────────────
