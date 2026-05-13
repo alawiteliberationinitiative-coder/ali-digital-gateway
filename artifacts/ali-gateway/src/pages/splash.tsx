@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTelegram } from "@/lib/telegram";
@@ -180,21 +180,22 @@ export default function Splash() {
   );
 
   const registerMutation = useRegisterUser();
+  // Guard: ensure registration only fires once per app open
+  const initCalled = useRef(false);
 
-  const initApp = useCallback(async () => {
+  const initApp = useCallback(async (resolvedUser: typeof user) => {
     await new Promise<void>((res) => setTimeout(res, 3000));
 
-    const telegramId  = user?.id?.toString() || `dev-${Date.now()}`;
-    // Read referral code passed via ?startapp=ALI-2026-XXXX
-    const startParam  = window.Telegram?.WebApp?.initDataUnsafe?.start_param ?? null;
+    const telegramId = resolvedUser?.id?.toString() || `dev-${Date.now()}`;
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param ?? null;
 
     registerMutation.mutate(
       {
         data: {
           telegramId,
-          telegramUsername: user?.username ?? null,
-          firstName:        user?.first_name ?? null,
-          lastName:         user?.last_name  ?? null,
+          telegramUsername: resolvedUser?.username ?? null,
+          firstName:        resolvedUser?.first_name ?? null,
+          lastName:         resolvedUser?.last_name  ?? null,
           referredBy:       startParam,
         } as Parameters<typeof registerMutation.mutate>[0]["data"],
       },
@@ -212,12 +213,21 @@ export default function Splash() {
         },
       },
     );
-  }, [user, setLocation, registerMutation, toast]);
+  }, [setLocation, registerMutation, toast]);
 
-  // Start init only after human verification passes
+  // Start init only after human verification passes AND Telegram user is ready.
+  // Use a ref so we never double-fire even if deps change after the first call.
   useEffect(() => {
-    if (verified) initApp();
-  }, [verified, initApp]);
+    if (!verified) return;
+    if (initCalled.current) return;
+
+    // In real Telegram context, wait until user object is populated
+    const inTelegram = !!window.Telegram?.WebApp?.initData;
+    if (inTelegram && !user) return;
+
+    initCalled.current = true;
+    initApp(user);
+  }, [verified, user, initApp]);
 
   function handleVerified() {
     sessionStorage.setItem("ali_human_check", "1");
