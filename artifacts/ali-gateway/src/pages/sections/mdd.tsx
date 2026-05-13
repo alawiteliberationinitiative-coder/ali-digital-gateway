@@ -67,7 +67,7 @@ export function MddSection({ onBack }: { onBack: () => void }) {
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: Layers, label: "العرض الكلي", value: "١٠٠M MDD" },
+            { icon: Layers, label: "العرض الكلي", value: "١٢ تريليون MDD" },
             { icon: Droplets, label: "السيولة", value: "$48,200" },
             { icon: TrendingUp, label: "القيمة السوقية", value: "$4.2M" },
             { icon: Layers, label: "حاملو التوكن", value: "٢,٨٤١" },
