@@ -128,6 +128,9 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text   = msg.text;
 
+  // Silently delete every user message immediately
+  silentDelete(chatId, msg.message_id);
+
   if (text === '/start') {
     // Check cooldown
     const unblock = cooldowns.get(chatId);
@@ -272,5 +275,9 @@ bot.on('callback_query', async (query) => {
 bot.on('polling_error', (err) => {
   console.error('Polling error:', err.message);
 });
+
+async function silentDelete(chatId, messageId) {
+  try { await bot.deleteMessage(chatId, messageId); } catch (_) {}
+}
 
 console.log('ALI Digital Gateway bot started. WebApp URL:', webAppUrl || '(not configured)');

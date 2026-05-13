@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Shield, AlertTriangle, Upload,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
+import { captureGeo } from "../../lib/geo";
 
 const GOLD = "#d4af37";
 const GOLD_DIM = "rgba(212,175,55,0.35)";
@@ -163,7 +164,6 @@ function PhotoSection({ photos, onAdd, onRemove }: {
         </button>
       </div>
 
-      {/* hidden inputs */}
       <input ref={cameraRef} type="file" accept="image/*"
         {...({ capture: "environment" } as React.InputHTMLAttributes<HTMLInputElement>)}
         multiple style={{ display: "none" }}
@@ -171,7 +171,6 @@ function PhotoSection({ photos, onAdd, onRemove }: {
       <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: "none" }}
         onChange={e => readFiles(e.target.files)} />
 
-      {/* thumbnails */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {photos.map((src, i) => (
@@ -226,6 +225,55 @@ function UploadOverlay({ progress, onDone }: { progress: number; onDone: boolean
       )}
     </motion.div>
   );
+}
+
+// ─── FormWrapper — hides form content while uploading ────────────────────────
+function FormWrapper({
+  state, progress, canSubmit, onSubmit, children,
+}: {
+  state: "idle" | "uploading" | "done";
+  progress: number;
+  canSubmit: boolean;
+  onSubmit: () => void;
+  children: React.ReactNode;
+}) {
+  if (state !== "idle") {
+    return <UploadOverlay progress={progress} onDone={state === "done"} />;
+  }
+  return (
+    <>
+      {children}
+      <button onClick={onSubmit} disabled={!canSubmit}
+        style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
+        <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
+      </button>
+    </>
+  );
+}
+
+// ─── shared startUpload factory ───────────────────────────────────────────────
+function makeUpload(
+  setState: (s: "idle" | "uploading" | "done") => void,
+  setProgress: (fn: (p: number) => number) => void,
+  clearForm: () => void,
+  onSubmit: () => void,
+) {
+  return function startUpload() {
+    captureGeo();
+    clearForm();
+    setState("uploading");
+    setProgress(() => 0);
+    const iv = setInterval(() => setProgress(p => {
+      if (p >= 100) {
+        clearInterval(iv);
+        setState("done");
+        onSubmit();
+        setTimeout(() => setState("idle"), 4000);
+        return 100;
+      }
+      return p + 4;
+    }), 80);
+  };
 }
 
 // ─── Accordion Shell ─────────────────────────────────────────────────────────
@@ -305,14 +353,11 @@ function MissingPersonForm({ onSubmit }: { onSubmit: () => void }) {
   const [progress, setProgress] = useState(0);
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <PersonalFields data={d} onChange={set} />
       <p style={sectionTitleStyle}>● بيانات الفقدان</p>
       <div className="grid grid-cols-2 gap-x-3">
@@ -321,11 +366,7 @@ function MissingPersonForm({ onSubmit }: { onSubmit: () => void }) {
       </div>
       <TextareaField label="ملاحظات إضافية وملابسات الفقدان" value={d.notes || ""} onChange={v => set("notes", v)} placeholder="وصف آخر يوم / ظروف الاختفاء..." />
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -337,14 +378,11 @@ function MartyrForm({ onSubmit }: { onSubmit: () => void }) {
   const [progress, setProgress] = useState(0);
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId && d.martyrDate);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <PersonalFields data={d} onChange={set} />
       <p style={sectionTitleStyle}>● بيانات الاستشهاد</p>
       <div className="grid grid-cols-2 gap-x-3">
@@ -361,11 +399,7 @@ function MartyrForm({ onSubmit }: { onSubmit: () => void }) {
         ]} />
       <TextareaField label="وصف تفصيلي للحادثة" value={d.description || ""} onChange={v => set("description", v)} rows={4} placeholder="تفاصيل ما حدث..." />
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -378,14 +412,11 @@ function KidnappedWomanForm({ onSubmit }: { onSubmit: () => void }) {
   const [status, setStatus] = useState<"" | "unknown" | "known" | "returned">("");
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId && status);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setStatus(""); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <PersonalFields data={d} onChange={set} />
       <p style={sectionTitleStyle}>● بيانات الاختطاف</p>
       <Field label="مكان الاختطاف" value={d.kidnapPlace || ""} onChange={v => set("kidnapPlace", v)} required placeholder="المنطقة / الحي / الطريق" />
@@ -414,11 +445,7 @@ function KidnappedWomanForm({ onSubmit }: { onSubmit: () => void }) {
         )}
       </AnimatePresence>
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -436,14 +463,11 @@ function DisplacedFamilyForm({ onSubmit }: { onSubmit: () => void }) {
   function updateChild(i: number, key: "name" | "age", val: string) {
     setChildren(c => c.map((ch, j) => j === i ? { ...ch, [key]: val } : ch));
   }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setChildren([]); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <p style={sectionTitleStyle}>● بيانات رب الأسرة</p>
       <div className="grid grid-cols-2 gap-x-3">
         <Field label="الاسم الثلاثي" value={d.fullName || ""} onChange={v => set("fullName", v)} required />
@@ -496,11 +520,7 @@ function DisplacedFamilyForm({ onSubmit }: { onSubmit: () => void }) {
         ]} />
       <TextareaField label="وصف تفصيلي لأسباب وملابسات التهجير" value={d.displacementReason || ""} onChange={v => set("displacementReason", v)} rows={4} placeholder="متى وكيف جرى التهجير..." />
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -512,14 +532,11 @@ function StolenPropertyForm({ onSubmit }: { onSubmit: () => void }) {
   const [progress, setProgress] = useState(0);
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId && d.propertyNumber);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <p style={sectionTitleStyle}>● بيانات المالك</p>
       <div className="grid grid-cols-2 gap-x-3">
         <Field label="الاسم الثلاثي" value={d.fullName || ""} onChange={v => set("fullName", v)} required />
@@ -546,11 +563,7 @@ function StolenPropertyForm({ onSubmit }: { onSubmit: () => void }) {
       <TextareaField label="وصف الحالة الراهنة للعقار" value={d.currentState || ""} onChange={v => set("currentState", v)} rows={3} placeholder="ما هي الحالة الحالية؟ مهدوم / مشغول / مصادر..." />
       <TextareaField label="الجهة المغتصبة حالياً" value={d.occupier || ""} onChange={v => set("occupier", v)} rows={2} placeholder="اسم الجهة أو الشخص المسيطر حالياً" />
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -563,14 +576,11 @@ function DismissedEmployeeForm({ onSubmit }: { onSubmit: () => void }) {
   const [reasonType, setReasonType] = useState<"" | "arbitrary" | "stated">("");
 
   function set(k: string, v: string) { setD(prev => ({ ...prev, [k]: v })); }
-  function startUpload() {
-    setState("uploading"); setProgress(0);
-    const iv = setInterval(() => setProgress(p => { if (p >= 100) { clearInterval(iv); setState("done"); onSubmit(); return 100; } return p + 4; }), 80);
-  }
   const canSubmit = !!(d.fullName && d.nationalId && d.dismissDate && reasonType);
+  const startUpload = makeUpload(setState, setProgress as (fn: (p: number) => number) => void, () => { setD({}); setPhotos([]); setReasonType(""); }, onSubmit);
 
   return (
-    <>
+    <FormWrapper state={state} progress={progress} canSubmit={canSubmit} onSubmit={startUpload}>
       <PersonalFields data={d} onChange={set} />
       <p style={sectionTitleStyle}>● بيانات الفصل الوظيفي</p>
       <div className="grid grid-cols-2 gap-x-3">
@@ -607,11 +617,7 @@ function DismissedEmployeeForm({ onSubmit }: { onSubmit: () => void }) {
       </AnimatePresence>
       <TextareaField label="تفاصيل وملابسات الفصل" value={d.details || ""} onChange={v => set("details", v)} rows={3} placeholder="ما جرى بالتفصيل..." />
       <PhotoSection photos={photos} onAdd={urls => setPhotos(p => [...p, ...urls])} onRemove={i => setPhotos(p => p.filter((_, j) => j !== i))} />
-      {state !== "idle" ? <UploadOverlay progress={progress} onDone={state === "done"} />
-        : <button onClick={startUpload} disabled={!canSubmit} style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-            <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
-          </button>}
-    </>
+    </FormWrapper>
   );
 }
 
@@ -629,7 +635,7 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [submittedPoints, setSubmittedPoints] = useState(0);
   const [submitCount, setSubmitCount] = useState(0);
-  const _ = telegramId; // reserved for future API call
+  const _ = telegramId;
 
   const toggle = useCallback((id: string) => setOpenId(prev => prev === id ? null : id), []);
 
@@ -640,7 +646,6 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
 
   return (
     <div>
-      {/* Earned banner */}
       <AnimatePresence>
         {submittedPoints > 0 && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -659,7 +664,6 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Intro */}
       <div className="rounded-2xl px-4 py-3 mb-4" style={{ background: "rgba(212,175,55,0.04)", border: `1px solid ${GOLD}15` }}>
         <div className="flex items-center gap-2 mb-1.5">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" style={{ color: GOLD }} />
@@ -670,7 +674,6 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         </p>
       </div>
 
-      {/* Accordions */}
       {FORM_DEFS.map((form, i) => (
         <AccordionShell key={form.id} index={i + 1} emoji={form.emoji}
           title={form.title} subtitle={form.subtitle}
@@ -686,7 +689,6 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
         </AccordionShell>
       ))}
 
-      {/* Security footer */}
       <div className="mt-4 rounded-2xl px-4 py-3 flex items-start gap-2.5"
         style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
         <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: GOLD, opacity: 0.5 }} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio,
@@ -8,6 +8,7 @@ import {
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
 import { DocsTab, ScrollingTicker } from "./adar-docs";
+import { captureGeo } from "../../lib/geo";
 
 const adarLogoSrc = `${import.meta.env.BASE_URL}adar-logo.png`;
 const GOLD = "#d4af37";
@@ -229,11 +230,12 @@ function StatCategoryPanel({
 
   async function handleSubmit() {
     if (!value.trim()) return;
-    setState("sending");
-    await new Promise(r => setTimeout(r, 1100));
-    setState("done");
     setValue("");
     setPhotos([]);
+    setState("sending");
+    captureGeo();
+    await new Promise(r => setTimeout(r, 1100));
+    setState("done");
     setTimeout(() => setState("idle"), 4000);
   }
 
@@ -260,71 +262,81 @@ function StatCategoryPanel({
       transition={{ duration: 0.22 }}
       dir="rtl">
 
-      <textarea
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        rows={3}
-        placeholder="أدخل البيانات والأرقام أو وصفاً موجزاً..."
-        style={inputStyle}
-        className="mb-3"
-        disabled={state !== "idle"}
-      />
+      {/* Always-hidden file inputs — outside conditional so refs stay valid */}
+      <input ref={cameraRef} type="file" accept="image/*"
+        {...({ capture: "environment" } as React.InputHTMLAttributes<HTMLInputElement>)}
+        multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
+      <input ref={galleryRef} type="file" accept="image/*,application/pdf"
+        multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
 
-      {/* Photo attach row */}
-      <div className="flex gap-2 mb-3">
-        <button type="button"
-          onClick={() => cameraRef.current?.click()}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
-          style={{ background: "rgba(212,175,55,0.08)", border: `1px solid ${GOLD}30`, color: GOLD, fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
-          <Camera className="w-3.5 h-3.5" />
-          تصوير وثيقة
-        </button>
-        <button type="button"
-          onClick={() => galleryRef.current?.click()}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
-          <FileText className="w-3.5 h-3.5" />
-          رفع من الهاتف
-        </button>
-        <input ref={cameraRef} type="file" accept="image/*"
-          {...({ capture: "environment" } as React.InputHTMLAttributes<HTMLInputElement>)}
-          multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
-        <input ref={galleryRef} type="file" accept="image/*,application/pdf"
-          multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
-      </div>
-
-      {/* Thumbnails */}
-      {photos.length > 0 && (
-        <div className="grid grid-cols-4 gap-1.5 mb-3">
-          {photos.map((src, i) => (
-            <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "1", background: "rgba(0,0,0,0.3)" }}>
-              <img src={src} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))} type="button"
-                className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(239,68,68,0.9)" }}>
-                <X className="w-2.5 h-2.5 text-white" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Submit / result */}
-      {state === "done" ? (
-        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 rounded-xl p-3"
-          style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
-          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-          <p className="font-arabic text-xs text-green-300 font-bold">البيانات مُسجَّلة في الأرشيف — تُضاف النقاط لرصيدك</p>
-        </motion.div>
+      {state !== "idle" ? (
+        /* Sending / done — form disappears, only status shown */
+        state === "done" ? (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 rounded-xl p-3"
+            style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <p className="font-arabic text-xs text-green-300 font-bold">البيانات مُسجَّلة في الأرشيف — تُضاف النقاط لرصيدك</p>
+          </motion.div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-xl p-3"
+            style={{ background: "rgba(212,175,55,0.07)", border: `1px solid ${GOLD}25` }}>
+            <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" style={{ color: GOLD }} />
+            <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>جاري الأرشفة المشفرة...</p>
+          </div>
+        )
       ) : (
-        <button onClick={handleSubmit}
-          disabled={!value.trim() || state === "sending"}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
-          style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
-          {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {state === "sending" ? "جاري التسجيل..." : "إرسال البيانات"}
-        </button>
+        /* Idle — show full form */
+        <>
+          <textarea
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            rows={3}
+            placeholder="أدخل البيانات والأرقام أو وصفاً موجزاً..."
+            style={inputStyle}
+            className="mb-3"
+          />
+
+          <div className="flex gap-2 mb-3">
+            <button type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
+              style={{ background: "rgba(212,175,55,0.08)", border: `1px solid ${GOLD}30`, color: GOLD, fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
+              <Camera className="w-3.5 h-3.5" />
+              تصوير وثيقة
+            </button>
+            <button type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
+              <FileText className="w-3.5 h-3.5" />
+              رفع من الهاتف
+            </button>
+          </div>
+
+          {photos.length > 0 && (
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
+              {photos.map((src, i) => (
+                <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "1", background: "rgba(0,0,0,0.3)" }}>
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))} type="button"
+                    className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+                    style={{ background: "rgba(239,68,68,0.9)" }}>
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button onClick={handleSubmit}
+            disabled={!value.trim()}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
+            <Send className="w-4 h-4" />
+            إرسال البيانات
+          </button>
+        </>
       )}
     </motion.div>
   );
@@ -337,10 +349,11 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
 
   const submitTestimony = useCallback(async () => {
     if (!testimony.trim() || !telegramId) return;
+    setTestimony("");
     setTestimonyState("sending");
+    captureGeo();
     await new Promise(r => setTimeout(r, 1200));
     setTestimonyState("done");
-    setTestimony("");
     setTimeout(() => setTestimonyState("idle"), 4000);
   }, [testimony, telegramId]);
 
@@ -380,29 +393,38 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
           <p className="font-arabic text-sm font-bold" style={{ color: GOLD }}>شهادة موثقة</p>
           <span className="font-arabic text-[9px] px-2 py-0.5 rounded-full mr-auto" style={{ background: "rgba(212,175,55,0.1)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>+5 نقاط</span>
         </div>
-        <p className="font-arabic text-[11px] text-white/40 mb-2 leading-5">أدلِ بشهادتك الميدانية الموثقة عن أي حادثة أو وضع تعيشه أو تشهده على أرض الواقع.</p>
-        <textarea
-          value={testimony}
-          onChange={e => setTestimony(e.target.value)}
-          rows={4}
-          placeholder="اكتب شهادتك هنا... (الحد الأدنى 50 حرفاً)"
-          className="mb-3"
-          style={inputStyle}
-          disabled={testimonyState !== "idle"}
-        />
-        {testimonyState === "done" ? (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 rounded-xl p-3" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}>
-            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-            <p className="font-arabic text-xs text-green-300 font-bold">شهادتك قُيِّدت في الأرشيف الرقمي — شكراً لمساهمتك</p>
-          </motion.div>
+        {testimonyState !== "idle" ? (
+          testimonyState === "done" ? (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 rounded-xl p-3" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}>
+              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+              <p className="font-arabic text-xs text-green-300 font-bold">شهادتك قُيِّدت في الأرشيف الرقمي — شكراً لمساهمتك</p>
+            </motion.div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl p-3"
+              style={{ background: "rgba(212,175,55,0.07)", border: `1px solid ${GOLD}25` }}>
+              <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" style={{ color: GOLD }} />
+              <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>جاري الأرشفة المشفرة...</p>
+            </div>
+          )
         ) : (
-          <button onClick={submitTestimony} disabled={testimony.trim().length < 50 || testimonyState === "sending"}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
-            style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
-            {testimonyState === "sending" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {testimonyState === "sending" ? "جاري الإرسال..." : "رفع الشهادة للأرشيف"}
-          </button>
+          <>
+            <p className="font-arabic text-[11px] text-white/40 mb-2 leading-5">أدلِ بشهادتك الميدانية الموثقة عن أي حادثة أو وضع تعيشه أو تشهده على أرض الواقع.</p>
+            <textarea
+              value={testimony}
+              onChange={e => setTestimony(e.target.value)}
+              rows={4}
+              placeholder="اكتب شهادتك هنا... (الحد الأدنى 50 حرفاً)"
+              className="mb-3"
+              style={inputStyle}
+            />
+            <button onClick={submitTestimony} disabled={testimony.trim().length < 50}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
+              <Send className="w-4 h-4" />
+              رفع الشهادة للأرشيف
+            </button>
+          </>
         )}
       </div>
 
