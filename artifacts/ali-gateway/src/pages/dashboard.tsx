@@ -12,8 +12,9 @@ import { CommunitySection } from "./sections/community";
 import { MddSection } from "./sections/mdd";
 import { LeaderboardSection } from "./sections/leaderboard";
 import { PlaySection } from "./sections/play";
+import { WatchSection } from "./sections/watch";
 
-type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | null;
+type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | null;
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
@@ -248,6 +249,7 @@ export default function Dashboard() {
                 {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
                 {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
                 {activeSection === "play"        && <PlaySection onBack={handleBack} />}
+                {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
               </motion.div>
             )}
           </AnimatePresence>
@@ -314,9 +316,42 @@ export default function Dashboard() {
                 </div>
               </motion.button>
 
+              {/* ★ WATCH BUTTON ★ */}
+              <motion.button
+                onClick={() => setActiveSection("watch")}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.28, duration: 0.4 }}
+                whileTap={{ scale: 0.96 }}
+                className="col-span-2 relative overflow-hidden rounded-3xl py-4 flex items-center justify-between gap-4 px-5 border-2"
+                style={{
+                  background: "linear-gradient(135deg, rgba(88,28,135,0.55) 0%, rgba(109,40,217,0.4) 50%, rgba(88,28,135,0.55) 100%)",
+                  borderColor: "rgba(167,139,250,0.45)",
+                  boxShadow: "0 5px 0 rgba(55,10,90,0.55), 0 0 28px rgba(139,92,246,0.2)",
+                }}>
+                {/* Shimmer */}
+                <motion.div className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.12) 50%, transparent 65%)" }}
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: "linear", repeatDelay: 1.5 }} />
+                <div className="flex items-center gap-3 relative z-10">
+                  <motion.span className="text-3xl"
+                    animate={{ scale: [1, 1.12, 1] }}
+                    transition={{ repeat: Infinity, duration: 2 }}>📺</motion.span>
+                  <div className="text-right">
+                    <div className="font-arabic font-bold text-purple-100 text-xl leading-tight">شاهد وادعم</div>
+                    <div className="font-arabic text-purple-300/80 text-xs mt-0.5">اكسب نقاط ولاء بمشاهدة المحتوى</div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center gap-1 relative z-10 flex-shrink-0">
+                  <span className="font-arabic text-[10px] bg-purple-900/50 border border-purple-400/30 rounded-full px-2.5 py-1 text-purple-200">⭐ حتى 25 نقطة</span>
+                  <span className="font-arabic text-[10px] bg-purple-900/50 border border-purple-400/30 rounded-full px-2.5 py-1 text-purple-200">🔄 يومياً</span>
+                </div>
+              </motion.button>
+
               {/* Remaining section cards */}
               {CARDS.slice(1).map((card, i) => (
-                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.25} onPress={() => setActiveSection(card.id)} />
+                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.35} onPress={() => setActiveSection(card.id)} />
               ))}
             </div>
 
