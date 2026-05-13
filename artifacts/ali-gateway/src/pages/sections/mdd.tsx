@@ -91,7 +91,7 @@ export function MddSection({ onBack }: { onBack: () => void }) {
             </button>
           </div>
           <p className="font-arabic text-muted-foreground text-xs mt-3 leading-5">
-            العقد قيد التدقيق الأمني النهائي · الإطلاق الرسمي قريباً على شبكة Polygon
+            العقد قيد التدقيق الأمني النهائي · الإطلاق الرسمي قريباً على شبكة Solana
           </p>
         </div>
       </div>
