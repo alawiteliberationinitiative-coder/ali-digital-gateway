@@ -104,7 +104,7 @@ function ProgressHeader({
   userData,
   onOpenProfile,
 }: {
-  userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number };
+  userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
   onOpenProfile: () => void;
 }) {
   const xpPerLevel = 500;
@@ -113,9 +113,9 @@ function ProgressHeader({
   const pct = Math.min((currentXp / xpPerLevel) * 100, 100);
 
   return (
-    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border px-4 py-3" dir="rtl">
-      <div className="flex items-center gap-3 mb-2.5">
-        {/* Clickable avatar → opens profile */}
+    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border px-4 py-2" dir="rtl">
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
         <button
           onClick={onOpenProfile}
           className="relative flex-shrink-0 active:scale-95 transition-transform"
@@ -128,30 +128,41 @@ function ProgressHeader({
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            {/* Name → also opens profile */}
+          {/* Row 1: name + points */}
+          <div className="flex items-center justify-between mb-1">
             <button onClick={onOpenProfile} className="flex items-center gap-2 active:opacity-70 transition-opacity">
               <span className="font-arabic font-bold text-primary text-sm leading-tight">{userData.pseudonym}</span>
               <span className="bg-primary/20 border border-primary/40 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
                 LVL {userData.level}
               </span>
             </button>
-            <div className="flex items-center gap-1 bg-[#d4af37]/10 border border-[#d4af37]/30 rounded-full px-2.5 py-1">
-              <span className="text-[#d4af37] text-xs font-bold">{pts.toLocaleString()}</span>
-              <span className="font-arabic text-[#d4af37]/70 text-[10px]">نقطة</span>
+            <div className="flex items-center gap-1 bg-[#d4af37]/10 border border-[#d4af37]/30 rounded-full px-2 py-0.5">
+              <span className="text-[#d4af37] text-[11px] font-bold">{pts.toLocaleString()}</span>
+              <span className="font-arabic text-[#d4af37]/70 text-[9px]">نقطة</span>
             </div>
           </div>
-          <div className="mt-1.5">
-            <div className="flex justify-between mb-1">
-              <span className="font-arabic text-[10px] text-muted-foreground">نقاط الولاء</span>
-              <span className="font-mono text-[10px] text-muted-foreground">{currentXp}/{xpPerLevel}</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
+
+          {/* Row 2: ID · Rank · $MDD (compact inline) */}
+          <button onClick={onOpenProfile}
+            className="flex items-center gap-1.5 mb-1.5 active:opacity-70 transition-opacity">
+            <span className="font-mono text-[9px] text-primary/70 font-bold tracking-wider">{userData.aliId}</span>
+            <span className="text-border/60 text-[8px]">·</span>
+            <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-wide">{userData.rank}</span>
+            <span className="text-border/60 text-[8px]">·</span>
+            <span className="font-mono text-[9px] font-bold" style={{ color: "rgba(212,175,55,0.75)" }}>
+              {userData.mddBalance.toLocaleString()} <span className="text-[8px] opacity-70">$MDD</span>
+            </span>
+          </button>
+
+          {/* Row 3: XP bar */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
               <motion.div className="h-full rounded-full"
                 style={{ background: "linear-gradient(90deg, #d4af37 0%, #f0d060 100%)" }}
                 initial={{ width: 0 }} animate={{ width: `${pct}%` }}
                 transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }} />
             </div>
+            <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{currentXp}/{xpPerLevel}</span>
           </div>
         </div>
       </div>
@@ -282,28 +293,6 @@ export default function Dashboard() {
 
           {/* Home grid */}
           <div className="flex-1 overflow-y-auto px-4 pt-2 pb-2" dir="rtl">
-            {/* Identity strip — clickable → opens profile */}
-            <motion.button
-              onClick={() => setActiveSection("profile")}
-              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-card border border-border rounded-2xl px-4 py-2 mb-2 flex items-center justify-between active:brightness-90 transition-all"
-              style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.15)" }}>
-              <div className="text-right">
-                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">رقم الهوية</div>
-                <div className="font-mono text-primary text-sm font-bold tracking-widest">{userData.aliId}</div>
-              </div>
-              <div className="text-center">
-                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">الرتبة</div>
-                <div className="font-mono text-primary text-sm uppercase">{userData.rank}</div>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">$MDD</div>
-                <div className="font-mono text-[#d4af37] text-sm font-bold">{userData.mddBalance.toLocaleString()}</div>
-              </div>
-              <div className="text-[#d4af37]/40 text-lg leading-none">‹</div>
-            </motion.button>
-
             {/* Section cards grid */}
             <div className="grid grid-cols-2 gap-2">
 
@@ -376,7 +365,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
                 whileTap={{ scale: 0.93 }}
-                className="col-span-2 relative overflow-hidden rounded-3xl py-3.5 flex flex-col items-center justify-center gap-1.5 border-2"
+                className="col-span-2 relative overflow-hidden rounded-3xl py-3 flex flex-col items-center justify-center gap-1.5 border-2"
                 style={{
                   background: "linear-gradient(135deg, #7a5c00 0%, #d4af37 40%, #f0d060 60%, #d4af37 80%, #7a5c00 100%)",
                   borderColor: "rgba(255,255,255,0.25)",
