@@ -1178,7 +1178,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <motion.div className="flex flex-col min-h-full"
+    <motion.div className="flex flex-col h-full"
       style={{ background: "linear-gradient(160deg,#060d1a 0%,#0a1428 50%,#050d1a 100%)" }}
       initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}>
@@ -1220,7 +1220,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         {activeSpace ? (
           <SpaceView
             space={activeSpace} telegramId={telegramId}

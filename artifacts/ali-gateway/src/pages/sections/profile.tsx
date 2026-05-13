@@ -513,7 +513,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
 
   return (
     <motion.div
-      className="flex flex-col min-h-full"
+      className="flex flex-col h-full"
       style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
       initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}>

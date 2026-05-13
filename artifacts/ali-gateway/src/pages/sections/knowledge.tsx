@@ -702,7 +702,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="flex flex-col min-h-full"
+    <div className="flex flex-col h-full"
       style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 50%,#001208 100%)" }}>
 
       {/* Header */}

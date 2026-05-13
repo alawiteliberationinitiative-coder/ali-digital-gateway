@@ -240,7 +240,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground relative overflow-hidden">
+    <div className="h-[100dvh] bg-background text-foreground relative flex flex-col overflow-hidden">
 
       {/* ── Full-screen welcome sequence (blocks dashboard until done) ── */}
       <AnimatePresence>
@@ -261,7 +261,7 @@ export default function Dashboard() {
           <AnimatePresence mode="wait">
             {activeSection !== null && (
               <motion.div key={activeSection}
-                className="fixed inset-0 z-30 bg-background overflow-y-auto"
+                className="fixed inset-0 z-30 bg-background overflow-hidden"
                 initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}>
                 {activeSection === "adar"        && <AdarSection onBack={handleBack} onRead={() => setAdarUnread(0)} />}
@@ -280,7 +280,7 @@ export default function Dashboard() {
           </AnimatePresence>
 
           {/* Home grid */}
-          <div className="px-4 pt-5 pb-24 space-y-0" dir="rtl">
+          <div className="flex-1 overflow-y-auto px-4 pt-5 pb-6" dir="rtl">
             {/* Identity strip — clickable → opens profile */}
             <motion.button
               onClick={() => setActiveSection("profile")}

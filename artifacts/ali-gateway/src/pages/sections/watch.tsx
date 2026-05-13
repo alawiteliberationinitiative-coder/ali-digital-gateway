@@ -107,7 +107,7 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
   const slide = { initial: { x: -40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 }, transition: { duration: 0.3 } };
 
   return (
-    <motion.div className="flex flex-col min-h-full" dir="rtl" {...slide}>
+    <motion.div className="flex flex-col h-full" dir="rtl" {...slide}>
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
         <button onClick={onBack} className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">

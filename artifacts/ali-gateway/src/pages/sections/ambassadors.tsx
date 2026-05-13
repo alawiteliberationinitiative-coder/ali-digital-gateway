@@ -14,7 +14,7 @@ const programs = [
 
 export function AmbassadorsSection({ onBack }: { onBack: () => void }) {
   return (
-    <motion.div className="flex flex-col min-h-full" dir="rtl" {...slide}>
+    <motion.div className="flex flex-col h-full" dir="rtl" {...slide}>
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
         <button onClick={onBack} className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
           <ChevronRight className="w-5 h-5" />

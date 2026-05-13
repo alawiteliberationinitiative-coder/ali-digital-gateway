@@ -858,7 +858,7 @@ export function AdarSection({
   }, [markVisited, onRead]);
 
   return (
-    <div className="flex flex-col min-h-full" style={{ background: "linear-gradient(160deg,#001208 0%,#002200 50%,#001008 100%)" }}>
+    <div className="flex flex-col h-full" style={{ background: "linear-gradient(160deg,#001208 0%,#002200 50%,#001008 100%)" }}>
 
       {/* ── Sticky Header ── */}
       <div className="sticky top-0 z-20" style={{ background: "rgba(0,16,4,0.97)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${GOLD}22` }}>
