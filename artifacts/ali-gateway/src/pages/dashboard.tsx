@@ -186,20 +186,20 @@ function SectionCard({ card, onPress, delay }: { card: CardDef; onPress: () => v
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35 }}
       whileTap={{ scale: 0.96 }}
-      className={`${card.wide ? "col-span-2" : "col-span-1"} flex ${card.wide ? "flex-row" : "flex-col"} items-center ${card.wide ? "gap-4 px-5 py-4" : "gap-2 p-5"} rounded-3xl border-2 text-right active:brightness-90 transition-all`}
+      className={`${card.wide ? "col-span-2" : "col-span-1"} flex ${card.wide ? "flex-row" : "flex-col"} items-center ${card.wide ? "gap-3 px-4 py-3" : "gap-1.5 p-3.5"} rounded-3xl border-2 text-right active:brightness-90 transition-all`}
       style={{
         backgroundColor: `${card.accent}12`,
         borderColor: `${card.accent}50`,
-        boxShadow: `0 5px 0 ${card.shadow}`,
+        boxShadow: `0 4px 0 ${card.shadow}`,
       }}
     >
-      <div className="text-4xl leading-none flex-shrink-0">{card.emoji}</div>
+      <div className="text-3xl leading-none flex-shrink-0">{card.emoji}</div>
       <div className={card.wide ? "flex-1 text-right" : "text-center w-full"}>
-        <div className="font-arabic font-bold text-foreground text-base leading-tight">{card.title}</div>
-        <div className="font-arabic text-muted-foreground text-xs mt-0.5 leading-tight">{card.subtitle}</div>
+        <div className="font-arabic font-bold text-foreground text-sm leading-tight">{card.title}</div>
+        <div className="font-arabic text-muted-foreground text-[10px] mt-0.5 leading-tight">{card.subtitle}</div>
       </div>
       {card.wide && (
-        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${card.accent}25`, border: `1.5px solid ${card.accent}60` }}>
           <span style={{ color: card.accent }} className="text-sm font-bold">›</span>
         </div>
@@ -281,13 +281,13 @@ export default function Dashboard() {
           </AnimatePresence>
 
           {/* Home grid */}
-          <div className="flex-1 overflow-y-auto px-4 pt-5 pb-6" dir="rtl">
+          <div className="flex-1 overflow-y-auto px-4 pt-2 pb-2" dir="rtl">
             {/* Identity strip — clickable → opens profile */}
             <motion.button
               onClick={() => setActiveSection("profile")}
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-card border border-border rounded-2xl px-4 py-3 mb-5 flex items-center justify-between active:brightness-90 transition-all"
+              className="w-full bg-card border border-border rounded-2xl px-4 py-2 mb-2 flex items-center justify-between active:brightness-90 transition-all"
               style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.15)" }}>
               <div className="text-right">
                 <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">رقم الهوية</div>
@@ -305,7 +305,7 @@ export default function Dashboard() {
             </motion.button>
 
             {/* Section cards grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
 
               {/* ★ ADAR MEDIA CENTER BUTTON ★ */}
               <motion.button
@@ -314,7 +314,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 20 }}
                 whileTap={{ scale: 0.96 }}
-                className="col-span-2 relative overflow-hidden rounded-3xl flex items-center gap-4 px-5 py-4 border-2"
+                className="col-span-2 relative overflow-hidden rounded-3xl flex items-center gap-3 px-4 py-2.5 border-2"
                 style={{
                   background: "linear-gradient(135deg, rgba(0,34,0,0.85) 0%, rgba(0,50,10,0.75) 50%, rgba(0,26,6,0.9) 100%)",
                   borderColor: "rgba(212,175,55,0.45)",
@@ -339,18 +339,18 @@ export default function Dashboard() {
                 )}
 
                 {/* Emblem */}
-                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 96 }}>
+                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 72 }}>
                   <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, rgba(212,175,55,0.12) 0%, transparent 70%)" }} />
-                  <AdarEmblem size={96} glow />
+                  <AdarEmblem size={72} glow />
                 </div>
 
                 {/* Text */}
                 <div className="flex-1 text-right relative z-10 min-w-0">
-                  <div className="font-arabic font-bold text-white text-lg leading-tight">مركز ADAR للرصد الإعلامي</div>
+                  <div className="font-arabic font-bold text-white text-base leading-tight">مركز ADAR للرصد الإعلامي</div>
                   <div className="font-mono text-[10px] tracking-wide mt-0.5" style={{ color: "rgba(212,175,55,0.6)" }}>
                     Alawite Digital Archive & Research
                   </div>
-                  <div className="flex items-center justify-end gap-2 mt-1.5">
+                  <div className="flex items-center justify-end gap-2 mt-1">
                     <span className="font-arabic text-[10px] rounded-full px-2 py-0.5"
                       style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.25)" }}>
                       📡 بيانات رسمية
@@ -376,7 +376,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
                 whileTap={{ scale: 0.93 }}
-                className="col-span-2 relative overflow-hidden rounded-3xl py-6 flex flex-col items-center justify-center gap-2 border-2"
+                className="col-span-2 relative overflow-hidden rounded-3xl py-3.5 flex flex-col items-center justify-center gap-1.5 border-2"
                 style={{
                   background: "linear-gradient(135deg, #7a5c00 0%, #d4af37 40%, #f0d060 60%, #d4af37 80%, #7a5c00 100%)",
                   borderColor: "rgba(255,255,255,0.25)",
@@ -390,15 +390,15 @@ export default function Dashboard() {
                   animate={{ opacity: [0.6, 0, 0.6] }}
                   transition={{ repeat: Infinity, duration: 1.8 }} />
                 <div className="flex items-center gap-3 relative z-10">
-                  <motion.span className="text-4xl"
+                  <motion.span className="text-3xl"
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ repeat: Infinity, duration: 1.6 }}>🧠</motion.span>
                   <div className="text-right">
-                    <div className="font-arabic font-bold text-[#002b1b] text-2xl leading-tight drop-shadow-sm">اربح وادعم</div>
-                    <div className="font-arabic text-[#002b1b]/70 text-sm">أجب واكسب نقاط الولاء · محرك المعرفة</div>
+                    <div className="font-arabic font-bold text-[#002b1b] text-xl leading-tight drop-shadow-sm">اربح وادعم</div>
+                    <div className="font-arabic text-[#002b1b]/70 text-xs">أجب واكسب نقاط الولاء · محرك المعرفة</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 relative z-10 mt-1">
+                <div className="flex items-center gap-2 relative z-10 mt-0.5">
                   {["🧠 ٥٠٠ سؤال", "🔥 بونص السلسلة", "🏆 ١٠٠ مستوى"].map((t) => (
                     <span key={t} className="font-arabic text-[10px] bg-black/15 rounded-full px-2.5 py-1 text-[#002b1b]/90">{t}</span>
                   ))}
@@ -412,7 +412,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.28, duration: 0.4 }}
                 whileTap={{ scale: 0.96 }}
-                className="col-span-2 relative overflow-hidden rounded-3xl py-4 flex items-center justify-between gap-4 px-5 border-2"
+                className="col-span-2 relative overflow-hidden rounded-3xl py-3 flex items-center justify-between gap-4 px-5 border-2"
                 style={{
                   background: "linear-gradient(135deg, rgba(88,28,135,0.55) 0%, rgba(109,40,217,0.4) 50%, rgba(88,28,135,0.55) 100%)",
                   borderColor: "rgba(167,139,250,0.45)",
@@ -452,8 +452,8 @@ export default function Dashboard() {
             </div>
 
             {/* Footer motto */}
-            <div className="text-center pt-6">
-              <p className="font-arabic text-[#d4af37]/40 text-sm italic">حقٌّ لا يموت</p>
+            <div className="text-center pt-2">
+              <p className="font-arabic text-[#d4af37]/40 text-xs italic">حقٌّ لا يموت</p>
             </div>
           </div>
 
