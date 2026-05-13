@@ -70,7 +70,11 @@ async function triggerMonetagAd(): Promise<boolean> {
 }
 
 // ── Stage-Complete Ad Screen ───────────────────────────────────────────────────
-function StageAdScreen({ score, onDone }: { score: number; onDone: () => void }) {
+function StageAdScreen({ score, telegramId, onDone }: {
+  score: number;
+  telegramId: string;
+  onDone: () => void;
+}) {
   const [phase, setPhase] = useState<"countdown" | "ad" | "done">("countdown");
   const [secs,  setSecs]  = useState(3);
   const launched          = useRef(false);
@@ -83,12 +87,21 @@ function StageAdScreen({ score, onDone }: { score: number; onDone: () => void })
     if (!launched.current) {
       launched.current = true;
       setPhase("ad");
-      triggerMonetagAd().then(() => {
+      triggerMonetagAd().then(async () => {
+        // ── Same reward call as "شاهد وادعم" tab ──
+        if (telegramId) {
+          try {
+            await fetch("/api/ads/reward", {
+              method:  "POST",
+              headers: { "x-telegram-id": telegramId },
+            });
+          } catch { /* non-critical */ }
+        }
         setPhase("done");
         setTimeout(onDone, 800);
       });
     }
-  }, [secs, onDone]);
+  }, [secs, onDone, telegramId]);
 
   return (
     <motion.div
@@ -378,7 +391,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
           {/* ── Stage-Complete Ad ── */}
           {gameState === "ad-break" && (
-            <StageAdScreen key="stage-ad" score={score} onDone={handleAdDone} />
+            <StageAdScreen key="stage-ad" score={score} telegramId={telegramId} onDone={handleAdDone} />
           )}
 
           {/* ── Playing / Answered ── */}
