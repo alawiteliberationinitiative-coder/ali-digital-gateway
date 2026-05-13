@@ -86,4 +86,3 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_TELEGRAM_ID = "6213952907"
-TON_TREASURY_ADDRESS = ""
