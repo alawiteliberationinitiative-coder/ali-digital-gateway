@@ -13,8 +13,9 @@ import { MddSection } from "./sections/mdd";
 import { LeaderboardSection } from "./sections/leaderboard";
 import { PlaySection } from "./sections/play";
 import { WatchSection } from "./sections/watch";
+import { KnowledgeSection } from "./sections/knowledge";
 
-type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | null;
+type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | null;
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
@@ -250,6 +251,7 @@ export default function Dashboard() {
                 {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
                 {activeSection === "play"        && <PlaySection onBack={handleBack} />}
                 {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
+                {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
               </motion.div>
             )}
           </AnimatePresence>
@@ -349,9 +351,43 @@ export default function Dashboard() {
                 </div>
               </motion.button>
 
+              {/* ★ KNOWLEDGE ENGINE BUTTON ★ */}
+              <motion.button
+                onClick={() => setActiveSection("knowledge")}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.36, duration: 0.4 }}
+                whileTap={{ scale: 0.96 }}
+                className="col-span-2 relative overflow-hidden rounded-3xl py-4 flex items-center justify-between gap-4 px-5 border-2"
+                style={{
+                  background: "linear-gradient(135deg, rgba(0,40,0,0.8) 0%, rgba(0,68,0,0.6) 50%, rgba(0,40,0,0.8) 100%)",
+                  borderColor: "rgba(212,175,55,0.5)",
+                  boxShadow: "0 5px 0 rgba(0,30,0,0.7), 0 0 28px rgba(212,175,55,0.15)",
+                }}>
+                <motion.div className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(105deg, transparent 35%, rgba(212,175,55,0.08) 50%, transparent 65%)" }}
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
+                <div className="flex items-center gap-3 relative z-10">
+                  <motion.span className="text-3xl"
+                    animate={{ rotate: [0, -8, 8, 0] }}
+                    transition={{ repeat: Infinity, duration: 3 }}>🧠</motion.span>
+                  <div className="text-right">
+                    <div className="font-arabic font-bold text-[#d4af37] text-xl leading-tight">محرك المعرفة</div>
+                    <div className="font-arabic text-[#d4af37]/60 text-xs mt-0.5">٥٠٠ سؤال · نهج البلاغة والأدب والفلسفة</div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center gap-1 relative z-10 flex-shrink-0">
+                  <span className="font-arabic text-[10px] rounded-full px-2.5 py-1"
+                    style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", color: "#d4af37" }}>⭐ +١٠ نقاط</span>
+                  <span className="font-arabic text-[10px] rounded-full px-2.5 py-1"
+                    style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: "#d4af37" }}>🔓 ١٠٠ مستوى</span>
+                </div>
+              </motion.button>
+
               {/* Remaining section cards */}
               {CARDS.slice(1).map((card, i) => (
-                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.35} onPress={() => setActiveSection(card.id)} />
+                <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection(card.id)} />
               ))}
             </div>
 
