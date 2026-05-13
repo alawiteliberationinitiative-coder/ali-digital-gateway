@@ -55,14 +55,15 @@ const QUESTIONS: Question[] = [
 type GameState  = "ready" | "playing" | "answered" | "ad-break" | "done";
 type DoubleState = "idle" | "loading" | "done" | "error";
 
+// ── Same ad call as watch.tsx ──────────────────────────────────────────────────
 async function triggerMonetagAd(): Promise<boolean> {
   try {
     if (typeof window.show_11001376 === "function") {
       await window.show_11001376();
-      return true;
+    } else {
+      // dev simulation — identical to شاهد وادعم
+      await new Promise(r => setTimeout(r, 2500));
     }
-    // Dev simulation
-    await new Promise(r => setTimeout(r, 3000));
     return true;
   } catch {
     return false;
