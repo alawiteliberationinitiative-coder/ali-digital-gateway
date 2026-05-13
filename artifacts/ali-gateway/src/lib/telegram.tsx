@@ -61,6 +61,8 @@ interface WebApp {
     notificationOccurred: (type: "error" | "success" | "warning") => void;
     selectionChanged: () => void;
   };
+  openTelegramLink: (url: string) => void;
+  openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
   ready: () => void;
   expand: () => void;
   close: () => void;

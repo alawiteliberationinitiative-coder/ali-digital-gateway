@@ -500,7 +500,18 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
 
   const rankInfo      = getRankInfo(userData.loyaltyPoints);
   const referralCode  = userData.aliId;
-  const referralLink  = `https://t.me/share/url?url=${encodeURIComponent(`انضم إلى مبادرة التحرير العلوي باستخدام كود دعوتي: ${referralCode}`)}&text=${encodeURIComponent("🔰 A.L.I — مبادرة التحرير العلوي")}`;
+  const BOT_USERNAME  = "ALI_MDD_BOT";
+  const botDeepLink   = `https://t.me/${BOT_USERNAME}?start=${referralCode}`;
+  const referralLink  = `https://t.me/share/url?url=${encodeURIComponent(botDeepLink)}&text=${encodeURIComponent(`🔰 A.L.I — مبادرة التحرير العلوي\nانضم إليّ باستخدام رابط الدعوة وابدأ رحلتك!`)}`;
+
+  function openInviteLink() {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(referralLink);
+    } else {
+      window.open(referralLink, "_blank");
+    }
+  }
 
   const joinDate = new Date(userData.createdAt).toLocaleDateString("ar-SY", { year: "numeric", month: "long", day: "numeric" });
 
@@ -809,15 +820,20 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
               <p className="font-mono text-sm font-bold" style={{ color: GREEN }}>{referralCode}</p>
               <CopyButton text={referralCode} label="نسخ الكود" />
             </div>
+            <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+              <p className="font-mono text-[10px] text-white/30 truncate">t.me/ALI_MDD_BOT?start={referralCode}</p>
+              <CopyButton text={botDeepLink} label="نسخ الرابط" />
+            </div>
           </div>
 
           {/* Share button */}
-          <a href={referralLink} target="_blank" rel="noreferrer"
+          <button
+            onClick={openInviteLink}
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-arabic font-bold text-sm active:scale-95 transition-all mb-3"
             style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.2),rgba(22,163,74,0.25))", border: `1.5px solid ${GREEN}45`, color: GREEN }}>
             <Gift className="w-4 h-4" />
-            مشاركة رابط الدعوة عبر تيليغرام
-          </a>
+            دعوة صديق إلى البوت عبر تيليغرام
+          </button>
 
           {/* Count placeholder */}
           <div className="text-center py-3 rounded-xl"
