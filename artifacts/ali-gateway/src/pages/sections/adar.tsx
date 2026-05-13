@@ -194,12 +194,146 @@ function NewsTab() {
 // ─── Tab: الرصد الميداني ───────────────────────────────────────────────────
 type FormState = "idle" | "sending" | "done";
 
+// ─── Stat categories ────────────────────────────────────────────────────────
+const STAT_CATS = [
+  { id: "displacement",     emoji: "🏃", label: "تهجير\nونزوح" },
+  { id: "demolition",       emoji: "🏚️",  label: "هدم\nوتدمير" },
+  { id: "detainees",        emoji: "⛓️",  label: "حالات\naعتقال" },
+  { id: "killing",          emoji: "🩸", label: "قتل\nوتصفية" },
+  { id: "kidnapping",       emoji: "🆘", label: "خطف\nوإخفاء" },
+  { id: "armed_movements",  emoji: "⚠️", label: "فصائل\nمسلحة" },
+] as const;
+type StatCatId = typeof STAT_CATS[number]["id"];
+
+// ─── Single stat category panel ─────────────────────────────────────────────
+function StatCategoryPanel({
+  catId, telegramId,
+}: {
+  catId: StatCatId; telegramId: string;
+}) {
+  const _ = telegramId;
+  const [value, setValue] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [state, setState] = useState<FormState>("idle");
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+
+  function readFiles(files: FileList | null) {
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      const r = new FileReader();
+      r.onload = e => setPhotos(prev => [...prev, e.target?.result as string]);
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function handleSubmit() {
+    if (!value.trim()) return;
+    setState("sending");
+    await new Promise(r => setTimeout(r, 1100));
+    setState("done");
+    setValue("");
+    setPhotos([]);
+    setTimeout(() => setState("idle"), 4000);
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    background: "rgba(0,0,0,0.35)",
+    border: `1px solid ${GOLD}22`,
+    borderRadius: 10,
+    padding: "10px 12px",
+    color: "rgba(255,255,255,0.75)",
+    fontFamily: "'Amiri', serif",
+    fontSize: 13,
+    outline: "none",
+    resize: "none" as const,
+    direction: "rtl",
+  };
+
+  return (
+    <motion.div
+      key={catId}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.22 }}
+      dir="rtl">
+
+      <textarea
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        rows={3}
+        placeholder="أدخل البيانات والأرقام أو وصفاً موجزاً..."
+        style={inputStyle}
+        className="mb-3"
+        disabled={state !== "idle"}
+      />
+
+      {/* Photo attach row */}
+      <div className="flex gap-2 mb-3">
+        <button type="button"
+          onClick={() => cameraRef.current?.click()}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
+          style={{ background: "rgba(212,175,55,0.08)", border: `1px solid ${GOLD}30`, color: GOLD, fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
+          <Camera className="w-3.5 h-3.5" />
+          تصوير وثيقة
+        </button>
+        <button type="button"
+          onClick={() => galleryRef.current?.click()}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-95 transition-all"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "'Cairo', sans-serif", fontWeight: 700 }}>
+          <FileText className="w-3.5 h-3.5" />
+          رفع من الهاتف
+        </button>
+        <input ref={cameraRef} type="file" accept="image/*"
+          {...({ capture: "environment" } as React.InputHTMLAttributes<HTMLInputElement>)}
+          multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
+        <input ref={galleryRef} type="file" accept="image/*,application/pdf"
+          multiple style={{ display: "none" }} onChange={e => readFiles(e.target.files)} />
+      </div>
+
+      {/* Thumbnails */}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
+          {photos.map((src, i) => (
+            <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "1", background: "rgba(0,0,0,0.3)" }}>
+              <img src={src} alt="" className="w-full h-full object-cover" />
+              <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))} type="button"
+                className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(239,68,68,0.9)" }}>
+                <X className="w-2.5 h-2.5 text-white" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Submit / result */}
+      {state === "done" ? (
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 rounded-xl p-3"
+          style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <p className="font-arabic text-xs text-green-300 font-bold">البيانات مُسجَّلة في الأرشيف — تُضاف النقاط لرصيدك</p>
+        </motion.div>
+      ) : (
+        <button onClick={handleSubmit}
+          disabled={!value.trim() || state === "sending"}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
+          style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
+          {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          {state === "sending" ? "جاري التسجيل..." : "إرسال البيانات"}
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
 function ResearchTab({ telegramId }: { telegramId: string }) {
   const [testimony, setTestimony] = useState("");
-  const [statType, setStatType] = useState("");
-  const [statValue, setStatValue] = useState("");
   const [testimonyState, setTestimonyState] = useState<FormState>("idle");
-  const [statsState, setStatsState] = useState<FormState>("idle");
+  const [activeStatCat, setActiveStatCat] = useState<StatCatId>("displacement");
 
   const submitTestimony = useCallback(async () => {
     if (!testimony.trim() || !telegramId) return;
@@ -210,23 +344,6 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
     setTimeout(() => setTestimonyState("idle"), 4000);
   }, [testimony, telegramId]);
 
-  const submitStats = useCallback(async () => {
-    if (!statType || !statValue.trim() || !telegramId) return;
-    setStatsState("sending");
-    await new Promise(r => setTimeout(r, 1000));
-    setStatsState("done");
-    setStatType("");
-    setStatValue("");
-    setTimeout(() => setStatsState("idle"), 4000);
-  }, [statType, statValue, telegramId]);
-
-  const cardStyle = {
-    background: "rgba(255,255,255,0.03)",
-    border: `1.5px solid ${GOLD}25`,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  };
   const inputStyle: React.CSSProperties = {
     width: "100%",
     background: "rgba(0,0,0,0.3)",
@@ -234,11 +351,18 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
     borderRadius: 10,
     padding: "10px 12px",
     color: "rgba(255,255,255,0.75)",
-    fontFamily: "inherit",
+    fontFamily: "'Amiri', serif",
     fontSize: 13,
     outline: "none",
     resize: "none" as const,
     direction: "rtl",
+  };
+  const cardStyle = {
+    background: "rgba(255,255,255,0.03)",
+    border: `1.5px solid ${GOLD}25`,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
   };
 
   return (
@@ -282,47 +406,64 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
         )}
       </div>
 
-      {/* Form 2: Statistical Data */}
+      {/* Form 2: Statistical Data — tabbed */}
       <div style={cardStyle}>
         <div className="flex items-center gap-2 mb-3">
           <span className="text-base">📊</span>
           <p className="font-arabic text-sm font-bold" style={{ color: GOLD }}>بيانات إحصائية</p>
           <span className="font-arabic text-[9px] px-2 py-0.5 rounded-full mr-auto" style={{ background: "rgba(212,175,55,0.1)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>+3 نقاط</span>
         </div>
-        <p className="font-arabic text-[11px] text-white/40 mb-3 leading-5">شارك ببيانات إحصائية تساعد في رصد الوضع الميداني.</p>
-        <select value={statType} onChange={e => setStatType(e.target.value)}
-          className="mb-2"
-          style={{ ...inputStyle, resize: undefined }}
-          disabled={statsState !== "idle"}>
-          <option value="">— اختر نوع البيانات —</option>
-          <option value="displacement">تهجير / نزوح</option>
-          <option value="demolition">هدم / تدمير ممتلكات</option>
-          <option value="detainees">حالات اعتقال</option>
-          <option value="killing">قتل وتصفية جسدية</option>
-          <option value="kidnapping">خطف وإخفاء قسري</option>
-          <option value="armed_movements">تحركات فصائل وعصابات مسلحة وترهيب</option>
-        </select>
-        <textarea value={statValue} onChange={e => setStatValue(e.target.value)}
-          rows={3}
-          placeholder="أدخل البيانات والأرقام أو وصفاً موجزاً..."
-          className="mb-3"
-          style={inputStyle}
-          disabled={statsState !== "idle"}
-        />
-        {statsState === "done" ? (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 rounded-xl p-3" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}>
-            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-            <p className="font-arabic text-xs text-green-300 font-bold">البيانات مُسجَّلة — تُضاف النقاط لرصيدك</p>
-          </motion.div>
-        ) : (
-          <button onClick={submitStats} disabled={!statType || !statValue.trim() || statsState === "sending"}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
-            style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
-            {statsState === "sending" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {statsState === "sending" ? "جاري التسجيل..." : "إرسال البيانات"}
-          </button>
-        )}
+        <p className="font-arabic text-[11px] text-white/40 mb-3 leading-5">اختر التصنيف ثم أدخل البيانات وأرفق الوثائق.</p>
+
+        {/* Category tab grid */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {STAT_CATS.map(cat => {
+            const active = activeStatCat === cat.id;
+            return (
+              <button key={cat.id} type="button"
+                onClick={() => setActiveStatCat(cat.id)}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl active:scale-95 transition-all"
+                style={{
+                  background: active
+                    ? "linear-gradient(135deg,rgba(212,175,55,0.22),rgba(212,175,55,0.1))"
+                    : "rgba(255,255,255,0.03)",
+                  border: `1.5px solid ${active ? GOLD + "60" : "rgba(255,255,255,0.08)"}`,
+                  boxShadow: active ? `0 0 12px rgba(212,175,55,0.15)` : "none",
+                }}>
+                <span className="text-lg leading-none">{cat.emoji}</span>
+                <span style={{
+                  fontFamily: "'Cairo', sans-serif",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: active ? GOLD : "rgba(255,255,255,0.35)",
+                  textAlign: "center",
+                  lineHeight: 1.4,
+                  whiteSpace: "pre-line",
+                }}>{cat.label}</span>
+                {active && (
+                  <motion.div layoutId="stat-pill"
+                    className="w-4 h-0.5 rounded-full mt-0.5"
+                    style={{ background: GOLD }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active category separator */}
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <div className="flex-1 h-px" style={{ background: `${GOLD}20` }} />
+          <span style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: `${GOLD}80` }}>
+            {STAT_CATS.find(c => c.id === activeStatCat)?.emoji}{" "}
+            {STAT_CATS.find(c => c.id === activeStatCat)?.label.replace("\n", " ")}
+          </span>
+          <div className="flex-1 h-px" style={{ background: `${GOLD}20` }} />
+        </div>
+
+        {/* Per-category panel */}
+        <AnimatePresence mode="wait">
+          <StatCategoryPanel key={activeStatCat} catId={activeStatCat} telegramId={telegramId} />
+        </AnimatePresence>
       </div>
     </div>
   );
