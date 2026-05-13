@@ -28,6 +28,7 @@ export const usersTable = pgTable("ali_users", {
   level: integer("level").notNull().default(1),
   keysConfirmed: boolean("keys_confirmed").notNull().default(false),
   loyaltyPoints: integer("loyalty_points").notNull().default(0),
+  role: text("role").notNull().default("member"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio,
-  Send, CheckCircle, Trophy, FileText, Scale,
-  Loader2, RotateCcw, Camera, X,
+  Send, CheckCircle, FileText, Scale,
+  Loader2, Camera, X,
 } from "lucide-react";
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
@@ -423,157 +423,267 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
   );
 }
 
-// ─── Tab: المسابقات الثقافية ────────────────────────────────────────────────
-const COMPETITIONS = [
-  {
-    id: "comp1",
-    title: "التراث العلوي — المستوى الأول",
-    emoji: "🌿",
-    questions: [
-      { q: "ما اسم الجبل الذي يُعدّ المعقل التاريخي للعلويين في الشام؟", a: "جبل الأنصارية (جبل العلويين)، ويمتد على طول الساحل السوري الغربي." },
-      { q: "ما معنى 'ذو الفقار' ولمن كان ينتسب تاريخياً؟", a: "سيف الإمام علي بن أبي طالب (ع)، وكان هدية من النبي ﷺ بعد غزوة بدر. يُعدّ رمزاً للشجاعة والعدالة." },
-      { q: "ما هو الاسم التاريخي الذي عُرف به العلويون قبل انتشار هذه التسمية؟", a: "النصيريون — نسبةً إلى محمد بن نصير النميري، أحد الرموز الدينية المؤسسة للمذهب في القرن الثالث الهجري." },
-    ],
-  },
-  {
-    id: "comp2",
-    title: "الهوية الرقمية — مبادرة ALI",
-    emoji: "💡",
-    questions: [
-      { q: "ماذا تعني اختصارات A.L.I في مبادرة التحرير العلوي؟", a: "Alawite Liberation Initiative — مبادرة التحرير العلوي. وهي منصة سيادية رقمية للتوثيق والتمكين والحفاظ على الهوية." },
-      { q: "ما وظيفة عملة $MDD في منظومة المبادرة؟", a: "$MDD (Management of Diversified Development) هي العملة الرقمية السيادية التي تعكس مساهمة المنتسب وتُستخدم كأداة تمكين اقتصادي مستقل." },
-      { q: "ما هو مركز ADAR وما دوره ضمن المبادرة؟", a: "Alawite Digital Archive & Research — مركز الأرشفة والرصد الإعلامي، يتولى توثيق الشهادات والتقارير ونشر البيانات البحثية باسم المبادرة." },
-    ],
-  },
-];
+// ─── Tab: دراسات ومقالات ───────────────────────────────────────────────────
 
-type CompState = { [key: string]: boolean };
+const ARTICLE_ADMIN_IDS = ["6213952907"];
 
-function CompetitionsTab() {
-  const [revealed, setRevealed] = useState<CompState>({});
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [rewardShown, setRewardShown] = useState<Set<string>>(new Set());
+type ArticleData = {
+  id: number;
+  title: string;
+  body: string;
+  authorTelegramId: string;
+  authorPseudonym: string;
+  authorAliId: string;
+  createdAt: string;
+};
 
-  function revealAnswer(compId: string, qIdx: number) {
-    const key = `${compId}-${qIdx}`;
-    setRevealed(prev => ({ ...prev, [key]: true }));
-  }
+function ArticlesTab({ telegramId }: { telegramId: string }) {
+  const [articles, setArticles] = useState<ArticleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState("member");
+  const [showForm, setShowForm] = useState(false);
+  const [artTitle, setArtTitle] = useState("");
+  const [artBody, setArtBody] = useState("");
+  const [submitState, setSubmitState] = useState<FormState>("idle");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  function completeComp(compId: string, totalQ: number) {
-    const allRevealed = Array.from({ length: totalQ }, (_, i) => revealed[`${compId}-${i}`]).every(Boolean);
-    if (allRevealed && !completed.has(compId)) {
-      setCompleted(prev => new Set([...prev, compId]));
-      setRewardShown(prev => new Set([...prev, compId]));
-      setTimeout(() => setRewardShown(prev => { const s = new Set(prev); s.delete(compId); return s; }), 5000);
+  const isAdmin = ARTICLE_ADMIN_IDS.includes(telegramId);
+  const canPublish = isAdmin || userRole === "staff" || userRole === "admin";
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const promises: Promise<Response>[] = [fetch("/api/articles")];
+        if (telegramId) {
+          promises.push(
+            fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+          );
+        }
+        const [artsRes, userRes] = await Promise.all(promises);
+        if (artsRes.ok) {
+          const data: ArticleData[] = await artsRes.json();
+          setArticles(data.slice().reverse());
+        }
+        if (userRes?.ok) {
+          const u = await userRes.json();
+          setUserRole(u.role ?? "member");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [telegramId]);
+
+  const handlePublish = useCallback(async () => {
+    if (!artTitle.trim() || !artBody.trim() || !telegramId) return;
+    setSubmitState("sending");
+    try {
+      const res = await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+        body: JSON.stringify({ title: artTitle.trim(), body: artBody.trim() }),
+      });
+      if (res.ok) {
+        const article: ArticleData = await res.json();
+        setArticles(prev => [article, ...prev]);
+        setArtTitle("");
+        setArtBody("");
+        setShowForm(false);
+        setSubmitState("done");
+        setTimeout(() => setSubmitState("idle"), 3000);
+      }
+    } catch {
+      setSubmitState("idle");
     }
-  }
+  }, [artTitle, artBody, telegramId]);
+
+  const handleDelete = async (id: number) => {
+    if (!telegramId) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/articles/${id}`, {
+        method: "DELETE",
+        headers: { "x-telegram-id": telegramId },
+      });
+      if (res.ok) setArticles(prev => prev.filter(a => a.id !== id));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const canDelete = (art: ArticleData) =>
+    isAdmin || userRole === "admin" || art.authorTelegramId === telegramId;
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString("ar-SA", {
+      year: "numeric", month: "long", day: "numeric",
+    });
+
+  const inputBase: React.CSSProperties = {
+    width: "100%",
+    background: "rgba(0,0,0,0.35)",
+    border: "1px solid rgba(212,175,55,0.2)",
+    borderRadius: 10,
+    padding: "10px 12px",
+    color: "rgba(255,255,255,0.8)",
+    outline: "none",
+    direction: "rtl",
+  };
 
   return (
     <div className="space-y-4">
+
+      {/* Header */}
       <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(212,175,55,0.05)", border: `1px solid ${GOLD}20` }}>
         <div className="flex items-center gap-2 mb-1">
-          <Trophy className="w-4 h-4" style={{ color: GOLD }} />
-          <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>مسابقات ثقافية — حفظ الهوية والتراث</p>
+          <BookOpen className="w-4 h-4" style={{ color: GOLD }} />
+          <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>دراسات ومقالات — مركز الرصد الإعلامي ADAR</p>
         </div>
-        <p className="font-arabic text-[11px] text-white/40 leading-5">أجب على الأسئلة واكشف الإجابات الصحيحة لتحصل على المكافأة فور إتمام المسابقة.</p>
+        <p className="font-arabic text-[11px] text-white/40 leading-5">
+          مقالات ودراسات موثقة يُصدرها الفريق المنتخب. كل مقال يُنشر باسم صاحبه ويُحفظ في الأرشيف الرقمي غير قابل للتعديل.
+        </p>
       </div>
 
-      {COMPETITIONS.map(comp => {
-        const isDone = completed.has(comp.id);
-        const showReward = rewardShown.has(comp.id);
-        const allAnswered = comp.questions.every((_, i) => revealed[`${comp.id}-${i}`]);
+      {/* Publish toggle (staff / admin only) */}
+      {canPublish && (
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-arabic text-sm font-bold active:scale-95 transition-all"
+          style={{
+            background: showForm ? "rgba(212,175,55,0.15)" : "rgba(212,175,55,0.07)",
+            border: `1.5px solid ${GOLD}40`,
+            color: GOLD,
+          }}>
+          {showForm
+            ? <><X className="w-4 h-4" /> إلغاء</>
+            : <><Send className="w-4 h-4" /> نشر مقال جديد</>}
+        </button>
+      )}
 
-        return (
-          <motion.div key={comp.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.03)", border: `1.5px solid ${isDone ? "rgba(34,197,94,0.4)" : GOLD + "25"}` }}>
-
-            {/* Competition header */}
-            <div className="flex items-center gap-3 px-4 py-3" style={{ background: isDone ? "rgba(34,197,94,0.08)" : "rgba(212,175,55,0.06)", borderBottom: `1px solid ${isDone ? "rgba(34,197,94,0.2)" : GOLD + "15"}` }}>
-              <span className="text-2xl">{comp.emoji}</span>
-              <div className="flex-1">
-                <p className="font-arabic text-sm font-bold" style={{ color: isDone ? "#4ade80" : GOLD }}>{comp.title}</p>
-                <p className="font-arabic text-[10px]" style={{ color: isDone ? "rgba(74,222,128,0.6)" : "rgba(212,175,55,0.5)" }}>{comp.questions.length} أسئلة · {isDone ? "مكتمل ✓" : "جارٍ..."}</p>
+      {/* Publish form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ overflow: "hidden" }}>
+            <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(0,0,0,0.28)", border: `1.5px solid ${GOLD}35` }}>
+              <div className="px-4 py-2.5" style={{ background: "rgba(212,175,55,0.08)", borderBottom: `1px solid ${GOLD}18` }}>
+                <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>✍️ إنشاء مقال جديد</p>
               </div>
-              <span className="font-arabic text-[10px] px-2 py-1 rounded-full font-bold" style={{ background: "rgba(212,175,55,0.12)", color: GOLD, border: "1px solid rgba(212,175,55,0.25)" }}>
-                +{comp.questions.length * 5} نقطة
-              </span>
-            </div>
-
-            {/* Reward banner */}
-            <AnimatePresence>
-              {showReward && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-3 px-4 py-3" style={{ background: "rgba(34,197,94,0.12)", borderBottom: "1px solid rgba(34,197,94,0.2)" }}>
-                  <span className="text-2xl">🎉</span>
-                  <div>
-                    <p className="font-arabic text-sm font-bold text-green-300">أحسنت! تمّت المسابقة بنجاح</p>
-                    <p className="font-arabic text-[11px] text-green-400/70">+{comp.questions.length * 5} نقطة أُضيفت لسجل مساهماتك السيادية</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Questions */}
-            <div className="px-4 py-3 space-y-3" dir="rtl">
-              {comp.questions.map((q, i) => {
-                const key = `${comp.id}-${i}`;
-                const isRevealed = revealed[key];
-                return (
-                  <div key={i} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${isRevealed ? "rgba(34,197,94,0.2)" : "rgba(255,255,255,0.07)"}` }}>
-                    <div className="px-3 py-2.5" style={{ background: "rgba(0,0,0,0.2)" }}>
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" style={{ background: "rgba(212,175,55,0.15)", color: GOLD }}>{i + 1}</span>
-                        <p className="font-arabic text-sm text-white/75 leading-6">{q.q}</p>
-                      </div>
-                    </div>
-                    <AnimatePresence>
-                      {isRevealed ? (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                          className="px-3 py-2.5 flex items-start gap-2" style={{ background: "rgba(34,197,94,0.06)" }}>
-                          <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
-                          <p className="font-arabic text-[12px] text-green-300/90 leading-5">{q.a}</p>
-                        </motion.div>
-                      ) : (
-                        <button onClick={() => revealAnswer(comp.id, i)}
-                          className="w-full px-3 py-2 font-arabic text-xs text-white/40 text-center active:brightness-125 transition-all"
-                          style={{ background: "rgba(212,175,55,0.04)" }}>
-                          اكشف الإجابة ▼
-                        </button>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-
-              {/* Complete button */}
-              {allAnswered && !isDone && (
-                <motion.button initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => completeComp(comp.id, comp.questions.length)}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-arabic font-bold text-sm active:scale-95 transition-all"
-                  style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.25), rgba(22,163,74,0.15))", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
-                  <Trophy className="w-4 h-4" />
-                  احتسب المكافأة
-                </motion.button>
-              )}
-              {isDone && (
-                <div className="flex items-center justify-center gap-2 py-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="font-arabic text-sm text-green-400 font-bold">مكتمل — المكافأة في رصيدك</span>
-                </div>
-              )}
+              <div className="px-4 py-3 space-y-3" dir="rtl">
+                <input
+                  value={artTitle}
+                  onChange={e => setArtTitle(e.target.value)}
+                  placeholder="عنوان المقال..."
+                  style={{ ...inputBase, fontFamily: "'Cairo', sans-serif", fontSize: 13, fontWeight: 700 }}
+                />
+                <textarea
+                  value={artBody}
+                  onChange={e => setArtBody(e.target.value)}
+                  rows={9}
+                  placeholder="الصق محتوى المقال هنا أو اكتبه مباشرةً — سيُنسَّق تلقائياً وفق الهوية البصرية..."
+                  style={{ ...inputBase, fontFamily: "'Amiri', serif", fontSize: 13, resize: "none" }}
+                />
+                <button
+                  onClick={handlePublish}
+                  disabled={!artTitle.trim() || !artBody.trim() || submitState === "sending"}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
+                  style={{
+                    background: "linear-gradient(135deg,rgba(212,175,55,0.22),rgba(212,175,55,0.09))",
+                    border: `1.5px solid ${GOLD}50`,
+                    color: GOLD,
+                  }}>
+                  {submitState === "sending"
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> جاري النشر...</>
+                    : <><Send className="w-4 h-4" /> نشر في الأرشيف الرقمي</>}
+                </button>
+              </div>
             </div>
           </motion.div>
-        );
-      })}
+        )}
+      </AnimatePresence>
 
-      {/* Reset button */}
-      <button onClick={() => { setRevealed({}); setCompleted(new Set()); }}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-arabic text-sm text-white/25 active:text-white/50 transition-all"
-        style={{ border: "1px dashed rgba(255,255,255,0.1)" }}>
-        <RotateCcw className="w-3.5 h-3.5" />
-        إعادة المسابقات
-      </button>
+      {/* Articles list */}
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-12">
+          <Loader2 className="w-5 h-5 animate-spin" style={{ color: GOLD }} />
+          <p className="font-arabic text-sm text-white/35">جاري التحميل...</p>
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-14 rounded-2xl"
+          style={{ border: "1px dashed rgba(212,175,55,0.12)" }}>
+          <img src={adarLogoSrc} alt="" aria-hidden style={{ width: 52, height: 52, objectFit: "contain", opacity: 0.07 }} />
+          <p className="font-arabic text-sm text-white/20">لا توجد مقالات منشورة حتى الآن</p>
+        </div>
+      ) : (
+        articles.map((art, i) => (
+          <motion.div
+            key={art.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="rounded-2xl overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.025)", border: `1.5px solid ${GOLD}22` }}>
+
+            {/* Document header */}
+            <div className="px-4 py-3" style={{
+              background: "linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))",
+              borderBottom: `1px solid ${GOLD}18`,
+            }}>
+              <div className="flex items-start gap-2" dir="rtl">
+                <div className="flex-1 min-w-0">
+                  <p className="font-arabic text-sm font-black leading-6" style={{ color: GOLD }}>{art.title}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="font-mono text-[9px] px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>
+                      {art.authorAliId}
+                    </span>
+                    <span className="font-arabic text-[10px] text-white/40">{art.authorPseudonym}</span>
+                    <span className="font-arabic text-[10px] text-white/22">·</span>
+                    <span className="font-arabic text-[10px] text-white/25">{fmtDate(art.createdAt)}</span>
+                  </div>
+                </div>
+                {canDelete(art) && (
+                  <button
+                    onClick={() => handleDelete(art.id)}
+                    disabled={deletingId === art.id}
+                    className="p-1.5 rounded-lg active:scale-95 transition-all flex-shrink-0 disabled:opacity-40"
+                    style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.22)" }}>
+                    {deletingId === art.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />
+                      : <X className="w-3.5 h-3.5 text-red-400" />}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Document body */}
+            <div className="px-4 py-4" dir="rtl">
+              <div className="relative">
+                <div className="absolute right-0 top-1 bottom-1 w-0.5 rounded-full"
+                  style={{ background: `linear-gradient(to bottom, ${GOLD}45, transparent)` }} />
+                <div className="pr-4 space-y-2">
+                  {art.body.split("\n").filter(l => l.trim()).map((para, j) => (
+                    <p key={j} className="text-white/65 leading-7" style={{ fontFamily: "'Amiri', serif", fontSize: 13 }}>
+                      {para}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Document seal */}
+            <div className="px-4 py-2 flex items-center justify-between"
+              style={{ borderTop: `1px solid ${GOLD}10`, background: "rgba(212,175,55,0.015)" }}>
+              <span className="font-mono text-[9px] text-white/15">ADAR · {new Date(art.createdAt).getFullYear()}</span>
+              <span className="font-arabic text-[9px] text-white/15">وثيقة رقمية محفوظة · غير قابلة للتعديل</span>
+            </div>
+          </motion.div>
+        ))
+      )}
     </div>
   );
 }
@@ -678,14 +788,14 @@ function CharterTab() {
 }
 
 // ─── Main ADAR Section ─────────────────────────────────────────────────────
-type AdarTab = "news" | "research" | "docs" | "competitions" | "charter";
+type AdarTab = "news" | "research" | "docs" | "articles" | "charter";
 
 const TABS: { id: AdarTab; label: string; icon: string }[] = [
-  { id: "news",         label: "الأخبار",   icon: "📡" },
-  { id: "research",     label: "الرصد",     icon: "🔬" },
-  { id: "docs",         label: "التوثيق",   icon: "📁" },
-  { id: "competitions", label: "مسابقات",   icon: "🏆" },
-  { id: "charter",      label: "الميثاق",   icon: "⚖️" },
+  { id: "news",     label: "الأخبار",          icon: "📡" },
+  { id: "research", label: "الرصد",             icon: "🔬" },
+  { id: "docs",     label: "التوثيق",           icon: "📁" },
+  { id: "articles", label: "دراسات ومقالات",   icon: "📝" },
+  { id: "charter",  label: "الميثاق",           icon: "⚖️" },
 ];
 
 export function AdarSection({
@@ -765,7 +875,7 @@ export function AdarSection({
             {activeTab === "news"         && <NewsTab />}
             {activeTab === "research"     && <ResearchTab telegramId={telegramId} />}
             {activeTab === "docs"         && <DocsTab telegramId={telegramId} />}
-            {activeTab === "competitions" && <CompetitionsTab />}
+            {activeTab === "articles"     && <ArticlesTab telegramId={telegramId} />}
             {activeTab === "charter"      && <CharterTab />}
           </motion.div>
         </AnimatePresence>
