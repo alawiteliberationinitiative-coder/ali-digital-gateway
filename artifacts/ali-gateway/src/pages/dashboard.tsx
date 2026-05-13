@@ -14,8 +14,9 @@ import { LeaderboardSection } from "./sections/leaderboard";
 import { PlaySection } from "./sections/play";
 import { WatchSection } from "./sections/watch";
 import { KnowledgeSection } from "./sections/knowledge";
+import { ProfileSection } from "./sections/profile";
 
-type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | null;
+type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | "profile" | null;
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
@@ -98,25 +99,45 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
 }
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
-function ProgressHeader({ userData }: { userData: { pseudonym: string; level: number; rank: string; mddBalance: number } }) {
+function ProgressHeader({
+  userData,
+  onOpenProfile,
+}: {
+  userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number };
+  onOpenProfile: () => void;
+}) {
   const xpPerLevel = 500;
-  const currentXp = (userData.mddBalance % xpPerLevel) || Math.floor(userData.mddBalance * 0.7 % xpPerLevel);
+  const pts = userData.loyaltyPoints;
+  const currentXp = pts % xpPerLevel;
   const pct = Math.min((currentXp / xpPerLevel) * 100, 100);
-  const dailyPts = 24;
 
   return (
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border px-4 py-3" dir="rtl">
       <div className="flex items-center gap-3 mb-2.5">
-        <AliEmblem className="w-9 h-9 flex-shrink-0" animate={false} />
+        {/* Clickable avatar → opens profile */}
+        <button
+          onClick={onOpenProfile}
+          className="relative flex-shrink-0 active:scale-95 transition-transform"
+          aria-label="ملف العضو">
+          <AliEmblem className="w-9 h-9" animate={false} />
+          <span className="absolute -bottom-1 -left-1 font-mono text-[8px] font-black px-1 rounded-full"
+            style={{ background: "#d4af37", color: "#001a10", lineHeight: "14px" }}>
+            {userData.level}
+          </span>
+        </button>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            {/* Name → also opens profile */}
+            <button onClick={onOpenProfile} className="flex items-center gap-2 active:opacity-70 transition-opacity">
               <span className="font-arabic font-bold text-primary text-sm leading-tight">{userData.pseudonym}</span>
-              <span className="bg-primary/20 border border-primary/40 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">LVL {userData.level}</span>
-            </div>
+              <span className="bg-primary/20 border border-primary/40 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
+                LVL {userData.level}
+              </span>
+            </button>
             <div className="flex items-center gap-1 bg-[#d4af37]/10 border border-[#d4af37]/30 rounded-full px-2.5 py-1">
-              <span className="text-[#d4af37] text-xs font-bold">+{dailyPts}</span>
-              <span className="font-arabic text-[#d4af37]/70 text-[10px]">اليوم</span>
+              <span className="text-[#d4af37] text-xs font-bold">{pts.toLocaleString()}</span>
+              <span className="font-arabic text-[#d4af37]/70 text-[10px]">نقطة</span>
             </div>
           </div>
           <div className="mt-1.5">
@@ -233,7 +254,7 @@ export default function Dashboard() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 0.7, ease: "easeOut" }}>
 
-          <ProgressHeader userData={userData} />
+          <ProgressHeader userData={userData} onOpenProfile={() => setActiveSection("profile")} />
 
           {/* Section overlay */}
           <AnimatePresence mode="wait">
@@ -252,22 +273,25 @@ export default function Dashboard() {
                 {activeSection === "play"        && <PlaySection onBack={handleBack} />}
                 {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
                 {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
+                {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} />}
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Home grid */}
           <div className="px-4 pt-5 pb-24 space-y-0" dir="rtl">
-            {/* Identity strip */}
-            <motion.div
+            {/* Identity strip — clickable → opens profile */}
+            <motion.button
+              onClick={() => setActiveSection("profile")}
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-              className="bg-card border border-border rounded-2xl px-4 py-3 mb-5 flex items-center justify-between"
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-card border border-border rounded-2xl px-4 py-3 mb-5 flex items-center justify-between active:brightness-90 transition-all"
               style={{ boxShadow: "0 3px 0 rgba(212,175,55,0.15)" }}>
-              <div>
+              <div className="text-right">
                 <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">رقم الهوية</div>
                 <div className="font-mono text-primary text-sm font-bold tracking-widest">{userData.aliId}</div>
               </div>
-              <div className="text-left">
+              <div className="text-center">
                 <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">الرتبة</div>
                 <div className="font-mono text-primary text-sm uppercase">{userData.rank}</div>
               </div>
@@ -275,7 +299,8 @@ export default function Dashboard() {
                 <div className="font-arabic text-[10px] text-muted-foreground mb-0.5">$MDD</div>
                 <div className="font-mono text-[#d4af37] text-sm font-bold">{userData.mddBalance.toLocaleString()}</div>
               </div>
-            </motion.div>
+              <div className="text-[#d4af37]/40 text-lg leading-none">‹</div>
+            </motion.button>
 
             {/* Section cards grid */}
             <div className="grid grid-cols-2 gap-3">
