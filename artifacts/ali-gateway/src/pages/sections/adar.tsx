@@ -1,14 +1,23 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio } from "lucide-react";
-import adarLogoSrc from "@assets/photo_2026-05-13_12-09-13_1778663374784.jpg";
 import { markRead } from "./adar-utils";
+
+const adarLogoSrc = `${import.meta.env.BASE_URL}adar-logo.png`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const GOLD = "#d4af37";
 
 // ─── ADAR Logo Image Component ────────────────────────────────────────────────
-export function AdarEmblem({ size = 52, className = "" }: { size?: number; className?: string }) {
+export function AdarEmblem({
+  size = 52,
+  className = "",
+  glow = false,
+}: {
+  size?: number;
+  className?: string;
+  glow?: boolean;
+}) {
   return (
     <img
       src={adarLogoSrc}
@@ -16,7 +25,13 @@ export function AdarEmblem({ size = 52, className = "" }: { size?: number; class
       width={size}
       height={size}
       className={className}
-      style={{ objectFit: "contain", display: "block" }}
+      style={{
+        objectFit: "contain",
+        display: "block",
+        filter: glow
+          ? "drop-shadow(0 0 8px rgba(212,175,55,0.8)) drop-shadow(0 0 16px rgba(212,175,55,0.45)) brightness(1.08)"
+          : "drop-shadow(0 2px 4px rgba(0,0,0,0.4))",
+      }}
     />
   );
 }
@@ -36,7 +51,7 @@ function AdarWatermark({ opacity = 0.07, size = 80 }: { opacity?: number; size?:
         opacity,
         pointerEvents: "none",
         userSelect: "none",
-        filter: "grayscale(30%) brightness(1.2)",
+        filter: "brightness(1.3)",
       }}
     />
   );

@@ -339,7 +339,7 @@ export default function Dashboard() {
 
                 {/* Emblem */}
                 <div className="relative z-10 flex-shrink-0">
-                  <AdarEmblem size={52} />
+                  <AdarEmblem size={64} glow />
                 </div>
 
                 {/* Text */}
