@@ -19,10 +19,10 @@ type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
   const [exiting, setExiting] = useState(false);
 
-  // Single screen shown for 9 s then fades out over 1 s
+  // Single screen shown for 5 s then fades out over 1 s
   useEffect(() => {
-    const t1 = setTimeout(() => setExiting(true), 9000);
-    const t2 = setTimeout(() => onDone(), 10200);
+    const t1 = setTimeout(() => setExiting(true), 5000);
+    const t2 = setTimeout(() => onDone(), 6200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onDone]);
 
