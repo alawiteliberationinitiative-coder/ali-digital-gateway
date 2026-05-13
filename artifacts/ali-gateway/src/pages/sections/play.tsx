@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Zap, Star, Trophy, RotateCcw, Tv, XCircle } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
@@ -56,11 +56,27 @@ function StageAdScreen({ score, telegramId, onDone }: {
   telegramId: string;
   onDone: () => void;
 }) {
-  const [phase, setPhase] = useState<"countdown" | "ad" | "done">("countdown");
-  const [secs,  setSecs]  = useState(3);
-  const launched          = useRef(false);
-  const ad                = useRewardedAd(0);
+  const [phase,     setPhase]     = useState<"countdown" | "ad" | "done">("countdown");
+  const [secs,      setSecs]      = useState(3);
+  const [skipSecs,  setSkipSecs]  = useState(12);   // skip button appears after 12 s in ad phase
+  const launched                  = useRef(false);
+  const ad                        = useRewardedAd(0);
 
+  // Advance to done — idempotent so safe to call multiple times
+  const advance = useCallback(async () => {
+    if (telegramId) {
+      try {
+        await fetch("/api/ads/reward", {
+          method:  "POST",
+          headers: { "x-telegram-id": telegramId },
+        });
+      } catch { /* non-critical */ }
+    }
+    setPhase("done");
+    setTimeout(onDone, 800);
+  }, [telegramId, onDone]);
+
+  // Initial countdown before showing ad
   useEffect(() => {
     if (secs > 0) {
       const t = setTimeout(() => setSecs(s => s - 1), 1000);
@@ -69,21 +85,18 @@ function StageAdScreen({ score, telegramId, onDone }: {
     if (!launched.current) {
       launched.current = true;
       setPhase("ad");
-      ad.show().then(async () => {
-        if (telegramId) {
-          try {
-            await fetch("/api/ads/reward", {
-              method:  "POST",
-              headers: { "x-telegram-id": telegramId },
-            });
-          } catch { /* non-critical */ }
-        }
-        setPhase("done");
-        setTimeout(onDone, 800);
-      });
+      ad.show().then(advance);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secs, onDone, telegramId]);
+  }, [secs]);
+
+  // Skip-button countdown — only ticks while in "ad" phase
+  useEffect(() => {
+    if (phase !== "ad") return;
+    if (skipSecs <= 0) return;
+    const t = setTimeout(() => setSkipSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, skipSecs]);
 
   return (
     <motion.div
@@ -201,6 +214,24 @@ function StageAdScreen({ score, telegramId, onDone }: {
       {phase === "countdown" && (
         <p className="font-arabic text-xs text-muted-foreground/50">
           إعلان قصير قبل عرض نتائجك — شاهده لدعم المبادرة
+        </p>
+      )}
+
+      {/* Skip button — appears after 12 s if ad is still running */}
+      {phase === "ad" && skipSecs <= 0 && (
+        <motion.button
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          onClick={advance}
+          className="font-arabic text-sm px-6 py-2 rounded-full border"
+          style={{ borderColor: "rgba(212,175,55,0.35)", color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.06)" }}>
+          تخطى ←
+        </motion.button>
+      )}
+
+      {/* Skip countdown hint */}
+      {phase === "ad" && skipSecs > 0 && (
+        <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
+          يمكنك التخطي بعد {skipSecs}ث
         </p>
       )}
     </motion.div>

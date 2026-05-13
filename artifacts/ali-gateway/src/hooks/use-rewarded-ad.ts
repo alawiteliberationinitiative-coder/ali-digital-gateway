@@ -24,6 +24,9 @@ export interface UseRewardedAdResult {
 
 const ZONE_FN = "show_11001376" as const;
 const DEV_DURATION_MS = 2500;
+// If the ad network function doesn't resolve in this time, treat as completed
+// so the user is never permanently stuck on the ad screen.
+const AD_TIMEOUT_MS = 18000;
 
 export function useRewardedAd(cooldownMs = 0): UseRewardedAdResult {
   const [phase, setPhase] = useState<AdPhase>("idle");
@@ -61,7 +64,12 @@ export function useRewardedAd(cooldownMs = 0): UseRewardedAdResult {
     try {
       setPhase("showing");
       if (typeof window[ZONE_FN] === "function") {
-        await window[ZONE_FN]();
+        // Race the ad network call against a timeout so users are never
+        // permanently stuck if the ad function hangs without resolving.
+        await Promise.race([
+          window[ZONE_FN](),
+          new Promise<void>((resolve) => setTimeout(resolve, AD_TIMEOUT_MS)),
+        ]);
       } else {
         await new Promise<void>((res) => setTimeout(res, DEV_DURATION_MS));
       }
