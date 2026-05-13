@@ -10,7 +10,7 @@ async function getUser(telegramId: string) {
 
 /* ── Follow a user ───────────────────────────────────────────────────────── */
 router.post("/users/follow/:targetTelegramId", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId     = req.telegramId;
   const targetId = req.params.targetTelegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
   if (myId === targetId) { res.status(400).json({ error: "لا يمكنك متابعة نفسك" }); return; }
@@ -19,13 +19,13 @@ router.post("/users/follow/:targetTelegramId", async (req, res): Promise<void> =
     await db.insert(followsTable).values({ followerTelegramId: myId, followingTelegramId: targetId });
     res.status(201).json({ ok: true, following: true });
   } catch {
-    res.status(409).json({ ok: true, following: true });
+    res.status(200).json({ ok: true, following: true }); // already following
   }
 });
 
 /* ── Unfollow a user ─────────────────────────────────────────────────────── */
 router.delete("/users/follow/:targetTelegramId", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId     = req.telegramId;
   const targetId = req.params.targetTelegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -35,17 +35,16 @@ router.delete("/users/follow/:targetTelegramId", async (req, res): Promise<void>
   res.json({ ok: true, following: false });
 });
 
-/* ── Check follow status for a list of telegramIds ───────────────────────── */
+/* ── Check follow status ─────────────────────────────────────────────────── */
 router.post("/users/follow-check", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const { telegramIds } = req.body as { telegramIds?: string[] };
-  if (!Array.isArray(telegramIds) || telegramIds.length === 0) {
-    res.json({}); return;
-  }
+  if (!Array.isArray(telegramIds) || telegramIds.length === 0) { res.json({}); return; }
 
-  const follows = await db.select({ followingTelegramId: followsTable.followingTelegramId })
+  const follows = await db
+    .select({ followingTelegramId: followsTable.followingTelegramId })
     .from(followsTable)
     .where(eq(followsTable.followerTelegramId, myId));
 
@@ -55,9 +54,9 @@ router.post("/users/follow-check", async (req, res): Promise<void> => {
   res.json(map);
 });
 
-/* ── Get my following list ───────────────────────────────────────────────── */
+/* ── My following list ───────────────────────────────────────────────────── */
 router.get("/users/me/following", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const rows = await db
@@ -77,9 +76,9 @@ router.get("/users/me/following", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-/* ── Get my followers list ───────────────────────────────────────────────── */
+/* ── My followers list ───────────────────────────────────────────────────── */
 router.get("/users/me/followers", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const rows = await db
@@ -99,9 +98,9 @@ router.get("/users/me/followers", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-/* ── Follow counts for current user ──────────────────────────────────────── */
+/* ── Network stats ───────────────────────────────────────────────────────── */
 router.get("/users/me/network-stats", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const [{ followingCount }] = await db
@@ -119,12 +118,14 @@ router.get("/users/me/network-stats", async (req, res): Promise<void> => {
 
 /* ── Search users ────────────────────────────────────────────────────────── */
 router.get("/users/search", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const q = (req.query.q as string | undefined)?.trim();
   if (!q || q.length < 2) { res.json([]); return; }
+  if (q.length > 100) { res.json([]); return; }
 
+  const safe = q.toLowerCase().replace(/[%_\\]/g, "\\$&");
   const users = await db
     .select({
       telegramId: usersTable.telegramId,
@@ -135,17 +136,16 @@ router.get("/users/search", async (req, res): Promise<void> => {
     })
     .from(usersTable)
     .where(
-      sql`(lower(${usersTable.pseudonym}) LIKE ${`%${q.toLowerCase()}%`} OR lower(${usersTable.aliId}) LIKE ${`%${q.toLowerCase()}%`})`
+      sql`(lower(${usersTable.pseudonym}) LIKE ${`%${safe}%`} OR lower(${usersTable.aliId}) LIKE ${`%${safe}%`})`
     )
     .limit(20);
 
-  const filtered = users.filter(u => u.telegramId !== myId);
-  res.json(filtered);
+  res.json(users.filter(u => u.telegramId !== myId));
 });
 
-/* ── Invite user to a space ──────────────────────────────────────────────── */
+/* ── Invite user to space ────────────────────────────────────────────────── */
 router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId    = req.telegramId;
   const spaceId = parseInt(req.params.id, 10);
   if (!myId || isNaN(spaceId)) { res.status(400).json({ error: "Bad request" }); return; }
 
@@ -158,8 +158,7 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
   const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, spaceId));
   if (!space || space.status === "ended") { res.status(404).json({ error: "Space not found" }); return; }
 
-  const isHost = space.hostTelegramId === myId;
-  if (role === "speaker" && !isHost) {
+  if (role === "speaker" && space.hostTelegramId !== myId) {
     res.status(403).json({ error: "فقط المضيف يمكنه تعيين الضيوف" }); return;
   }
 
@@ -180,9 +179,9 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
   }
 });
 
-/* ── Get my pending space invites ────────────────────────────────────────── */
+/* ── My pending invites ──────────────────────────────────────────────────── */
 router.get("/spaces/my-invites", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const invites = await db
@@ -199,27 +198,20 @@ router.get("/spaces/my-invites", async (req, res): Promise<void> => {
     })
     .from(spaceInvitesTable)
     .innerJoin(spacesTable, eq(spaceInvitesTable.spaceId, spacesTable.id))
-    .where(
-      and(
-        eq(spaceInvitesTable.inviteeTelegramId, myId),
-        eq(spaceInvitesTable.seen, false)
-      )
-    )
+    .where(and(eq(spaceInvitesTable.inviteeTelegramId, myId), eq(spaceInvitesTable.seen, false)))
     .orderBy(spaceInvitesTable.createdAt);
 
-  const active = invites.filter(i => i.spaceStatus === "live" || i.spaceStatus === "scheduled");
-  res.json(active);
+  res.json(invites.filter(i => i.spaceStatus === "live" || i.spaceStatus === "scheduled"));
 });
 
-/* ── Mark invite as seen and handle join ─────────────────────────────────── */
+/* ── Accept invite ───────────────────────────────────────────────────────── */
 router.post("/spaces/invites/:inviteId/accept", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId     = req.telegramId;
   const inviteId = parseInt(req.params.inviteId, 10);
   if (!myId || isNaN(inviteId)) { res.status(400).json({ error: "Bad request" }); return; }
 
   const [invite] = await db.select().from(spaceInvitesTable)
     .where(and(eq(spaceInvitesTable.id, inviteId), eq(spaceInvitesTable.inviteeTelegramId, myId)));
-
   if (!invite) { res.status(404).json({ error: "Invite not found" }); return; }
 
   await db.update(spaceInvitesTable).set({ seen: true }).where(eq(spaceInvitesTable.id, inviteId));
@@ -238,7 +230,7 @@ router.post("/spaces/invites/:inviteId/accept", async (req, res): Promise<void> 
       pseudonym: user.pseudonym,
       aliId: user.aliId,
       role: invite.role as "listener" | "speaker",
-      isMuted: invite.role === "speaker" ? false : true,
+      isMuted: invite.role !== "speaker",
       raisedHand: false,
     });
   } else if (invite.role === "speaker" && existing.role === "listener") {
@@ -252,7 +244,7 @@ router.post("/spaces/invites/:inviteId/accept", async (req, res): Promise<void> 
 
 /* ── Dismiss invite ──────────────────────────────────────────────────────── */
 router.post("/spaces/invites/:inviteId/dismiss", async (req, res): Promise<void> => {
-  const myId = req.headers["x-telegram-id"] as string | undefined;
+  const myId     = req.telegramId;
   const inviteId = parseInt(req.params.inviteId, 10);
   if (!myId || isNaN(inviteId)) { res.status(400).json({ error: "Bad request" }); return; }
 

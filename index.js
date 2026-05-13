@@ -99,12 +99,12 @@ async function sendCaptcha(chatId, editMsgId = null) {
 
 async function sendAppMessage(chatId, refCode = null) {
   if (!webAppUrl) {
-    bot.sendMessage(chatId, 'جارٍ تهيئة بوابة A.L.I الرقمية. يرجى المحاولة مجدداً بعد لحظات.');
+    await bot.sendMessage(chatId, 'جارٍ تهيئة بوابة A.L.I الرقمية. يرجى المحاولة مجدداً بعد لحظات.').catch(() => {});
     return;
   }
   // Append start_param so Mini App can read it via initDataUnsafe.start_param
   const appUrl = refCode ? `${webAppUrl}?startapp=${encodeURIComponent(refCode)}` : webAppUrl;
-  bot.sendMessage(chatId,
+  await bot.sendMessage(chatId,
 `🟢 *مبادرة التحرير العلوي — A.L.I*
 
 أهلاً بك في البوابة الرقمية السيادية.
@@ -129,6 +129,7 @@ _Management of Diversified Development · $MDD_`,
 
 // ── /start ────────────────────────────────────────────────────────────────
 bot.on('message', async (msg) => {
+  try {
   const chatId = msg.chat.id;
   const text   = msg.text;
 
@@ -207,19 +208,23 @@ bot.on('message', async (msg) => {
       mnemonic.length = 0;
       keyPair.secretKey.fill(0);
 
-      bot.sendMessage(chatId,
+      await bot.sendMessage(chatId,
         '✅ تم إنشاء المحفظة وإرسال البيانات. تم مسح المفاتيح من الذاكرة.\n\n⚙️ لا تنسَ إضافة `TON_TREASURY_ADDRESS` في متغيرات البيئة.',
         { parse_mode: 'Markdown' }
-      );
+      ).catch(() => {});
     } catch (err) {
       console.error('Wallet creation error:', err.message);
-      bot.sendMessage(chatId, `❌ فشل إنشاء المحفظة: ${err.message}`);
+      bot.sendMessage(chatId, `❌ فشل إنشاء المحفظة: ${err.message}`).catch(() => {});
     }
+  }
+  } catch (err) {
+    console.error('Message handler error:', err?.message ?? err);
   }
 });
 
 // ── Captcha callback_query ─────────────────────────────────────────────────
 bot.on('callback_query', async (query) => {
+  try {
   const { data, from, message } = query;
   const chatId = from.id;
 
@@ -271,7 +276,7 @@ bot.on('callback_query', async (query) => {
       try { await bot.deleteMessage(chatId, message.message_id); } catch (_) {}
       bot.sendMessage(chatId,
         `🚫 تجاوزت عدد المحاولات المسموح بها.\nيرجى الانتظار دقيقة واحدة ثم أرسل /start مجدداً.`
-      );
+      ).catch(() => {});
     } else {
       const left = MAX_WRONG - state.attempts;
       await bot.answerCallbackQuery(query.id, {
@@ -281,6 +286,10 @@ bot.on('callback_query', async (query) => {
       // Send fresh captcha in same message
       await sendCaptcha(chatId, message.message_id);
     }
+  }
+  } catch (err) {
+    console.error('Callback query error:', err?.message ?? err);
+    bot.answerCallbackQuery(query.id).catch(() => {});
   }
 });
 

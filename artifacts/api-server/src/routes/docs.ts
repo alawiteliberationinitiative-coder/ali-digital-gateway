@@ -2,13 +2,10 @@ import { Router } from "express";
 
 const router = Router();
 
-/* ── Upload a document file to the Telegram storage channel ─────────────────
-   Receives base64-encoded image, forwards to a private Telegram channel,
-   returns the file_id so only the reference is stored in the DB.
-   Falls back gracefully if TELEGRAM_STORAGE_CHANNEL_ID is not configured.
-──────────────────────────────────────────────────────────────────────────── */
+const MAX_BASE64_BYTES = 6 * 1024 * 1024; // 6 MB max payload
+
 router.post("/docs/upload-file", async (req, res): Promise<void> => {
-  const telegramId = req.headers["x-telegram-id"] as string | undefined;
+  const telegramId = req.telegramId;
   const { base64, filename = "document.jpg", formType = "unknown" } = req.body as {
     base64?: string;
     filename?: string;
@@ -17,6 +14,11 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
 
   if (!base64) {
     res.status(400).json({ error: "base64 required" });
+    return;
+  }
+
+  if (Buffer.byteLength(base64, "utf8") > MAX_BASE64_BYTES) {
+    res.status(413).json({ error: "الملف كبير جداً — الحد الأقصى 4 ميغابايت" });
     return;
   }
 
@@ -31,14 +33,8 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
   try {
     const cleanBase64 = base64.replace(/^data:[^;]+;base64,/, "");
     const buffer = Buffer.from(cleanBase64, "base64");
-    const blob = new Blob([buffer], { type: "image/jpeg" });
+    const blob   = new Blob([buffer], { type: "image/jpeg" });
 
-    // Telegram private channels require the -100XXXXXXXXXX format.
-    // Auto-normalise all common formats users might paste:
-    //   "1234567890"         → "-1001234567890"
-    //   "-1234567890"        → "-1001234567890"
-    //   "-1001234567890"     → kept as-is
-    //   "@channelusername"   → kept as-is
     let chatId = channelId.trim();
     if (/^\d+$/.test(chatId)) {
       chatId = `-100${chatId}`;
