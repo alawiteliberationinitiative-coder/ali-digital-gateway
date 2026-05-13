@@ -17,98 +17,80 @@ type Section = "about" | "guide" | "guardians" | "ambassadors" | "community" | "
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
-  const [phase, setPhase] = useState<"main" | "slogan" | "exit">("main");
+  const [exiting, setExiting] = useState(false);
 
-  // Phase 1 (main): 6 s  →  Phase 2 (slogan): 4 s  →  exit fade
+  // Single screen shown for 9 s then fades out over 1 s
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("slogan"), 6000);
-    const t2 = setTimeout(() => setPhase("exit"),   10000);
-    const t3 = setTimeout(() => onDone(),            11000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    const t1 = setTimeout(() => setExiting(true), 9000);
+    const t2 = setTimeout(() => onDone(), 10200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onDone]);
 
   return (
     <motion.div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center px-8"
       style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 50%, #001208 100%)" }}
-      initial={{ opacity: 1 }}
-      animate={{ opacity: phase === "exit" ? 0 : 1 }}
-      transition={{ duration: 1, ease: "easeInOut" }}>
+      animate={{ opacity: exiting ? 0 : 1 }}
+      transition={{ duration: 1.2, ease: "easeInOut" }}>
 
       {/* Radial glow */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
 
-      <AnimatePresence mode="wait">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col items-center text-center w-full max-w-xs" dir="rtl">
 
-        {/* ── Phase 1: Initiative name + token ── */}
-        {phase === "main" && (
-          <motion.div key="main"
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            className="flex flex-col items-center text-center w-full max-w-xs" dir="rtl">
+        {/* Emblem */}
+        <motion.div
+          initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#d4af37]/50 mb-6 flex-shrink-0"
+          style={{ boxShadow: "0 0 50px rgba(212,175,55,0.25), 0 0 100px rgba(212,175,55,0.1)" }}>
+          <img src="/ali-emblem.jpg" alt="ALI" className="w-full h-full object-cover object-top" />
+        </motion.div>
 
-            {/* Emblem */}
-            <motion.div
-              initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              className="w-28 h-28 rounded-full overflow-hidden border-2 border-[#d4af37]/50 mb-8 flex-shrink-0"
-              style={{ boxShadow: "0 0 50px rgba(212,175,55,0.25), 0 0 100px rgba(212,175,55,0.1)" }}>
-              <img src="/ali-emblem.jpg" alt="ALI" className="w-full h-full object-cover object-top" />
-            </motion.div>
+        {/* Top divider */}
+        <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
+          className="w-24 h-px mb-5" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
 
-            {/* Top divider */}
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
-              className="w-24 h-px mb-6" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
+        {/* Box: initiative name + token */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+          className="w-full rounded-2xl border border-[#d4af37]/30 bg-[#d4af37]/5 px-6 py-5 mb-4 text-center"
+          style={{ boxShadow: "0 0 24px rgba(212,175,55,0.08), inset 0 1px 0 rgba(212,175,55,0.15)" }}>
+          <p className="font-arabic text-[#d4af37] text-2xl font-bold leading-snug mb-1">مبادرة التحرير العلوي</p>
+          <p className="text-[#d4af37]/80 text-base font-bold tracking-[0.25em] mb-3">A.L.I</p>
+          <div className="w-10 h-px bg-[#d4af37]/25 mx-auto mb-3" />
+          <p className="text-white/55 text-xs tracking-widest uppercase mb-1">Alawite Liberation Initiative</p>
+          <p className="text-white/35 text-xs tracking-wider mb-4">Management of Diversified Development</p>
+          {/* Token badge inline */}
+          <div className="inline-block rounded-full border border-[#d4af37]/40 bg-[#d4af37]/10 px-6 py-1.5"
+            style={{ boxShadow: "0 0 16px rgba(212,175,55,0.15)" }}>
+            <span className="text-[#d4af37] font-mono font-bold text-lg tracking-widest">$MDD</span>
+          </div>
+        </motion.div>
 
-            {/* Box 1: initiative name */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-              className="w-full rounded-2xl border border-[#d4af37]/30 bg-[#d4af37]/5 px-6 py-5 mb-4 text-center"
-              style={{ boxShadow: "0 0 24px rgba(212,175,55,0.08), inset 0 1px 0 rgba(212,175,55,0.15)" }}>
-              <p className="font-arabic text-[#d4af37] text-2xl font-bold leading-snug mb-1">مبادرة التحرير العلوي</p>
-              <p className="text-[#d4af37]/80 text-base font-bold tracking-[0.25em] mb-3">A.L.I</p>
-              <div className="w-10 h-px bg-[#d4af37]/25 mx-auto mb-3" />
-              <p className="text-white/55 text-xs tracking-widest uppercase mb-1">Alawite Liberation Initiative</p>
-              <p className="text-white/35 text-xs tracking-wider">Management of Diversified Development</p>
-            </motion.div>
-
-            {/* Box 2: token */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
-              className="rounded-full border border-[#d4af37]/40 bg-[#d4af37]/10 px-8 py-2.5"
-              style={{ boxShadow: "0 0 20px rgba(212,175,55,0.15)" }}>
-              <span className="text-[#d4af37] font-mono font-bold text-xl tracking-widest">$MDD</span>
-            </motion.div>
-
-            {/* Bottom divider */}
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
-              className="w-24 h-px mt-6" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
-          </motion.div>
-        )}
-
-        {/* ── Phase 2: حق لا يموت ── */}
-        {(phase === "slogan" || phase === "exit") && (
-          <motion.div key="slogan"
-            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="text-center">
-            {/* Ornament top */}
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-              className="text-[#d4af37]/40 text-2xl mb-4 tracking-widest">✦  ✦  ✦</motion.p>
-
-            <p className="font-arabic text-[#d4af37] font-bold leading-tight"
-              style={{ fontSize: "clamp(2rem, 9vw, 3rem)", textShadow: "0 0 40px rgba(212,175,55,0.6), 0 0 80px rgba(212,175,55,0.3)" }}>
+        {/* Slogan — integrated, appears shortly after the box */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px w-8" style={{ background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.5))" }} />
+            <p className="font-arabic text-[#d4af37] font-bold text-2xl"
+              style={{ textShadow: "0 0 30px rgba(212,175,55,0.5)" }}>
               حقٌّ لا يموت
             </p>
+            <div className="h-px w-8" style={{ background: "linear-gradient(90deg, rgba(212,175,55,0.5), transparent)" }} />
+          </div>
+        </motion.div>
 
-            {/* Ornament bottom */}
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-              className="text-[#d4af37]/40 text-2xl mt-4 tracking-widest">✦  ✦  ✦</motion.p>
-          </motion.div>
-        )}
+        {/* Bottom divider */}
+        <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
+          className="w-24 h-px mt-5" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)" }} />
 
-      </AnimatePresence>
+      </motion.div>
     </motion.div>
   );
 }
