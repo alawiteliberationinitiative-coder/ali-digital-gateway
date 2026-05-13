@@ -1,129 +1,300 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTelegram } from "@/lib/telegram";
 import { useRegisterUser } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { Shield } from "lucide-react";
 
+// ─── Human Verification ────────────────────────────────────────────────────────
+type Op = "+" | "−" | "×";
+
+interface Challenge {
+  question: string;
+  answer: number;
+  options: number[];
+}
+
+function generateChallenge(): Challenge {
+  const ops: Op[] = ["+", "−", "×"];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let a: number, b: number, answer: number;
+
+  if (op === "+") {
+    a = Math.floor(Math.random() * 14) + 3;
+    b = Math.floor(Math.random() * 14) + 3;
+    answer = a + b;
+  } else if (op === "−") {
+    a = Math.floor(Math.random() * 12) + 10;
+    b = Math.floor(Math.random() * (a - 2)) + 1;
+    answer = a - b;
+  } else {
+    a = Math.floor(Math.random() * 7) + 2;
+    b = Math.floor(Math.random() * 7) + 2;
+    answer = a * b;
+  }
+
+  const wrongs = new Set<number>();
+  while (wrongs.size < 3) {
+    const delta = Math.floor(Math.random() * 9) - 4;
+    const w = answer + (delta === 0 ? 1 : delta);
+    if (w !== answer && w > 0) wrongs.add(w);
+  }
+
+  const options = [...Array.from(wrongs), answer].sort(() => Math.random() - 0.5);
+  return { question: `${a} ${op} ${b}`, answer, options };
+}
+
+function HumanVerify({ onVerified }: { onVerified: () => void }) {
+  const [challenge, setChallenge] = useState<Challenge>(generateChallenge);
+  const [selected, setSelected]   = useState<number | null>(null);
+  const [shake, setShake]         = useState(false);
+  const [success, setSuccess]     = useState(false);
+
+  function pick(opt: number) {
+    if (selected !== null || success) return;
+    setSelected(opt);
+
+    if (opt === challenge.answer) {
+      setSuccess(true);
+      setTimeout(onVerified, 950);
+    } else {
+      setShake(true);
+      setTimeout(() => {
+        setShake(false);
+        setSelected(null);
+        setChallenge(generateChallenge());
+      }, 850);
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.45 }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
+      style={{ background: "linear-gradient(160deg,#000e08 0%,#001a10 50%,#000a05 100%)" }}>
+
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse 65% 45% at 50% 48%, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
+
+      {/* Card */}
+      <motion.div
+        animate={shake ? { x: [-14, 14, -11, 11, -7, 7, -3, 3, 0] } : {}}
+        transition={{ duration: 0.55 }}
+        className="w-full max-w-[300px] rounded-3xl p-6 relative"
+        style={{
+          background: "rgba(0,25,12,0.9)",
+          border: "1.5px solid rgba(212,175,55,0.22)",
+          backdropFilter: "blur(24px)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 50px rgba(212,175,55,0.05)",
+        }}
+        dir="rtl">
+
+        {/* Icon */}
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 20 }}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: "rgba(212,175,55,0.09)", border: "1.5px solid rgba(212,175,55,0.28)" }}>
+          {success
+            ? <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 300 }} className="text-3xl">✅</motion.span>
+            : <Shield className="w-7 h-7 text-[#d4af37]" />}
+        </motion.div>
+
+        {/* Title */}
+        <p className="font-arabic text-[#d4af37] font-bold text-base text-center mb-1">
+          {success ? "تم التحقق بنجاح!" : "التحقق من الهوية"}
+        </p>
+        <p className="font-arabic text-white/38 text-xs text-center mb-5">
+          {success ? "جارٍ الدخول إلى البوابة الآمنة..." : "حل المسألة للتأكد من أنك إنسان"}
+        </p>
+
+        {/* Question & Options */}
+        <AnimatePresence mode="wait">
+          {!success && (
+            <motion.div key={challenge.question}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+
+              {/* Equation */}
+              <div className="rounded-2xl py-4 px-5 mb-5 text-center"
+                style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.18)" }}>
+                <p className="font-mono text-[#d4af37] text-3xl font-black tracking-widest">
+                  {challenge.question} = ?
+                </p>
+              </div>
+
+              {/* Answer grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {challenge.options.map((opt) => {
+                  const isSelected = selected === opt;
+                  const isCorrect  = selected !== null && opt === challenge.answer;
+                  const isWrong    = isSelected && opt !== challenge.answer;
+                  return (
+                    <motion.button key={`${opt}-${challenge.question}`}
+                      onClick={() => pick(opt)}
+                      whileTap={{ scale: 0.93 }}
+                      className="py-4 rounded-2xl font-mono text-2xl font-bold transition-colors"
+                      style={{
+                        background: isCorrect ? "rgba(74,222,128,0.2)"
+                          : isWrong ? "rgba(239,68,68,0.18)"
+                          : "rgba(0,55,28,0.55)",
+                        border: `2px solid ${isCorrect ? "#4ade80" : isWrong ? "#f87171" : "rgba(212,175,55,0.22)"}`,
+                        color:  isCorrect ? "#4ade80" : isWrong ? "#f87171" : "#e8e0cc",
+                        boxShadow: isCorrect ? "0 0 18px rgba(74,222,128,0.22)" : "none",
+                      }}>
+                      {opt}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        {!success && (
+          <p className="font-arabic text-white/18 text-[10px] text-center mt-5">
+            🔒 بوابة A.L.I الآمنة — مبادرة التحرير العلوي
+          </p>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Splash ────────────────────────────────────────────────────────────────────
 export default function Splash() {
   const [, setLocation] = useLocation();
-  const { user } = useTelegram();
-  const { toast } = useToast();
+  const { user }        = useTelegram();
+  const { toast }       = useToast();
+
+  // Persist verification for the session so it only shows once
+  const [verified, setVerified] = useState<boolean>(
+    () => sessionStorage.getItem("ali_human_check") === "1"
+  );
 
   const registerMutation = useRegisterUser();
 
-  useEffect(() => {
-    const initApp = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+  const initApp = useCallback(async () => {
+    await new Promise<void>((res) => setTimeout(res, 3000));
 
-      const telegramId = user?.id?.toString() || `dev-${Date.now()}`;
+    const telegramId = user?.id?.toString() || `dev-${Date.now()}`;
 
-      registerMutation.mutate(
-        {
-          data: {
-            telegramId,
-            telegramUsername: user?.username || null,
-            firstName: user?.first_name || null,
-            lastName: user?.last_name || null,
-          },
+    registerMutation.mutate(
+      {
+        data: {
+          telegramId,
+          telegramUsername: user?.username ?? null,
+          firstName:        user?.first_name ?? null,
+          lastName:         user?.last_name  ?? null,
         },
-        {
-          onSuccess: (data) => {
-            if (data.keysConfirmed) {
-              setLocation("/dashboard");
-            } else {
-              setLocation("/onboarding");
-            }
-          },
-          onError: () => {
-            toast({
-              title: "Initialization Failed",
-              description: "Could not establish secure connection to the Gateway.",
-              variant: "destructive",
-            });
-          },
+      },
+      {
+        onSuccess: (data) => {
+          if (data.keysConfirmed) setLocation("/dashboard");
+          else                    setLocation("/onboarding");
         },
-      );
-    };
-
-    initApp();
+        onError: () => {
+          toast({
+            title:       "Initialization Failed",
+            description: "Could not establish secure connection to the Gateway.",
+            variant:     "destructive",
+          });
+        },
+      },
+    );
   }, [user, setLocation, registerMutation, toast]);
+
+  // Start init only after human verification passes
+  useEffect(() => {
+    if (verified) initApp();
+  }, [verified, initApp]);
+
+  function handleVerified() {
+    sessionStorage.setItem("ali_human_check", "1");
+    setVerified(true);
+  }
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
-      {/* Full-screen image */}
+
+      {/* ── Splash visuals (always rendered behind) ── */}
       <motion.img
         src="/ali-emblem.jpg"
         alt="A.L.I. Emblem"
         className="absolute inset-0 w-full h-full object-cover object-center"
         initial={{ opacity: 0, scale: 1.08 }}
-        animate={{ opacity: 1, scale: 1 }}
+        animate={{ opacity: verified ? 1 : 0.18, scale: 1 }}
         transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
         draggable={false}
       />
 
-      {/* Dark gradient overlay at bottom for text legibility */}
+      {/* Bottom gradient */}
       <motion.div
         className="absolute inset-x-0 bottom-0 h-2/5"
-        style={{
-          background: "linear-gradient(to top, rgba(0,43,27,0.97) 0%, rgba(0,43,27,0.7) 55%, transparent 100%)",
-        }}
+        style={{ background: "linear-gradient(to top, rgba(0,43,27,0.97) 0%, rgba(0,43,27,0.7) 55%, transparent 100%)" }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        animate={{ opacity: verified ? 1 : 0 }}
         transition={{ delay: 0.8, duration: 1 }}
       />
 
       {/* Top vignette */}
-      <div
-        className="absolute inset-x-0 top-0 h-1/4 pointer-events-none"
-        style={{
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%)",
-        }}
-      />
+      <div className="absolute inset-x-0 top-0 h-1/4 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%)" }} />
 
-      {/* Bottom text content */}
-      <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center pb-14 px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3, duration: 0.9 }}
-          className="text-center mb-8"
-        >
-          <h1 className="text-4xl font-serif text-[#d4af37] tracking-[0.3em] uppercase mb-2">
-            A.L.I.
-          </h1>
-          <p className="text-sm font-mono text-[#d4af37]/80 tracking-[0.2em] uppercase mb-1">
-            Alawite Liberation Initiative
-          </p>
-          <p className="text-[11px] font-mono text-white/40 tracking-widest uppercase">
-            Management of Diversified Development
-          </p>
-        </motion.div>
-
-        {/* Progress bar */}
-        <motion.div
-          className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.8, duration: 0.4 }}
-        >
+      {/* Text & progress (only visible after verification) */}
+      <AnimatePresence>
+        {verified && (
           <motion.div
-            className="h-full bg-[#d4af37]"
-            initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ delay: 1.8, duration: 2.4, ease: "easeInOut" }}
-          />
-        </motion.div>
+            key="splash-content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center pb-14 px-6">
 
-        <motion.p
-          className="mt-3 text-[10px] font-mono text-white/30 tracking-widest uppercase"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2.1, duration: 0.5 }}
-        >
-          Initializing Secure Portal…
-        </motion.p>
-      </div>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.3, duration: 0.9 }}
+              className="text-center mb-8">
+              <h1 className="text-4xl font-serif text-[#d4af37] tracking-[0.3em] uppercase mb-2">A.L.I.</h1>
+              <p className="text-sm font-mono text-[#d4af37]/80 tracking-[0.2em] uppercase mb-1">
+                Alawite Liberation Initiative
+              </p>
+              <p className="text-[11px] font-mono text-white/40 tracking-widest uppercase">
+                Management of Diversified Development
+              </p>
+            </motion.div>
+
+            {/* Progress bar */}
+            <motion.div
+              className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ delay: 1.8, duration: 0.4 }}>
+              <motion.div
+                className="h-full bg-[#d4af37]"
+                initial={{ width: "0%" }} animate={{ width: "100%" }}
+                transition={{ delay: 1.8, duration: 2.4, ease: "easeInOut" }} />
+            </motion.div>
+
+            <motion.p
+              className="mt-3 text-[10px] font-mono text-white/30 tracking-widest uppercase"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ delay: 2.1, duration: 0.5 }}>
+              Initializing Secure Portal…
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Human Verification Overlay ── */}
+      <AnimatePresence>
+        {!verified && <HumanVerify key="verify" onVerified={handleVerified} />}
+      </AnimatePresence>
     </div>
   );
 }
