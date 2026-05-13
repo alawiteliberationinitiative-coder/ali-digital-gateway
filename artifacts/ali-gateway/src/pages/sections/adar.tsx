@@ -202,7 +202,7 @@ const STAT_CATS = [
   { id: "detainees",        emoji: "⛓️",  label: "حالات\naعتقال" },
   { id: "killing",          emoji: "🩸", label: "قتل\nوتصفية" },
   { id: "kidnapping",       emoji: "🆘", label: "خطف\nوإخفاء" },
-  { id: "armed_movements",  emoji: "⚠️", label: "فصائل\nمسلحة" },
+  { id: "armed_movements",  emoji: "⚠️", label: "تحركات وتمركز\nفصائل مسلحة" },
 ] as const;
 type StatCatId = typeof STAT_CATS[number]["id"];
 
@@ -343,33 +343,7 @@ function StatCategoryPanel({
 }
 
 function ResearchTab({ telegramId }: { telegramId: string }) {
-  const [testimony, setTestimony] = useState("");
-  const [testimonyState, setTestimonyState] = useState<FormState>("idle");
   const [activeStatCat, setActiveStatCat] = useState<StatCatId>("displacement");
-
-  const submitTestimony = useCallback(async () => {
-    if (!testimony.trim() || !telegramId) return;
-    setTestimony("");
-    setTestimonyState("sending");
-    captureGeo();
-    await new Promise(r => setTimeout(r, 1200));
-    setTestimonyState("done");
-    setTimeout(() => setTestimonyState("idle"), 4000);
-  }, [testimony, telegramId]);
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    background: "rgba(0,0,0,0.3)",
-    border: "1px solid rgba(212,175,55,0.2)",
-    borderRadius: 10,
-    padding: "10px 12px",
-    color: "rgba(255,255,255,0.75)",
-    fontFamily: "'Amiri', serif",
-    fontSize: 13,
-    outline: "none",
-    resize: "none" as const,
-    direction: "rtl",
-  };
   const cardStyle = {
     background: "rgba(255,255,255,0.03)",
     border: `1.5px solid ${GOLD}25`,
@@ -386,59 +360,17 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
         <p className="font-arabic text-[11px] text-white/45 leading-5">ساهم في أرشفة الشهادات والإحصاءات الميدانية. كل مساهمة موثقة تُحتسب في سجل مساهماتك السيادية.</p>
       </div>
 
-      {/* Form 1: Testimony */}
-      <div style={cardStyle}>
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="w-4 h-4 flex-shrink-0" style={{ color: GOLD }} />
-          <p className="font-arabic text-sm font-bold" style={{ color: GOLD }}>شهادة موثقة</p>
-          <span className="font-arabic text-[9px] px-2 py-0.5 rounded-full mr-auto" style={{ background: "rgba(212,175,55,0.1)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>+5 نقاط</span>
-        </div>
-        {testimonyState !== "idle" ? (
-          testimonyState === "done" ? (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 rounded-xl p-3" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}>
-              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-              <p className="font-arabic text-xs text-green-300 font-bold">شهادتك قُيِّدت في الأرشيف الرقمي — شكراً لمساهمتك</p>
-            </motion.div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-xl p-3"
-              style={{ background: "rgba(212,175,55,0.07)", border: `1px solid ${GOLD}25` }}>
-              <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" style={{ color: GOLD }} />
-              <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>جاري الأرشفة المشفرة...</p>
-            </div>
-          )
-        ) : (
-          <>
-            <p className="font-arabic text-[11px] text-white/40 mb-2 leading-5">أدلِ بشهادتك الميدانية الموثقة عن أي حادثة أو وضع تعيشه أو تشهده على أرض الواقع.</p>
-            <textarea
-              value={testimony}
-              onChange={e => setTestimony(e.target.value)}
-              rows={4}
-              placeholder="اكتب شهادتك هنا... (الحد الأدنى 50 حرفاً)"
-              className="mb-3"
-              style={inputStyle}
-            />
-            <button onClick={submitTestimony} disabled={testimony.trim().length < 50}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-arabic text-sm font-bold active:scale-95 transition-all disabled:opacity-40"
-              style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))", border: `1.5px solid ${GOLD}45`, color: GOLD }}>
-              <Send className="w-4 h-4" />
-              رفع الشهادة للأرشيف
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Form 2: Statistical Data — tabbed */}
+      {/* توثيقات عاجلة */}
       <div style={cardStyle}>
         <div className="flex items-center gap-2 mb-3">
           <span className="text-base">📊</span>
-          <p className="font-arabic text-sm font-bold" style={{ color: GOLD }}>بيانات إحصائية</p>
+          <p className="font-arabic text-sm font-bold" style={{ color: GOLD }}>توثيقات عاجلة</p>
           <span className="font-arabic text-[9px] px-2 py-0.5 rounded-full mr-auto" style={{ background: "rgba(212,175,55,0.1)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>+3 نقاط</span>
         </div>
         <p className="font-arabic text-[11px] text-white/40 mb-3 leading-5">اختر التصنيف ثم أدخل البيانات وأرفق الوثائق.</p>
 
         {/* Category tab grid */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-2 gap-2 mb-4">
           {STAT_CATS.map(cat => {
             const active = activeStatCat === cat.id;
             return (
