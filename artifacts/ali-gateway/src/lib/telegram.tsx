@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { configureApi } from "./api";
 
 export interface TelegramUser {
   id: number;
@@ -95,6 +96,8 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
       app.ready();
       app.expand();
       app.enableClosingConfirmation();
+      const userId = String(app.initDataUnsafe?.user?.id ?? "");
+      configureApi(userId, app.initData);
       setWebApp(app);
     } else {
       console.warn("Telegram WebApp is not available.");

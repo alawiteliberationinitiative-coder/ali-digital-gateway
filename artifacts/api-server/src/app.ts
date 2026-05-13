@@ -2,10 +2,12 @@ import express from "express";
 import pinoHttp from "pino-http";
 import { logger } from "./lib/logger.js";
 import router from "./routes/index.js";
+import { verifyTelegram } from "./middleware/telegram-auth.js";
 
 const app = express();
 
 app.use(express.json());
+app.use(verifyTelegram as express.RequestHandler);
 
 app.use(
   pinoHttp({

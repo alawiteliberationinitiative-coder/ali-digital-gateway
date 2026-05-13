@@ -292,4 +292,28 @@ async function silentDelete(chatId, messageId) {
   try { await bot.deleteMessage(chatId, messageId); } catch (_) {}
 }
 
+// ── Bot startup setup ──────────────────────────────────────────────────────
+async function setupBot() {
+  // Set bot commands
+  await bot.setMyCommands([
+    { command: 'start', description: 'فتح البوابة الرقمية A.L.I' },
+  ]).catch(() => {});
+
+  // Set persistent menu button that opens the Mini App directly
+  if (webAppUrl) {
+    await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        menu_button: {
+          type: 'web_app',
+          text: '🚀 البوابة',
+          web_app: { url: webAppUrl },
+        },
+      }),
+    }).catch(() => {});
+  }
+}
+
+setupBot();
 console.log('ALI Digital Gateway bot started. WebApp URL:', webAppUrl || '(not configured)');
