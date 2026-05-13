@@ -8,7 +8,7 @@ const slide = {
   initial: { x: -40, opacity: 0 },
   animate: { x: 0, opacity: 1 },
   exit:    { x: 40, opacity: 0 },
-  transition: { duration: 0.3 },
+  transition: { duration: 0.25 },
 };
 
 interface Question {
@@ -20,7 +20,6 @@ interface Question {
 
 // ── 5 مراحل × 5 أسئلة ─────────────────────────────────────────────────────
 const LEVELS: Question[][] = [
-  // المرحلة ١ — أساسيات المبادرة
   [
     { q: "ماذا تعني ALI في اسم المبادرة؟", options: ["Alawite Liberation Initiative","Arab Leadership Institute","Advanced Liberty Index","Alliance Leaders Initiative"], correct: 0, pts: 50 },
     { q: "ما هو رمز عملة المبادرة الرقمية؟", options: ["$ALI","$ALE","$MDD","$TLV"], correct: 2, pts: 50 },
@@ -28,7 +27,6 @@ const LEVELS: Question[][] = [
     { q: "كم دولة تغطيها شبكة سفراء القضية؟", options: ["أكثر من ١٠","أكثر من ٢٠","أكثر من ٤٠","أكثر من ١٠٠"], correct: 2, pts: 50 },
     { q: "ما شعار المبادرة؟", options: ["نحو الحرية","حقٌّ لا يموت","الوحدة قوة","الأرض للأحرار"], correct: 1, pts: 100 },
   ],
-  // المرحلة ٢ — المجتمع والأهداف
   [
     { q: "ما الهدف الرئيسي لمبادرة ALI؟", options: ["تقديم خدمات مالية","توثيق انتهاكات حقوق الإنسان","تطوير تطبيقات ترفيهية","بيع العملات الرقمية"], correct: 1, pts: 50 },
     { q: "ما منصة التواصل الرسمية لمجتمع المبادرة؟", options: ["Discord","Telegram","WhatsApp","Signal"], correct: 1, pts: 50 },
@@ -36,7 +34,6 @@ const LEVELS: Question[][] = [
     { q: "ما الغرض من عملة $MDD؟", options: ["المضاربة","دعم منظومة المبادرة الرقمية","الاستثمار العقاري","تمويل الأفلام"], correct: 1, pts: 50 },
     { q: "ما دور سفراء القضية؟", options: ["جمع التبرعات المالية","نشر الوعي وتوثيق الانتهاكات","إدارة الاستثمارات","تطوير التطبيق"], correct: 1, pts: 100 },
   ],
-  // المرحلة ٣ — المشاريع والتقنية
   [
     { q: "ما مشروع الأرشفة الرقمية في المبادرة؟", options: ["Bargylos","Arcos","Sentinel","Nexus"], correct: 0, pts: 60 },
     { q: "في أي منطقة جغرافية تركّز المبادرة جهودها الأساسية؟", options: ["أفريقيا","أمريكا اللاتينية","الشرق الأوسط وشمال أفريقيا","جنوب شرق آسيا"], correct: 2, pts: 60 },
@@ -44,19 +41,17 @@ const LEVELS: Question[][] = [
     { q: "ما النظام الذي يعتمد عليه بوت المبادرة؟", options: ["WhatsApp API","Telegram Bot API","Facebook Messenger","Discord Bot"], correct: 1, pts: 60 },
     { q: "كيف يمكن للمستخدم رفع مستوى مشاركته؟", options: ["بدفع رسوم","بإنجاز التحديات والمراحل","بالتسجيل يومياً فقط","بمشاركة الإعلانات"], correct: 1, pts: 100 },
   ],
-  // المرحلة ٤ — الحوكمة والشبكة
   [
     { q: "ما آلية التحقق من صحة الشهادات في المبادرة؟", options: ["الزمن الفعلي","التوثيق المتقاطع","التحكيم الخارجي","الذكاء الاصطناعي"], correct: 1, pts: 70 },
     { q: "ما مبدأ المبادرة في التعامل مع البيانات الحساسة؟", options: ["المركزية الكاملة","اللامركزية والتشفير","التخزين السحابي المفتوح","المشاركة العلنية الفورية"], correct: 1, pts: 70 },
     { q: "ما العلاقة بين مشاهدة الإعلانات ودعم المبادرة؟", options: ["لا علاقة","عائد الإعلانات يموّل المبادرة","الإعلانات دعاية خارجية فقط","تُستخدم لتحليل سلوك المستخدم"], correct: 1, pts: 75 },
     { q: "ما أبرز ميزة لنظام الإحالة في المبادرة؟", options: ["الحصول على جوائز مادية","نشر الشبكة وتوسيع المجتمع","زيادة عائد الإعلانات","تخفيض رسوم المعاملات"], correct: 1, pts: 70 },
-    { q: "ما الفرق بين مرحلة الإطلاق ومرحلة التوسع في خارطة الطريق؟", options: ["لا فرق","الإطلاق للتجربة والتوسع لاستقطاب مجتمعات أوسع","التوسع قبل الإطلاق","الإطلاق للمطورين فقط"], correct: 1, pts: 100 },
+    { q: "الفرق بين مرحلة الإطلاق والتوسع في خارطة الطريق؟", options: ["لا فرق","الإطلاق للتجربة، التوسع لاستقطاب مجتمعات أوسع","التوسع قبل الإطلاق","الإطلاق للمطورين فقط"], correct: 1, pts: 100 },
   ],
-  // المرحلة ٥ — الرؤية والالتزام
   [
     { q: "ما الرؤية بعيدة المدى لمبادرة ALI؟", options: ["بناء منصة ترفيه رقمية","أرشيف رقمي عالمي محمي ومنظومة حقوق متكاملة","إطلاق بورصة عملات رقمية","تأسيس شركة تقنية ربحية"], correct: 1, pts: 80 },
     { q: "ما الميزة التي يمنحها النظام لأصحاب المراحل المتقدمة؟", options: ["وصول مبكر لتحديثات المبادرة","خصم على الاشتراكات","صلاحيات إدارية كاملة","تحويل النقاط لأموال نقداً"], correct: 0, pts: 80 },
-    { q: "لماذا تُعدّ اللامركزية ركيزة أساسية في المبادرة؟", options: ["لتجنب دفع الضرائب","لمنع سيطرة جهة واحدة على البيانات والقرار","لتسريع المعاملات المالية","لتقليل تكاليف التشغيل"], correct: 1, pts: 80 },
+    { q: "لماذا تُعدّ اللامركزية ركيزة أساسية في المبادرة؟", options: ["لتجنب دفع الضرائب","لمنع سيطرة جهة واحدة على البيانات والقرار","لتسريع المعاملات","لتقليل تكاليف التشغيل"], correct: 1, pts: 80 },
     { q: "ما الالتزام الأخلاقي الأساسي لمستخدمي المبادرة؟", options: ["الصمت التام","عدم مشاركة أي معلومات","الأمانة في التوثيق وعدم نشر معلومات مضللة","دفع الاشتراك الشهري"], correct: 2, pts: 80 },
     { q: "كيف تُعزّز المبادرة حماية هوية الشهود والضحايا؟", options: ["بالإعلان عن أسمائهم","بنشر شهاداتهم مباشرةً","بالتشفير والأرشفة الآمنة","بالتحقق منهم ميدانياً فقط"], correct: 2, pts: 100 },
   ],
@@ -64,11 +59,11 @@ const LEVELS: Question[][] = [
 
 const MAX_LEVEL = LEVELS.length;
 
-// ready → playing → answered → ad-break → next-level (auto) → playing … → all-done
 type GameState  = "loading" | "ready" | "playing" | "answered" | "ad-break" | "next-level" | "all-done";
 type DoubleState = "idle" | "loading" | "done" | "error";
 
 // ── شاشة الإعلان بين المراحل ─────────────────────────────────────────────
+// onDone يجب أن يكون مرجعاً مستقراً (useCallback مع [] في المكوّن الأب)
 function StageAdScreen({ score, levelNum, onDone }: {
   score:    number;
   levelNum: number;
@@ -76,51 +71,54 @@ function StageAdScreen({ score, levelNum, onDone }: {
 }) {
   const [phase,    setPhase]    = useState<"countdown" | "ad" | "done">("countdown");
   const [secs,     setSecs]     = useState(3);
-  const [skipSecs, setSkipSecs] = useState(12);
-  const launched               = useRef(false);
-  const calledDone             = useRef(false); // يمنع استدعاء onDone أكثر من مرة
-  const onDoneRef              = useRef(onDone);
-  const ad                     = useRewardedAd(0);
+  const [skipSecs, setSkipSecs] = useState(10);
+  const doneRef    = useRef(false);
+  const launchedRef = useRef(false);
 
-  // أبقِ المرجع محدثاً حتى تستخدم النسخة الأحدث دائماً عند الاستدعاء
-  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+  // الاستدعاء الآمن — يُنفَّذ مرة واحدة فقط مهما تعددت المسارات
+  const advance = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setPhase("done");
+    setTimeout(onDone, 400);
+  }, [onDone]);
 
-  // الاستدعاء الآمن لـ onDone — يُنفَّذ مرة واحدة فقط مهما تعددت المسارات
-  const safeDone = useCallback(() => {
-    if (calledDone.current) return;
-    calledDone.current = true;
-    onDoneRef.current();
-  }, []);
-
-  // العداد التنازلي ثم تشغيل الإعلان
+  // ── عداد تنازلي 3→0 ────────────────────────────────────────────────────
   useEffect(() => {
-    if (secs > 0) {
-      const t = setTimeout(() => setSecs(s => s - 1), 1000);
-      return () => clearTimeout(t);
-    }
-    if (launched.current) return;
-    launched.current = true;
+    if (phase !== "countdown" || secs <= 0) return;
+    const t = setTimeout(() => setSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, secs]);
+
+  // ── عندما يصل العداد لـ 0: أطلق الإعلان ─────────────────────────────
+  useEffect(() => {
+    if (phase !== "countdown" || secs !== 0 || launchedRef.current) return;
+    launchedRef.current = true;
     setPhase("ad");
 
-    // ضمان إضافي: إذا لم يُحلّ الإعلان خلال 22 ثانية، تقدّم تلقائياً
-    const hardTimeout = setTimeout(() => safeDone(), 22_000);
+    // استدعاء مباشر لشبكة الإعلانات — لا نعتمد على hook خارجي
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adFn = (window as any).show_11001376;
+    if (typeof adFn === "function") {
+      try {
+        Promise.resolve(adFn()).then(advance).catch(advance);
+      } catch {
+        advance();
+      }
+    } else {
+      // بيئة تطوير: تأخير 2 ثانية كمحاكاة
+      setTimeout(advance, 2_000);
+    }
+  }, [phase, secs, advance]);
 
-    ad.show()
-      .then(() => {
-        clearTimeout(hardTimeout);
-        setPhase("done");
-        setTimeout(() => safeDone(), 600);
-      })
-      .catch(() => {
-        clearTimeout(hardTimeout);
-        safeDone();
-      });
+  // ── مؤقت صلب: تقدّم تلقائياً بعد 14 ثانية من بدء الإعلان ──────────
+  useEffect(() => {
+    if (phase !== "ad") return;
+    const t = setTimeout(advance, 14_000);
+    return () => clearTimeout(t);
+  }, [phase, advance]);
 
-    return () => clearTimeout(hardTimeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secs]);
-
-  // عداد زر التخطي
+  // ── عداد زر التخطي ────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "ad" || skipSecs <= 0) return;
     const t = setTimeout(() => setSkipSecs(s => s - 1), 1000);
@@ -135,7 +133,7 @@ function StageAdScreen({ score, levelNum, onDone }: {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.35 }}
       className="flex flex-col items-center justify-center h-full gap-7 px-6 text-center"
       style={{ background: "linear-gradient(180deg,#060d1a 0%,#001a0f 100%)" }}>
 
@@ -144,14 +142,12 @@ function StageAdScreen({ score, levelNum, onDone }: {
         animate={phase === "countdown" ? { scale: [1, 1.08, 1] } : {}}
         transition={{ repeat: Infinity, duration: 1.6 }}
         className="w-28 h-28 rounded-full flex items-center justify-center relative"
-        style={{ background: "linear-gradient(135deg,#002b1b,#004a2a)", border: "3px solid #d4af37", boxShadow: "0 0 50px rgba(212,175,55,0.4), 0 8px 0 rgba(212,175,55,0.3)" }}>
+        style={{ background: "linear-gradient(135deg,#002b1b,#004a2a)", border: "3px solid #d4af37", boxShadow: "0 0 50px rgba(212,175,55,0.4)" }}>
         <AnimatePresence mode="wait">
           {phase === "countdown" && (
             <motion.span key="secs"
               initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-              className="font-mono font-black text-[#d4af37] text-4xl">
-              {secs}
-            </motion.span>
+              className="font-mono font-black text-[#d4af37] text-4xl">{secs}</motion.span>
           )}
           {phase === "ad" && (
             <motion.div key="tv"
@@ -161,7 +157,7 @@ function StageAdScreen({ score, levelNum, onDone }: {
           )}
           {phase === "done" && (
             <motion.span key="check"
-              initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               className="text-5xl">🏆</motion.span>
           )}
         </AnimatePresence>
@@ -177,26 +173,25 @@ function StageAdScreen({ score, levelNum, onDone }: {
           className="font-arabic font-black text-2xl" style={{ color: "#d4af37" }}>
           {phase === "countdown" && `🎉 أنجزت المرحلة ${levelNum}!`}
           {phase === "ad"        && "يُعرض الإعلان"}
-          {phase === "done"      && "ممتاز! جاهزة نتائجك"}
+          {phase === "done"      && "ممتاز! الانتقال..."}
         </motion.p>
-        <p className="font-arabic text-sm leading-6" style={{ color: "rgba(255,255,255,0.65)" }}>
-          {phase === "countdown" && `نقاطك في هذه المرحلة: ${score} نقطة`}
-          {phase === "ad"        && "شاهد الإعلان حتى النهاية · مشاهدتك تدعم المبادرة 💚"}
+        <p className="font-arabic text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+          {phase === "countdown" && `نقاطك: ${score} نقطة`}
+          {phase === "ad"        && "مشاهدتك تدعم المبادرة 💚"}
         </p>
       </div>
 
-      {/* نقاط التقدم */}
+      {/* نقاط المرحلة */}
       <div className="flex gap-2.5">
         {questions.map((_, i) => (
-          <motion.div key={i} initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ delay: i * 0.06 }}
-            className="w-3 h-3 rounded-full"
+          <div key={i} className="w-3 h-3 rounded-full"
             style={{ backgroundColor: "#d4af37", boxShadow: "0 0 6px rgba(212,175,55,0.5)" }} />
         ))}
       </div>
 
-      {/* تنبيه الإعلان */}
+      {/* تحذير الإعلان */}
       {phase === "ad" && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="w-full rounded-2xl px-4 py-3 space-y-1"
           style={{ background: "rgba(0,43,27,0.7)", border: "1px solid rgba(212,175,55,0.3)" }}>
           {[
@@ -217,25 +212,24 @@ function StageAdScreen({ score, levelNum, onDone }: {
           animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }} />
       )}
 
-      {phase === "countdown" && (
-        <p className="font-arabic text-xs text-muted-foreground/50">
-          إعلان قصير قبل الانتقال للمرحلة التالية — شاهده لدعم المبادرة
-        </p>
-      )}
-
-      {/* زر التخطي يظهر بعد ١٢ ثانية */}
+      {/* زر التخطي بعد 10 ثوانٍ */}
       {phase === "ad" && skipSecs <= 0 && (
         <motion.button initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          onClick={safeDone}
-          className="font-arabic text-sm px-6 py-2 rounded-full border"
-          style={{ borderColor: "rgba(212,175,55,0.35)", color: "rgba(212,175,55,0.7)", background: "rgba(212,175,55,0.06)" }}>
+          onClick={advance}
+          className="font-arabic text-sm px-6 py-2.5 rounded-full border active:scale-95 transition-transform"
+          style={{ borderColor: "rgba(212,175,55,0.4)", color: "rgba(212,175,55,0.8)", background: "rgba(212,175,55,0.08)" }}>
           تخطى ←
         </motion.button>
       )}
-
       {phase === "ad" && skipSecs > 0 && (
         <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
           يمكنك التخطي بعد {skipSecs}ث
+        </p>
+      )}
+
+      {phase === "countdown" && (
+        <p className="font-arabic text-xs text-muted-foreground/40">
+          إعلان قصير قبل المرحلة التالية
         </p>
       )}
     </motion.div>
@@ -245,7 +239,7 @@ function StageAdScreen({ score, levelNum, onDone }: {
 // ── المكوّن الرئيسي ───────────────────────────────────────────────────────
 export function PlaySection({ onBack }: { onBack: () => void }) {
   const { user }   = useTelegram();
-  const telegramId = user?.id?.toString() || "";
+  const telegramId = user?.id?.toString() ?? "";
 
   const [gameState,    setGameState]    = useState<GameState>("loading");
   const [playingLevel, setPlayingLevel] = useState(1);
@@ -257,6 +251,12 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   const [doubledScore, setDoubledScore] = useState(0);
 
   const doubleAd = useRewardedAd(0);
+
+  // ── Refs للوصول الآمن في callbacks بدون stale closure ──────────────────
+  const playingLevelRef = useRef(1);
+  const telegramIdRef   = useRef("");
+  useEffect(() => { playingLevelRef.current = playingLevel; }, [playingLevel]);
+  useEffect(() => { telegramIdRef.current   = telegramId;   }, [telegramId]);
 
   // ── تحميل مستوى المستخدم من الخادم ────────────────────────────────────
   useEffect(() => {
@@ -282,16 +282,16 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   // ── انتقال تلقائي للعب بعد شاشة "المرحلة التالية" ─────────────────────
   useEffect(() => {
     if (gameState !== "next-level") return;
-    const t = setTimeout(() => setGameState("playing"), 2500);
+    const t = setTimeout(() => setGameState("playing"), 2_500);
     return () => clearTimeout(t);
   }, [gameState]);
 
-  // ── ضمان صلب: إذا ظل في ad-break أكثر من 30 ثانية، تقدّم قسراً ───────
+  // ── ضمان صلب: إذا ظل في ad-break أكثر من 20 ثانية انتقل قسراً ────────
+  // (يعمل كطبقة احتياط خلف المؤقت الداخلي في StageAdScreen)
   useEffect(() => {
     if (gameState !== "ad-break") return;
-    const lvl = playingLevel; // التقط القيمة الحالية في الـ closure
     const t = setTimeout(() => {
-      const next = lvl + 1;
+      const next = playingLevelRef.current + 1;
       if (next <= MAX_LEVEL) {
         setPlayingLevel(next);
         setCurrent(0);
@@ -304,10 +304,42 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
       } else {
         setGameState("all-done");
       }
-    }, 30_000);
+    }, 20_000);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
+
+  // ── advanceLevel: مستقر تماماً (useCallback بـ [] فارغة) ─────────────
+  // يقرأ القيم الحالية من الـ refs دائماً — لا stale closure
+  const advanceLevel = useCallback(() => {
+    const lvl = playingLevelRef.current;
+    const tid = telegramIdRef.current;
+
+    if (tid) {
+      fetch("/api/ads/reward", {
+        method: "POST",
+        headers: { "x-telegram-id": tid },
+      }).catch(() => {});
+      fetch("/api/quiz/complete-level", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "x-telegram-id": tid },
+        body:    JSON.stringify({ levelCompleted: lvl }),
+      }).catch(() => {});
+    }
+
+    const next = lvl + 1;
+    if (next <= MAX_LEVEL) {
+      setPlayingLevel(next);
+      setCurrent(0);
+      setSelected(null);
+      setScore(0);
+      setStreak(0);
+      setDoubleState("idle");
+      setDoubledScore(0);
+      setGameState("next-level");
+    } else {
+      setGameState("all-done");
+    }
+  }, []); // ← مقصودة: القيم تأتي من الـ refs
 
   const questions = LEVELS[Math.min(playingLevel - 1, MAX_LEVEL - 1)];
   const q         = questions[current];
@@ -346,42 +378,11 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     }
   }
 
-  // ── يُستدعى من StageAdScreen عند انتهاء الإعلان أو تخطيه ───────────────
-  const handleAdDone = useCallback(async () => {
-    // سجّل إتمام المرحلة والإعلان (fire-and-forget)
-    if (telegramId) {
-      fetch("/api/ads/reward", {
-        method: "POST",
-        headers: { "x-telegram-id": telegramId },
-      }).catch(() => {});
-      fetch("/api/quiz/complete-level", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
-        body:    JSON.stringify({ levelCompleted: playingLevel }),
-      }).catch(() => {});
-    }
-
-    const nextLevel = playingLevel + 1;
-    if (nextLevel <= MAX_LEVEL) {
-      // انتقل للمرحلة التالية
-      setPlayingLevel(nextLevel);
-      setCurrent(0);
-      setSelected(null);
-      setScore(0);
-      setStreak(0);
-      setDoubleState("idle");
-      setDoubledScore(0);
-      setGameState("next-level"); // شاشة انتقالية ثم تبدأ تلقائياً
-    } else {
-      setGameState("all-done");
-    }
-  }, [telegramId, playingLevel]);
-
   async function handleDoublePoints() {
     if (doubleState !== "idle" || !score) return;
     setDoubleState("loading");
-    const completed = await doubleAd.show();
-    if (completed) {
+    const ok = await doubleAd.show();
+    if (ok) {
       const doubled = score * 2;
       setDoubledScore(doubled);
       setScore(doubled);
@@ -391,7 +392,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
       setDoubleState("done");
     } else {
       setDoubleState("error");
-      setTimeout(() => setDoubleState("idle"), 2500);
+      setTimeout(() => setDoubleState("idle"), 2_500);
     }
   }
 
@@ -409,14 +410,15 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
       {/* ── الترويسة ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
+        <button onClick={onBack}
+          className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
           <ChevronRight className="w-5 h-5" />
         </button>
         <div className="flex-1">
           <h1 className="font-arabic font-bold text-primary text-lg leading-tight">اربح و ادعم</h1>
           <p className="font-arabic text-muted-foreground text-xs">
-            {gameState === "loading"   ? "جاري التحميل..." :
-             gameState === "all-done"  ? "أكملت جميع المراحل 🏆" :
+            {gameState === "loading"  ? "جاري التحميل..." :
+             gameState === "all-done" ? "أكملت جميع المراحل 🏆" :
              `المرحلة ${playingLevel} من ${MAX_LEVEL}`}
           </p>
         </div>
@@ -432,7 +434,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <AnimatePresence mode="wait">
 
-          {/* ── تحميل ── */}
+          {/* تحميل */}
           {gameState === "loading" && (
             <motion.div key="loading"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -443,7 +445,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
             </motion.div>
           )}
 
-          {/* ── جاهز ── */}
+          {/* جاهز */}
           {gameState === "ready" && (
             <motion.div key="ready"
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -451,7 +453,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
               <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 2 }}
                 className="w-32 h-32 rounded-full flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg,#002b1b,#003d26)", border: "3px solid #d4af37", boxShadow: "0 0 40px rgba(212,175,55,0.3), 0 8px 0 rgba(212,175,55,0.4)" }}>
+                style={{ background: "linear-gradient(135deg,#002b1b,#003d26)", border: "3px solid #d4af37", boxShadow: "0 0 40px rgba(212,175,55,0.3)" }}>
                 <span className="text-5xl">🎯</span>
               </motion.div>
 
@@ -464,26 +466,18 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                 </p>
               </div>
 
-              {/* نقاط المراحل */}
+              {/* مؤشر المراحل */}
               <div className="flex gap-2 items-center">
                 {LEVELS.map((_, i) => (
                   <div key={i} className="w-2.5 h-2.5 rounded-full transition-all" style={{
-                    backgroundColor: i < playingLevel - 1
-                      ? "#22c55e"
-                      : i === playingLevel - 1
-                        ? "#d4af37"
-                        : "rgba(255,255,255,0.15)",
+                    backgroundColor: i < playingLevel - 1 ? "#22c55e" : i === playingLevel - 1 ? "#d4af37" : "rgba(255,255,255,0.15)",
                     boxShadow: i === playingLevel - 1 ? "0 0 8px rgba(212,175,55,0.6)" : "none",
                   }} />
                 ))}
               </div>
 
               <div className="w-full grid grid-cols-3 gap-3">
-                {[
-                  ["🎯", `${questions.length} أسئلة`, "تحدّيات"],
-                  ["⭐", "٣٢٥+",                      "نقطة بالكامل"],
-                  ["🔥", "بونص",                      "لكل سلسلة"],
-                ].map(([ic, v, l]) => (
+                {[["🎯", `${questions.length} أسئلة`, "تحدّيات"], ["⭐", "٣٢٥+", "نقطة بالكامل"], ["🔥", "بونص", "لكل سلسلة"]].map(([ic, v, l]) => (
                   <div key={l} className="bg-card border border-border rounded-2xl p-3 text-center">
                     <div className="text-2xl mb-1">{ic}</div>
                     <div className="font-mono font-bold text-primary text-sm">{v}</div>
@@ -502,45 +496,38 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
               <motion.button onClick={handleStart} whileTap={{ scale: 0.96 }}
                 className="w-full py-5 rounded-3xl font-arabic font-bold text-2xl"
-                style={{ background: "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)", boxShadow: "0 6px 0 rgba(180,140,20,0.6)", color: "#002b1b" }}>
+                style={{ background: "linear-gradient(135deg,#d4af37,#f0d060)", boxShadow: "0 6px 0 rgba(180,140,20,0.6)", color: "#002b1b" }}>
                 {playingLevel > 1 ? `ابدأ المرحلة ${playingLevel} ▶` : "ابدأ اللعب ▶"}
               </motion.button>
             </motion.div>
           )}
 
-          {/* ── شاشة الإعلان ── */}
+          {/* شاشة الإعلان */}
           {gameState === "ad-break" && (
             <StageAdScreen
               key={`ad-${playingLevel}`}
               score={score}
               levelNum={playingLevel}
-              onDone={handleAdDone}
+              onDone={advanceLevel}
             />
           )}
 
-          {/* ── شاشة الانتقال للمرحلة التالية (تلقائية) ── */}
+          {/* انتقال للمرحلة التالية */}
           {gameState === "next-level" && (
             <motion.div key={`next-${playingLevel}`}
               initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
               className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center"
               style={{ background: "linear-gradient(180deg,#060d1a 0%,#001a0f 100%)" }}>
-
               <motion.div
                 initial={{ scale: 0.5, rotate: -10 }} animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", stiffness: 200, damping: 12 }}
                 className="text-8xl">🚀</motion.div>
-
               <div>
                 <p className="font-arabic text-[#d4af37] text-sm mb-1">انتقلت إلى</p>
-                <h2 className="font-arabic font-black text-3xl" style={{ color: "white" }}>
-                  المرحلة {playingLevel}
-                </h2>
-                <p className="font-arabic mt-2 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  تبدأ تلقائياً...
-                </p>
+                <h2 className="font-arabic font-black text-3xl text-white">المرحلة {playingLevel}</h2>
+                <p className="font-arabic mt-2 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>تبدأ تلقائياً...</p>
               </div>
-
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2">
                 {LEVELS.map((_, i) => (
                   <div key={i} className="w-2.5 h-2.5 rounded-full" style={{
                     backgroundColor: i < playingLevel ? "#22c55e" : "rgba(255,255,255,0.15)",
@@ -551,7 +538,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
             </motion.div>
           )}
 
-          {/* ── الأسئلة ── */}
+          {/* الأسئلة */}
           {(gameState === "playing" || gameState === "answered") && (
             <motion.div key={`q-${playingLevel}-${current}`}
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
@@ -560,7 +547,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
               <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4"
                 style={{ paddingBottom: gameState === "answered" ? "8px" : "16px" }}>
 
-                {/* شريط التقدم */}
                 <div className="space-y-2">
                   <div className="flex justify-between font-arabic text-xs text-muted-foreground">
                     <span>السؤال {current + 1} من {questions.length}</span>
@@ -573,7 +559,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
 
-                {/* بطاقة السؤال */}
                 <div className="bg-card border-2 border-primary/30 rounded-3xl p-5 text-center"
                   style={{ boxShadow: "0 4px 0 rgba(0,43,27,0.5)" }}>
                   <div className="text-3xl mb-2">❓</div>
@@ -584,7 +569,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
 
-                {/* الخيارات */}
                 <div className="space-y-2.5">
                   {q.options.map((opt, idx) => {
                     const col = optionColor(idx);
@@ -613,13 +597,11 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
-              {/* شريط التغذية الراجعة والزر */}
+              {/* زر التالي / الإنهاء */}
               <AnimatePresence>
                 {gameState === "answered" && (
                   <motion.div
-                    initial={{ y: 80, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 80, opacity: 0 }}
+                    initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 340, damping: 28 }}
                     className="flex-shrink-0 px-4 py-3 border-t border-border"
                     style={{
@@ -628,20 +610,15 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                         : "linear-gradient(to top, rgba(69,10,10,0.97), rgba(69,10,10,0.92))",
                     }}>
                     <div className="flex gap-3 items-stretch">
-
                       <div className={`flex-1 rounded-2xl px-4 py-3 flex flex-col justify-center border ${selected === q.correct ? "border-green-600/40 bg-green-950/60" : "border-red-600/40 bg-red-950/60"}`}>
                         <p className="font-arabic font-bold text-base leading-tight">
                           {selected === q.correct ? "🎉 إجابة صحيحة!" : "❌ إجابة خاطئة"}
                         </p>
                         {selected === q.correct && streak >= 2 && (
-                          <p className="font-arabic text-orange-400 text-xs mt-0.5">
-                            🔥 بونص +{Math.floor(q.pts * 0.5)} نقطة
-                          </p>
+                          <p className="font-arabic text-orange-400 text-xs mt-0.5">🔥 بونص +{Math.floor(q.pts * 0.5)} نقطة</p>
                         )}
                         {selected !== q.correct && (
-                          <p className="font-arabic text-white/50 text-xs mt-0.5">
-                            الإجابة: {q.options[q.correct]}
-                          </p>
+                          <p className="font-arabic text-white/50 text-xs mt-0.5">الإجابة: {q.options[q.correct]}</p>
                         )}
                         {isLast && (
                           <p className="font-arabic text-[10px] text-[#d4af37]/70 mt-1 flex items-center gap-1">
@@ -653,12 +630,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
                       <motion.button onClick={handleNext} whileTap={{ scale: 0.94 }}
                         className="flex-shrink-0 w-28 rounded-2xl font-arabic font-bold text-base flex flex-col items-center justify-center gap-1"
-                        style={{
-                          background: "linear-gradient(135deg,#002b1b,#004a2a)",
-                          boxShadow:  "0 4px 0 rgba(0,0,0,0.5)",
-                          border:     "1.5px solid rgba(212,175,55,0.5)",
-                          color:      "#d4af37",
-                        }}>
+                        style={{ background: "linear-gradient(135deg,#002b1b,#004a2a)", boxShadow: "0 4px 0 rgba(0,0,0,0.5)", border: "1.5px solid rgba(212,175,55,0.5)", color: "#d4af37" }}>
                         <span className="text-xl">{isLast ? "★" : "←"}</span>
                         <span className="text-xs">{isLast ? "إنهاء" : "التالي"}</span>
                       </motion.button>
@@ -669,7 +641,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
             </motion.div>
           )}
 
-          {/* ── أكملت كل المراحل ── */}
+          {/* أكملت كل المراحل */}
           {gameState === "all-done" && (
             <motion.div key="all-done"
               initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -700,7 +672,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                 )}
               </div>
 
-              {/* المراحل المنجزة */}
               <div className="w-full bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Trophy className="w-4 h-4 text-[#d4af37]" />
@@ -723,16 +694,13 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                 شكراً لدعمك القضية! نقاطك ستُضاف<br />إلى رصيدك خلال لحظات.
               </p>
 
-              {/* مضاعفة النقاط (للجلسة الحالية فقط) */}
               {doubleState !== "done" && finalScore > 0 && (
                 <motion.button onClick={handleDoublePoints}
                   disabled={doubleState === "loading"}
                   whileTap={{ scale: 0.96 }}
                   className="w-full py-4 rounded-2xl font-arabic font-bold text-base flex items-center justify-center gap-3"
                   style={{
-                    background: doubleState === "error"
-                      ? "rgba(239,68,68,0.12)"
-                      : "linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.08))",
+                    background: doubleState === "error" ? "rgba(239,68,68,0.12)" : "linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.08))",
                     border:  doubleState === "error" ? "1.5px solid rgba(239,68,68,0.4)" : "1.5px solid rgba(212,175,55,0.5)",
                     color:   doubleState === "error" ? "#f87171" : "#d4af37",
                     opacity: doubleState === "loading" ? 0.7 : 1,
