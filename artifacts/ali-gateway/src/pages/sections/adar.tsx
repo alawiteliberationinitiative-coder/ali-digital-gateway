@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
+import { DocsTab, ScrollingTicker } from "./adar-docs";
 
 const adarLogoSrc = `${import.meta.env.BASE_URL}adar-logo.png`;
 const GOLD = "#d4af37";
@@ -581,11 +582,12 @@ function CharterTab() {
 }
 
 // ─── Main ADAR Section ─────────────────────────────────────────────────────
-type AdarTab = "news" | "research" | "competitions" | "charter";
+type AdarTab = "news" | "research" | "docs" | "competitions" | "charter";
 
 const TABS: { id: AdarTab; label: string; icon: string }[] = [
   { id: "news",         label: "الأخبار",   icon: "📡" },
   { id: "research",     label: "الرصد",     icon: "🔬" },
+  { id: "docs",         label: "التوثيق",   icon: "📁" },
   { id: "competitions", label: "مسابقات",   icon: "🏆" },
   { id: "charter",      label: "الميثاق",   icon: "⚖️" },
 ];
@@ -635,6 +637,9 @@ export function AdarSection({
           </div>
         </div>
 
+        {/* Scrolling ticker — docs tab only */}
+        {activeTab === "docs" && <ScrollingTicker />}
+
         {/* Tab bar */}
         <div className="flex gap-1 px-3 pb-2.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {TABS.map(tab => {
@@ -663,6 +668,7 @@ export function AdarSection({
             transition={{ duration: 0.28 }}>
             {activeTab === "news"         && <NewsTab />}
             {activeTab === "research"     && <ResearchTab telegramId={telegramId} />}
+            {activeTab === "docs"         && <DocsTab telegramId={telegramId} />}
             {activeTab === "competitions" && <CompetitionsTab />}
             {activeTab === "charter"      && <CharterTab />}
           </motion.div>
