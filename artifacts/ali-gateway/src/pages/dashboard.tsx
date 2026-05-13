@@ -149,8 +149,8 @@ function ProgressHeader({
             <span className="text-border/60 text-[8px]">·</span>
             <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-wide">{userData.rank}</span>
             <span className="text-border/60 text-[8px]">·</span>
-            <span className="font-mono text-[9px] font-bold" style={{ color: "rgba(212,175,55,0.75)" }}>
-              {userData.mddBalance.toLocaleString()} <span className="text-[8px] opacity-70">$MDD</span>
+            <span className="font-mono text-[10px] font-black" style={{ color: "#d4af37" }}>
+              {userData.mddBalance.toLocaleString()} <span style={{ color: "#d4af37", fontWeight: 900 }}>$MDD</span>
             </span>
           </button>
 

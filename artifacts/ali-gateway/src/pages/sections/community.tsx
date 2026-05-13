@@ -4,6 +4,7 @@ import {
   ChevronRight, Mic, MicOff, PhoneOff, Hand, Users, Plus,
   Clock, Radio, Share2, X, Loader2, Crown, CheckCircle,
   ChevronDown, Search, UserPlus, UserCheck, Bell, ShieldCheck,
+  Lock, Globe, Hash,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 
@@ -28,11 +29,12 @@ interface SpaceDetails {
   id: number; title: string; description: string | null;
   hostTelegramId: string; hostPseudonym: string; hostAliId: string;
   status: SpaceStatus; scheduledAt: string | null; startedAt: string | null;
-  participants: Participant[];
+  isPrivate: boolean; participants: Participant[];
 }
 interface SpaceSummary {
   id: number; title: string; hostPseudonym: string; status: SpaceStatus;
-  scheduledAt: string | null; startedAt: string | null; participantCount: number;
+  scheduledAt: string | null; startedAt: string | null; endedAt: string | null;
+  participantCount: number; isPrivate: boolean;
 }
 interface UserResult {
   telegramId: string; aliId: string; pseudonym: string; rank: string; level: number;
@@ -402,17 +404,33 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
   telegramId: string; onClose: () => void; onCreated: (s: SpaceDetails) => void;
 }) {
   const [title, setTitle] = useState("");
+  const [titleTouched, setTitleTouched] = useState(false);
   const [desc, setDesc] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Guest invitation state
+  const [guestTab, setGuestTab] = useState<"followers" | "search" | "manual">("followers");
+  const [followers, setFollowers] = useState<UserResult[]>([]);
+  const [followersLoading, setFollowersLoading] = useState(true);
   const [guestQuery, setGuestQuery] = useState("");
   const [guestResults, setGuestResults] = useState<UserResult[]>([]);
-  const [selectedGuests, setSelectedGuests] = useState<UserResult[]>([]);
   const [searchingGuests, setSearchingGuests] = useState(false);
+  const [manualInput, setManualInput] = useState("");
+  const [selectedGuests, setSelectedGuests] = useState<UserResult[]>([]);
 
+  // Load followers on mount
   useEffect(() => {
-    if (guestQuery.length < 2) { setGuestResults([]); return; }
+    fetch("/api/users/me/following", { headers: { "x-telegram-id": telegramId } })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setFollowers(data); setFollowersLoading(false); });
+  }, [telegramId]);
+
+  // Search guests debounced
+  useEffect(() => {
+    if (guestTab !== "search" || guestQuery.length < 2) { setGuestResults([]); return; }
     const t = setTimeout(async () => {
       setSearchingGuests(true);
       const res = await fetch(`/api/users/search?q=${encodeURIComponent(guestQuery)}`, { headers: { "x-telegram-id": telegramId } });
@@ -420,7 +438,7 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
       setSearchingGuests(false);
     }, 350);
     return () => clearTimeout(t);
-  }, [guestQuery, telegramId]);
+  }, [guestQuery, guestTab, telegramId]);
 
   const toggleGuest = (u: UserResult) => {
     setSelectedGuests(prev =>
@@ -430,8 +448,22 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
     );
   };
 
+  const addManual = async () => {
+    const q = manualInput.trim();
+    if (!q) return;
+    // Try to find user by aliId or pseudonym
+    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, { headers: { "x-telegram-id": telegramId } });
+    if (res.ok) {
+      const results: UserResult[] = await res.json();
+      if (results.length > 0 && !selectedGuests.find(g => g.telegramId === results[0].telegramId)) {
+        setSelectedGuests(prev => [...prev, results[0]]);
+      }
+    }
+    setManualInput("");
+  };
+
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) { setTitleTouched(true); return; }
     setLoading(true);
     try {
       const scheduledAt = scheduleDate && scheduleTime
@@ -439,7 +471,7 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
       const res = await fetch("/api/spaces", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
-        body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined, scheduledAt }),
+        body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined, scheduledAt, isPrivate }),
       });
       if (!res.ok) return;
       const space = await res.json();
@@ -463,6 +495,12 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
     fontFamily: "'Cairo', sans-serif", fontSize: 13, outline: "none", direction: "rtl",
   };
 
+  const titleInvalid = titleTouched && !title.trim();
+
+  const guestListToShow = guestTab === "followers"
+    ? followers.filter(u => !selectedGuests.find(g => g.telegramId === u.telegramId))
+    : guestResults.filter(u => !selectedGuests.find(g => g.telegramId === u.telegramId)).slice(0, 5);
+
   return (
     <motion.div className="fixed inset-0 z-50 flex items-end"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -470,9 +508,14 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
       <motion.div className="w-full rounded-t-3xl flex flex-col"
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        style={{ background: "#0a1020", border: `1px solid ${GOLD}25`, borderBottom: "none", maxHeight: "88dvh" }}>
+        style={{ background: "#0a1020", border: `1px solid ${GOLD}25`, borderBottom: "none", maxHeight: "92dvh" }}>
 
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0" dir="rtl">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
+        </div>
+
+        <div className="flex items-center justify-between px-5 pt-2 pb-3 flex-shrink-0" dir="rtl">
           <p className="font-arabic text-base font-bold" style={{ color: GOLD }}>إنشاء مجلس جديد</p>
           <button onClick={onClose} className="p-1.5 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }}>
             <X className="w-4 h-4 text-white/50" />
@@ -480,11 +523,29 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-3">
-          <input value={title} onChange={e => setTitle(e.target.value)}
-            placeholder="عنوان الجلسة..." style={{ ...inputStyle, fontWeight: 700 }} />
+
+          {/* ── Title (required) ── */}
+          <div>
+            <div className="flex items-center gap-1 mb-1.5" dir="rtl">
+              <span className="font-arabic text-xs text-white/50">عنوان الجلسة</span>
+              <span style={{ color: "#ef4444", fontSize: 14, lineHeight: 1 }}>*</span>
+            </div>
+            <input value={title} onChange={e => { setTitle(e.target.value); setTitleTouched(true); }}
+              onBlur={() => setTitleTouched(true)}
+              placeholder="أدخل عنوان الجلسة..." dir="rtl"
+              style={{
+                ...inputStyle, fontWeight: 700,
+                borderColor: titleInvalid ? "rgba(239,68,68,0.55)" : "rgba(255,255,255,0.1)",
+              }} />
+            {titleInvalid && (
+              <p className="font-arabic text-[10px] mt-1 text-right" style={{ color: "#f87171" }}>⚠ عنوان الجلسة مطلوب</p>
+            )}
+          </div>
+
           <textarea value={desc} onChange={e => setDesc(e.target.value)}
             rows={2} placeholder="وصف الجلسة (اختياري)..."
             style={{ ...inputStyle, resize: "none", lineHeight: 1.6 }} />
+
           <div className="grid grid-cols-2 gap-2">
             <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
               style={{ ...inputStyle, colorScheme: "dark" }} />
@@ -493,59 +554,180 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
           </div>
           <p className="font-arabic text-[10px] text-white/25" dir="rtl">اترك الوقت فارغاً لبدء الجلسة الآن فوراً</p>
 
-          {/* ── Guest selection ── */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${GOLD}20` }}>
-            <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: `${GOLD}08`, borderBottom: `1px solid ${GOLD}15` }}>
-              <Crown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: GOLD }} />
-              <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>الضيوف المميزون للجلسة</p>
+          {/* ── Privacy toggle ── */}
+          <div className="rounded-2xl p-3 flex items-center gap-3" dir="rtl"
+            style={{ background: isPrivate ? "rgba(212,175,55,0.06)" : "rgba(96,165,250,0.05)", border: `1px solid ${isPrivate ? GOLD + "30" : BLUE + "25"}` }}>
+            <div className="flex-1">
+              <p className="font-arabic text-xs font-bold" style={{ color: isPrivate ? GOLD : BLUE }}>
+                {isPrivate ? "🔒 جلسة خاصة" : "🌐 جلسة عامة"}
+              </p>
+              <p className="font-arabic text-[10px] text-white/35 mt-0.5">
+                {isPrivate
+                  ? "الانضمام عبر دعوة المضيف أو الضيوف الأساسيين فقط"
+                  : "مفتوحة لجميع الأعضاء الراغبين في الانضمام"}
+              </p>
             </div>
-            <div className="p-3 space-y-2">
-              {selectedGuests.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {selectedGuests.map(g => (
-                    <div key={g.telegramId} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-                      style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}25` }}>
-                      <span className="font-arabic text-[10px]" style={{ color: GOLD }}>{g.pseudonym}</span>
-                      <button onClick={() => toggleGuest(g)}>
-                        <X style={{ width: 9, height: 9, color: `${GOLD}80` }} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center gap-2 rounded-xl px-3 py-2"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {searchingGuests ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white/30 flex-shrink-0" />
-                  : <Search className="w-3.5 h-3.5 text-white/25 flex-shrink-0" />}
-                <input value={guestQuery} onChange={e => setGuestQuery(e.target.value)}
-                  placeholder="ابحث عن ضيوف بالاسم أو الهوية..."
-                  className="flex-1 bg-transparent font-arabic text-xs text-white/70 outline-none placeholder:text-white/20"
-                  dir="rtl" />
+            <button onClick={() => setIsPrivate(p => !p)}
+              className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+              style={{ background: isPrivate ? `${GOLD}35` : "rgba(255,255,255,0.1)", border: `1.5px solid ${isPrivate ? GOLD + "55" : "rgba(255,255,255,0.15)"}` }}>
+              <motion.div className="absolute top-0.5 w-4 h-4 rounded-full"
+                animate={{ left: isPrivate ? "calc(100% - 18px)" : "2px" }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                style={{ background: isPrivate ? GOLD : "rgba(255,255,255,0.45)" }} />
+            </button>
+          </div>
+
+          {/* ── Guest invitation ── */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${GOLD}20` }}>
+            <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0"
+              style={{ background: `${GOLD}08`, borderBottom: `1px solid ${GOLD}15` }}>
+              <div className="flex items-center gap-2" dir="rtl">
+                <Crown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: GOLD }} />
+                <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>
+                  الضيوف الأساسيون
+                  {selectedGuests.length > 0 && (
+                    <span className="font-mono text-[10px] mr-1.5 px-1.5 py-0.5 rounded-full"
+                      style={{ background: `${GOLD}20`, color: GOLD }}>
+                      {selectedGuests.length}
+                    </span>
+                  )}
+                </p>
               </div>
-              {guestResults.filter(u => !selectedGuests.find(g => g.telegramId === u.telegramId)).slice(0, 5).map(u => (
-                <button key={u.telegramId} onClick={() => { toggleGuest(u); setGuestQuery(""); setGuestResults([]); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl active:scale-98 transition-all"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-                  dir="rtl">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center font-mono font-black text-xs flex-shrink-0"
-                    style={{ background: `${GOLD}15`, color: GOLD }}>
-                    {u.pseudonym.slice(0, 2).toUpperCase()}
+              <p className="font-arabic text-[9px] text-white/30">
+                {isPrivate ? "مطلوب للجلسة الخاصة" : "اختياري"}
+              </p>
+            </div>
+
+            {/* Selected guests chips */}
+            {selectedGuests.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-3 pt-2.5" dir="rtl">
+                {selectedGuests.map(g => (
+                  <div key={g.telegramId} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                    style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}25` }}>
+                    <span className="font-arabic text-[10px]" style={{ color: GOLD }}>{g.pseudonym}</span>
+                    <button onClick={() => toggleGuest(g)}>
+                      <X style={{ width: 9, height: 9, color: `${GOLD}80` }} />
+                    </button>
                   </div>
-                  <div className="flex-1 text-right">
-                    <p className="font-arabic text-xs text-white/75">{u.pseudonym}</p>
-                    <p className="font-mono text-[9px] text-white/30">{u.aliId}</p>
-                  </div>
-                  <Plus style={{ width: 12, height: 12, color: `${GOLD}70` }} />
+                ))}
+              </div>
+            )}
+
+            {/* Sub-tabs */}
+            <div className="flex gap-1.5 px-3 pt-2.5 pb-2" dir="rtl">
+              {(["followers", "search", "manual"] as const).map(t => (
+                <button key={t} onClick={() => setGuestTab(t)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-arabic text-[10px] font-bold transition-all"
+                  style={{
+                    background: guestTab === t ? `${GOLD}18` : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${guestTab === t ? GOLD + "40" : "rgba(255,255,255,0.07)"}`,
+                    color: guestTab === t ? GOLD : "rgba(255,255,255,0.35)",
+                  }}>
+                  {t === "followers" ? <><Users className="w-2.5 h-2.5" />متابَعون</>
+                    : t === "search" ? <><Search className="w-2.5 h-2.5" />بحث</>
+                    : <><Hash className="w-2.5 h-2.5" />يدوي</>}
                 </button>
               ))}
             </div>
+
+            <div className="px-3 pb-3 space-y-2">
+              {/* Followers tab */}
+              {guestTab === "followers" && (
+                followersLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: GOLD }} />
+                  </div>
+                ) : guestListToShow.length === 0 ? (
+                  <p className="font-arabic text-[10px] text-white/25 text-center py-3">
+                    {followers.length === 0 ? "لا تتابع أحداً بعد" : "تم إضافة جميع متابَعيك"}
+                  </p>
+                ) : (
+                  guestListToShow.slice(0, 8).map(u => (
+                    <button key={u.telegramId} onClick={() => toggleGuest(u)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl active:scale-98 transition-all"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                      dir="rtl">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center font-mono font-black text-xs flex-shrink-0"
+                        style={{ background: `${GOLD}15`, color: GOLD }}>
+                        {u.pseudonym.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="font-arabic text-xs text-white/75">{u.pseudonym}</p>
+                        <p className="font-mono text-[9px] text-white/30">{u.aliId}</p>
+                      </div>
+                      <Plus style={{ width: 12, height: 12, color: `${GOLD}70` }} />
+                    </button>
+                  ))
+                )
+              )}
+
+              {/* Search tab */}
+              {guestTab === "search" && (
+                <>
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    {searchingGuests ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white/30 flex-shrink-0" />
+                      : <Search className="w-3.5 h-3.5 text-white/25 flex-shrink-0" />}
+                    <input value={guestQuery} onChange={e => setGuestQuery(e.target.value)}
+                      placeholder="ابحث بالاسم أو رقم الهوية..."
+                      className="flex-1 bg-transparent font-arabic text-xs text-white/70 outline-none placeholder:text-white/20"
+                      dir="rtl" />
+                  </div>
+                  {guestListToShow.map(u => (
+                    <button key={u.telegramId} onClick={() => { toggleGuest(u); setGuestQuery(""); setGuestResults([]); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl active:scale-98 transition-all"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                      dir="rtl">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center font-mono font-black text-xs flex-shrink-0"
+                        style={{ background: `${GOLD}15`, color: GOLD }}>
+                        {u.pseudonym.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="font-arabic text-xs text-white/75">{u.pseudonym}</p>
+                        <p className="font-mono text-[9px] text-white/30">{u.aliId}</p>
+                      </div>
+                      <Plus style={{ width: 12, height: 12, color: `${GOLD}70` }} />
+                    </button>
+                  ))}
+                  {guestQuery.length < 2 && (
+                    <p className="font-arabic text-[10px] text-white/25 text-center py-1">اكتب حرفين للبدء بالبحث</p>
+                  )}
+                </>
+              )}
+
+              {/* Manual entry tab */}
+              {guestTab === "manual" && (
+                <div className="space-y-2">
+                  <p className="font-arabic text-[10px] text-white/35 text-right">أدخل الاسم المستعار أو رقم الهوية التسلسلي</p>
+                  <div className="flex items-center gap-2">
+                    <input value={manualInput} onChange={e => setManualInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && addManual()}
+                      placeholder="ALI-XXXX أو الاسم المستعار..."
+                      className="flex-1 bg-transparent font-mono text-xs text-white/70 outline-none placeholder:text-white/20 px-3 py-2 rounded-xl"
+                      style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      dir="ltr" />
+                    <button onClick={addManual}
+                      className="px-3 py-2 rounded-xl font-arabic text-xs font-bold active:scale-90 transition-all flex-shrink-0"
+                      style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}35`, color: GOLD }}>
+                      إضافة
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <button onClick={handleCreate} disabled={!title.trim() || loading}
-            className="w-full py-3 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all disabled:opacity-40"
-            style={{ background: `linear-gradient(135deg,${GOLD}28,${GOLD}12)`, border: `1.5px solid ${GOLD}45`, color: GOLD }}>
+          <button onClick={handleCreate} disabled={loading}
+            className="w-full py-3 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all"
+            style={{
+              background: !title.trim() ? "rgba(255,255,255,0.04)" : `linear-gradient(135deg,${GOLD}28,${GOLD}12)`,
+              border: `1.5px solid ${!title.trim() ? "rgba(255,255,255,0.1)" : GOLD + "45"}`,
+              color: !title.trim() ? "rgba(255,255,255,0.25)" : GOLD,
+            }}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-              : selectedGuests.length > 0 ? `✦ إنشاء الجلسة (${selectedGuests.length} ضيوف)` : "✦ إنشاء الجلسة"}
+              : selectedGuests.length > 0
+                ? `✦ ${isPrivate ? "🔒" : "🌐"} إنشاء الجلسة (${selectedGuests.length} ضيوف)`
+                : `✦ ${isPrivate ? "🔒" : "🌐"} إنشاء الجلسة`}
           </button>
         </div>
       </motion.div>
@@ -606,6 +788,24 @@ function SpaceInvitesBanner({ telegramId, onAccept, onDismiss }: {
   );
 }
 
+// ─── Privacy badge ────────────────────────────────────────────────────────────
+function PrivacyBadge({ isPrivate }: { isPrivate: boolean }) {
+  return (
+    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full flex-shrink-0"
+      style={{
+        background: isPrivate ? "rgba(212,175,55,0.1)" : "rgba(96,165,250,0.08)",
+        border: `1px solid ${isPrivate ? GOLD + "35" : BLUE + "28"}`,
+      }}>
+      {isPrivate
+        ? <Lock style={{ width: 8, height: 8, color: GOLD }} />
+        : <Globe style={{ width: 8, height: 8, color: BLUE }} />}
+      <span className="font-arabic text-[8px] font-bold" style={{ color: isPrivate ? GOLD : BLUE }}>
+        {isPrivate ? "خاصة" : "عامة"}
+      </span>
+    </div>
+  );
+}
+
 // ─── Spaces List ─────────────────────────────────────────────────────────────
 function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, onCreateClick }: {
   spaces: SpaceSummary[]; canCreate: boolean; telegramId: string; loading: boolean;
@@ -613,8 +813,15 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
 }) {
   const live = spaces.filter(s => s.status === "live");
   const scheduled = spaces.filter(s => s.status === "scheduled");
+  const ended = spaces.filter(s => s.status === "ended");
   const fmtTime = (d: string) => new Date(d).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("ar-SA", { weekday: "short", month: "short", day: "numeric" });
+  const fmtEndedAgo = (d: string) => {
+    const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+    if (mins < 60) return `انتهت منذ ${mins} د`;
+    const hrs = Math.floor(mins / 60);
+    return hrs < 24 ? `انتهت منذ ${hrs} س` : `انتهت أمس`;
+  };
 
   return (
     <div className="space-y-4">
@@ -633,6 +840,7 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
         </div>
       ) : (
         <>
+          {/* ── Live sessions ── */}
           {live.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2" dir="rtl">
@@ -646,10 +854,11 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
                   style={{ background: "rgba(255,255,255,0.025)", border: "1.5px solid rgba(239,68,68,0.3)" }}>
                   <div className="px-4 py-2.5 flex items-center justify-between"
                     style={{ background: "rgba(239,68,68,0.05)", borderBottom: "1px solid rgba(239,68,68,0.12)" }} dir="rtl">
-                    <div className="flex items-center gap-1.5">
-                      <motion.div className="w-2 h-2 rounded-full bg-red-500"
+                    <div className="flex items-center gap-2">
+                      <motion.div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"
                         animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
                       <span className="font-arabic text-[10px] text-red-400 font-bold">مباشر</span>
+                      <PrivacyBadge isPrivate={s.isPrivate} />
                     </div>
                     <div className="flex items-center gap-1.5 text-white/35">
                       <Users className="w-3.5 h-3.5" />
@@ -659,17 +868,26 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
                   <div className="px-4 py-3" dir="rtl">
                     <p className="font-arabic text-sm font-bold text-white/90 mb-0.5">{s.title}</p>
                     <p className="font-arabic text-[10px] text-white/35 mb-3">{s.hostPseudonym}</p>
-                    <button onClick={() => { onJoin(s.id); onEnter(s.id); }}
-                      className="w-full py-2.5 rounded-xl font-arabic text-xs font-bold active:scale-95 transition-all"
-                      style={{ background: "rgba(239,68,68,0.14)", border: "1.5px solid rgba(239,68,68,0.35)", color: "#f87171" }}>
-                      🎙 الانضمام للاستماع
-                    </button>
+                    {s.isPrivate ? (
+                      <div className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2"
+                        style={{ background: "rgba(212,175,55,0.06)", border: `1px solid ${GOLD}20` }}>
+                        <Lock style={{ width: 12, height: 12, color: GOLD + "80" }} />
+                        <span className="font-arabic text-xs text-white/35">تتطلب دعوة للانضمام</span>
+                      </div>
+                    ) : (
+                      <button onClick={() => { onJoin(s.id); onEnter(s.id); }}
+                        className="w-full py-2.5 rounded-xl font-arabic text-xs font-bold active:scale-95 transition-all"
+                        style={{ background: "rgba(239,68,68,0.14)", border: "1.5px solid rgba(239,68,68,0.35)", color: "#f87171" }}>
+                        🎙 الانضمام للاستماع
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               ))}
             </div>
           )}
 
+          {/* ── Scheduled sessions ── */}
           {scheduled.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2" dir="rtl">
@@ -682,7 +900,10 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
                   style={{ background: "rgba(255,255,255,0.025)", border: `1.5px solid ${GOLD}18` }}>
                   <div className="px-4 py-3 flex items-start gap-2" dir="rtl">
                     <div className="flex-1">
-                      <p className="font-arabic text-sm font-bold text-white/85 mb-0.5">{s.title}</p>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-arabic text-sm font-bold text-white/85">{s.title}</p>
+                        <PrivacyBadge isPrivate={s.isPrivate} />
+                      </div>
                       <p className="font-arabic text-[10px] text-white/35 mb-1">{s.hostPseudonym}</p>
                       <div className="flex items-center gap-1.5 text-white/25">
                         <Users className="w-3 h-3" />
@@ -701,7 +922,8 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
             </div>
           )}
 
-          {live.length === 0 && scheduled.length === 0 && (
+          {/* ── Empty state ── */}
+          {live.length === 0 && scheduled.length === 0 && ended.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 rounded-2xl"
               style={{ border: `1px dashed ${GOLD}12` }}>
               <span className="text-4xl opacity-20">🎙</span>
@@ -709,6 +931,35 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
               {!canCreate && (
                 <p className="font-arabic text-[10px] text-white/12">تابع الإعلانات لمعرفة موعد الجلسة القادمة</p>
               )}
+            </div>
+          )}
+
+          {/* ── Ended sessions (archived, no chat) ── */}
+          {ended.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2" dir="rtl">
+                <div className="w-2 h-2 rounded-full bg-white/20 flex-shrink-0" />
+                <p className="font-arabic text-[10px] font-bold text-white/30">جلسات منتهية</p>
+              </div>
+              {ended.map((s) => (
+                <div key={s.id} className="rounded-2xl px-4 py-2.5 flex items-center gap-3" dir="rtl"
+                  style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-arabic text-xs font-bold text-white/45 truncate">{s.title}</p>
+                    <p className="font-arabic text-[9px] text-white/25">{s.hostPseudonym}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 text-white/20">
+                      <Users className="w-3 h-3" />
+                      <span className="font-mono text-[9px]">{s.participantCount}</span>
+                    </div>
+                    <PrivacyBadge isPrivate={s.isPrivate} />
+                  </div>
+                  {s.endedAt && (
+                    <span className="font-arabic text-[8px] text-white/18 flex-shrink-0">{fmtEndedAgo(s.endedAt)}</span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </>

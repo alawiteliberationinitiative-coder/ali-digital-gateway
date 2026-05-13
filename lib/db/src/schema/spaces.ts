@@ -17,6 +17,7 @@ export const spacesTable = pgTable("ali_spaces", {
   hostPseudonym: text("host_pseudonym").notNull(),
   hostAliId: text("host_ali_id").notNull(),
   status: text("status").notNull().default("scheduled"),
+  isPrivate: boolean("is_private").notNull().default(false),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),

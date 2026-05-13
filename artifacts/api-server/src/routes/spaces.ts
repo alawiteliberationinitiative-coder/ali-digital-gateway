@@ -1,6 +1,6 @@
 import { Router } from "express";
 import {
-  db, eq, and, usersTable,
+  db, eq, and, or, gte, usersTable,
   spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
 } from "@workspace/db";
 
@@ -17,21 +17,21 @@ function canHost(user: Awaited<ReturnType<typeof getUser>>, telegramId: string) 
   return ADMIN_IDS.includes(telegramId) || user.role === "staff" || user.role === "admin";
 }
 
-/* ── List spaces (live + upcoming) ─────────────────────────────────────────── */
+/* ── List spaces (live + upcoming + recent ended) ──────────────────────────── */
 router.get("/spaces", async (req, res): Promise<void> => {
-  const spaces = await db
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+  const all = await db
     .select()
     .from(spacesTable)
-    .where(eq(spacesTable.status, "live"))
+    .where(
+      or(
+        eq(spacesTable.status, "live"),
+        eq(spacesTable.status, "scheduled"),
+        and(eq(spacesTable.status, "ended"), gte(spacesTable.endedAt, cutoff))
+      )
+    )
     .orderBy(spacesTable.createdAt);
-
-  const scheduled = await db
-    .select()
-    .from(spacesTable)
-    .where(eq(spacesTable.status, "scheduled"))
-    .orderBy(spacesTable.scheduledAt);
-
-  const all = [...spaces, ...scheduled];
 
   const withCounts = await Promise.all(
     all.map(async (s) => {
@@ -57,10 +57,11 @@ router.post("/spaces", async (req, res): Promise<void> => {
     return;
   }
 
-  const { title, description, scheduledAt } = req.body as {
+  const { title, description, scheduledAt, isPrivate } = req.body as {
     title?: string;
     description?: string;
     scheduledAt?: string;
+    isPrivate?: boolean;
   };
 
   if (!title?.trim()) { res.status(400).json({ error: "العنوان مطلوب" }); return; }
@@ -72,6 +73,7 @@ router.post("/spaces", async (req, res): Promise<void> => {
     hostPseudonym: user.pseudonym,
     hostAliId: user.aliId,
     status: scheduledAt ? "scheduled" : "live",
+    isPrivate: isPrivate === true,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     startedAt: scheduledAt ? null : new Date(),
   }).returning();
@@ -182,6 +184,20 @@ router.post("/spaces/:id/join", async (req, res): Promise<void> => {
     const participants = await db.select().from(spaceParticipantsTable).where(eq(spaceParticipantsTable.spaceId, id));
     res.json({ participant: updated, space, participants });
     return;
+  }
+
+  // Private space: require an invite unless user is the host
+  if (space.isPrivate && space.hostTelegramId !== telegramId) {
+    const [invite] = await db
+      .select()
+      .from(spaceInvitesTable)
+      .where(and(
+        eq(spaceInvitesTable.spaceId, id),
+        eq(spaceInvitesTable.inviteeTelegramId, telegramId)
+      ));
+    if (!invite) {
+      res.status(403).json({ error: "هذه الجلسة خاصة — تحتاج دعوة للانضمام" }); return;
+    }
   }
 
   const [participant] = await db.insert(spaceParticipantsTable).values({
