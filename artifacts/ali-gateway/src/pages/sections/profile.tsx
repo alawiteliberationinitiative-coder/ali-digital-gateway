@@ -461,7 +461,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
         {/* ── LOYALTY POINTS ── */}
         <GlassCard accent={GREEN}>
           <SectionLabel icon={<Star className="w-4 h-4" />} label="نقاط الولاء" accent={GREEN} />
-          <div className="text-center mb-4">
+          <div className="text-center mb-3">
             <motion.p className="font-mono font-black text-4xl leading-none"
               style={{ color: GREEN, textShadow: `0 0 20px ${GREEN}60` }}
               initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
@@ -470,9 +470,18 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
             <p className="font-arabic text-white/40 text-xs mt-1">مجموع النقاط المكتسبة</p>
           </div>
 
+          {/* Sovereignty statement */}
+          <div className="rounded-xl px-3 py-2.5 mb-4 text-center"
+            style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
+            <p className="font-arabic text-[11px] leading-5" style={{ color: "rgba(74,222,128,0.8)" }}>
+              ✦ نقاطك هي حصتك من عوائد المنظومة الإعلامية التشاركية ✦
+            </p>
+            <p className="font-arabic text-[10px] text-white/30 mt-0.5">تُحتسب كـ $MDD بعد الإيردروب الرسمي</p>
+          </div>
+
           {/* Progress to next rank */}
           {rankInfo.next && (
-            <div>
+            <div className="mb-4">
               <div className="flex justify-between mb-2">
                 <span className="font-arabic text-[10px]" style={{ color: rankInfo.current.color }}>{rankInfo.current.name}</span>
                 <span className="font-arabic text-[10px]" style={{ color: rankInfo.next.color }}>{rankInfo.next.name}</span>
@@ -492,19 +501,46 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
             </div>
           )}
 
-          {/* How to earn */}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          {/* How to earn — 3 sovereign activities */}
+          <p className="font-arabic text-[10px] text-white/35 mb-2 text-center">مصادر كسب النقاط السيادية</p>
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {[
-              { emoji: "🧠", label: "محرك المعرفة", pts: "+10 / مستوى" },
-              { emoji: "📺", label: "شاهد وادعم",   pts: "+10 / إعلان" },
+              { emoji: "🔬", label: "الرصد الميداني", pts: "+5 / شهادة" },
+              { emoji: "🏆", label: "مسابقات ثقافية", pts: "+5 / سؤال" },
+              { emoji: "🧠", label: "محرك المعرفة",   pts: "+10 / مستوى" },
             ].map(it => (
-              <div key={it.label} className="rounded-xl p-2.5 text-center"
+              <div key={it.label} className="rounded-xl p-2 text-center"
                 style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)" }}>
                 <div className="text-base mb-0.5">{it.emoji}</div>
-                <p className="font-arabic text-[10px] text-white/50">{it.label}</p>
-                <p className="font-mono text-[11px] font-bold" style={{ color: GREEN }}>{it.pts}</p>
+                <p className="font-arabic text-[9px] text-white/50 leading-tight">{it.label}</p>
+                <p className="font-mono text-[10px] font-bold" style={{ color: GREEN }}>{it.pts}</p>
               </div>
             ))}
+          </div>
+
+          {/* Sovereign Contribution Log */}
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+            <div className="px-3 py-2 flex items-center gap-2"
+              style={{ background: "rgba(34,197,94,0.08)", borderBottom: "1px solid rgba(34,197,94,0.12)" }}>
+              <span className="text-sm">📋</span>
+              <p className="font-arabic text-xs font-bold" style={{ color: GREEN }}>سجل المساهمات السيادية</p>
+            </div>
+            <div className="divide-y" style={{ divideColor: "rgba(255,255,255,0.04)" }}>
+              {[
+                { icon: "🔬", label: "وثائق مرفوعة للأرشيف",         value: "—", hint: "عبر تبويب الرصد" },
+                { icon: "📊", label: "إحصائيات تمت المشاركة بها",     value: "—", hint: "عبر تبويب الرصد" },
+                { icon: "🏆", label: "مسابقات ثقافية مُنجزة",         value: userData.level > 1 ? `${userData.level - 1}` : "—", hint: "عبر مركز ADAR" },
+              ].map(row => (
+                <div key={row.label} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="text-base flex-shrink-0">{row.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-arabic text-[11px] text-white/60">{row.label}</p>
+                    <p className="font-arabic text-[9px] text-white/25">{row.hint}</p>
+                  </div>
+                  <span className="font-mono text-sm font-bold" style={{ color: GREEN }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </GlassCard>
 

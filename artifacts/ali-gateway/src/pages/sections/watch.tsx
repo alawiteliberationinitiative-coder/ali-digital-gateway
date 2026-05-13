@@ -68,8 +68,14 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
           setTotalEarned(t => t + pointsAwarded);
           setAdState("rewarded");
         } else {
+          // Error 1099 = no ad inventory available
+          const is1099 = result.description?.includes("1099") || result.description?.includes("No ads");
           setAdState("error");
-          setErrorMsg("لم تكتمل المشاهدة. حاول مجدداً.");
+          setErrorMsg(
+            is1099
+              ? "جاري تحديث العروض التشاركية.. ساهم في البحث الآن لتعزيز رصيدك"
+              : "لم تكتمل المشاهدة. حاول مجدداً."
+          );
         }
       } else {
         // ── Simulation fallback (dev / no block ID configured) ──
@@ -80,10 +86,16 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
         setTotalEarned(t => t + pointsAwarded);
         setAdState("rewarded");
       }
-    } catch (e) {
-      console.error("Ad error:", e);
+    } catch (e: unknown) {
+      // Catch Error 1099 (no ad inventory) from thrown exceptions too
+      const msg = e instanceof Error ? e.message : String(e);
+      const is1099 = msg.includes("1099") || msg.toLowerCase().includes("no ads") || msg.toLowerCase().includes("inventory");
       setAdState("error");
-      setErrorMsg("حدث خطأ. يرجى المحاولة لاحقاً.");
+      setErrorMsg(
+        is1099
+          ? "جاري تحديث العروض التشاركية.. ساهم في البحث الآن لتعزيز رصيدك"
+          : "حدث خطأ. يرجى المحاولة لاحقاً."
+      );
     }
 
     setTimeout(() => {
