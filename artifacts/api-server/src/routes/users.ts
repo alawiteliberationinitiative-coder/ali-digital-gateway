@@ -120,6 +120,53 @@ router.get("/users/me", async (req, res): Promise<void> => {
   res.json({ ...user, mddBalance: Number(user.mddBalance) });
 });
 
+router.patch("/users/me/pseudonym", async (req, res): Promise<void> => {
+  const telegramId = req.headers["x-telegram-id"] as string | undefined;
+  if (!telegramId) {
+    res.status(400).json({ error: "x-telegram-id header required" });
+    return;
+  }
+
+  const { pseudonym } = req.body as { pseudonym?: string };
+  if (!pseudonym || typeof pseudonym !== "string") {
+    res.status(400).json({ error: "pseudonym is required" });
+    return;
+  }
+
+  const trimmed = pseudonym.trim();
+  if (trimmed.length < 3 || trimmed.length > 30) {
+    res.status(400).json({ error: "الاسم المستعار يجب أن يكون بين 3 و 30 حرفاً" });
+    return;
+  }
+  if (!/^[\w\u0600-\u06FF\- ]+$/.test(trimmed)) {
+    res.status(400).json({ error: "الاسم المستعار يحتوي على رموز غير مسموح بها" });
+    return;
+  }
+
+  const [conflict] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.pseudonym, trimmed));
+
+  if (conflict) {
+    res.status(409).json({ error: "هذا الاسم المستعار محجوز، جرب اسماً آخر" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set({ pseudonym: trimmed })
+    .where(eq(usersTable.telegramId, telegramId))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json({ ...updated, mddBalance: Number(updated.mddBalance) });
+});
+
 router.post("/users/confirm-keys", async (req, res): Promise<void> => {
   const { telegramId } = req.body as { telegramId?: string };
 

@@ -72,6 +72,42 @@ export const getMeResponse = zod.object({
 
 
 /**
+ * @summary Update the current user's pseudonym
+ */
+export const updatePseudonymHeader = zod.object({
+  "x-telegram-id": zod.string()
+})
+
+export const updatePseudonymBodyPseudonymMin = 3;
+export const updatePseudonymBodyPseudonymMax = 30;
+
+
+
+export const updatePseudonymBody = zod.object({
+  "pseudonym": zod.string().min(updatePseudonymBodyPseudonymMin).max(updatePseudonymBodyPseudonymMax)
+})
+
+export const updatePseudonymResponse = zod.object({
+  "id": zod.number(),
+  "aliId": zod.string().describe('Format: ALI-2026-XXXX'),
+  "pseudonym": zod.string(),
+  "telegramId": zod.string(),
+  "telegramUsername": zod.string().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "vaultKey": zod.string().describe('Vault recovery key (shown once)'),
+  "identityKey": zod.string().describe('Identity recovery key (shown once)'),
+  "masterKey": zod.string().describe('Master recovery key (shown once)'),
+  "mddBalance": zod.number(),
+  "rank": zod.string(),
+  "level": zod.number(),
+  "keysConfirmed": zod.boolean(),
+  "loyaltyPoints": zod.number().describe('Accumulated loyalty points from activities and rewarded ads'),
+  "createdAt": zod.string().datetime({})
+})
+
+
+/**
  * @summary Mark user's Triple Key Vault as confirmed
  */
 export const confirmKeysBody = zod.object({

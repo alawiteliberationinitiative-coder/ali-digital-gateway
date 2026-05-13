@@ -25,6 +25,7 @@ import type {
   HealthStatus,
   RegisterInput,
   TreasuryBalance,
+  UpdatePseudonymInput,
   User
 } from './';
 
@@ -238,6 +239,70 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Api
 
 
 
+/**
+ * @summary Update the current user's pseudonym
+ */
+export const updatePseudonym = (
+    updatePseudonymInput: UpdatePseudonymInput,
+ options?: SecondParameter<typeof customFetch>,) => {
+      
+      
+      return customFetch<User>(
+      {url: `/users/me/pseudonym`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: updatePseudonymInput
+    },
+      options);
+    }
+  
+
+
+export const getUpdatePseudonymMutationOptions = <TError = ApiError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePseudonym>>, TError,{data: UpdatePseudonymInput}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePseudonym>>, TError,{data: UpdatePseudonymInput}, TContext> => {
+
+const mutationKey = ['updatePseudonym'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePseudonym>>, {data: UpdatePseudonymInput}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePseudonym(data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePseudonymMutationResult = NonNullable<Awaited<ReturnType<typeof updatePseudonym>>>
+    export type UpdatePseudonymMutationBody = UpdatePseudonymInput
+    export type UpdatePseudonymMutationError = ApiError
+
+    /**
+ * @summary Update the current user's pseudonym
+ */
+export const useUpdatePseudonym = <TError = ApiError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePseudonym>>, TError,{data: UpdatePseudonymInput}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePseudonym>>,
+        TError,
+        {data: UpdatePseudonymInput},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdatePseudonymMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    
 /**
  * @summary Mark user's Triple Key Vault as confirmed
  */

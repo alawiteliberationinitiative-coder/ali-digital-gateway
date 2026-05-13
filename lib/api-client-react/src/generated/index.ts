@@ -14,6 +14,7 @@ export * from './registerInputFirstName';
 export * from './registerInputLastName';
 export * from './registerInputTelegramUsername';
 export * from './treasuryBalance';
+export * from './updatePseudonymInput';
 export * from './user';
 export * from './userFirstName';
 export * from './userLastName';

@@ -1,10 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Copy, Check, Eye, EyeOff,
-  Shield, Star, Lock, Zap, Users, Gift,
+  Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
+import { useUpdatePseudonym, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserData {
@@ -214,11 +216,56 @@ function getRankInfo(pts: number) {
 // ─── Main Profile Section ─────────────────────────────────────────────────────
 export function ProfileSection({ onBack, userData }: { onBack: () => void; userData: UserData }) {
   const { user } = useTelegram();
+  const queryClient = useQueryClient();
+  const telegramId  = userData.telegramId;
+
+  // Live pseudonym (updates optimistically after save)
+  const [pseudonym, setPseudonym] = useState(userData.pseudonym);
+
+  // Edit state
+  const [isEditing,  setIsEditing]  = useState(false);
+  const [editValue,  setEditValue]  = useState("");
+  const [editError,  setEditError]  = useState("");
+
+  const updateMutation = useUpdatePseudonym({
+    request: { headers: { "x-telegram-id": telegramId } },
+  });
+
+  function startEdit() {
+    setEditValue(pseudonym);
+    setEditError("");
+    setIsEditing(true);
+  }
+  function cancelEdit() {
+    setIsEditing(false);
+    setEditError("");
+  }
+  function handleSave() {
+    const trimmed = editValue.trim();
+    if (trimmed.length < 3) { setEditError("الاسم المستعار قصير جداً (3 أحرف على الأقل)"); return; }
+    if (trimmed.length > 30) { setEditError("الاسم المستعار طويل جداً (30 حرفاً كحد أقصى)"); return; }
+    if (!/^[\w\u0600-\u06FF\- ]+$/.test(trimmed)) { setEditError("يُسمح بالحروف والأرقام والشرطة والمسافة فقط"); return; }
+    setEditError("");
+    updateMutation.mutate(
+      { data: { pseudonym: trimmed } },
+      {
+        onSuccess: (updated) => {
+          setPseudonym(updated.pseudonym);
+          setIsEditing(false);
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        },
+        onError: (err) => {
+          setEditError((err as { error?: string })?.error ?? "حدث خطأ، حاول مجدداً");
+        },
+      },
+    );
+  }
+
   const photoUrl  = user?.photo_url;
   const firstName = userData.firstName || user?.first_name || "";
   const lastName  = userData.lastName  || user?.last_name  || "";
   const username  = userData.telegramUsername || user?.username;
-  const displayName = [firstName, lastName].filter(Boolean).join(" ") || userData.pseudonym;
+  const displayName = [firstName, lastName].filter(Boolean).join(" ") || pseudonym;
   const initials  = displayName.slice(0, 2).toUpperCase();
 
   const rankInfo      = getRankInfo(userData.loyaltyPoints);
@@ -287,7 +334,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
           {/* Name */}
           <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{displayName}</h2>
           {username && <p className="font-mono text-white/40 text-sm mb-1">@{username}</p>}
-          <p className="font-arabic text-white/50 text-sm mb-1">{userData.pseudonym}</p>
+          <p className="font-arabic text-white/50 text-sm mb-1">{pseudonym}</p>
 
           {/* Rank badge */}
           <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
@@ -314,9 +361,68 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
               <p className="font-arabic text-[10px] text-white/35 mb-1">الرتبة</p>
               <p className="font-mono text-xs font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</p>
             </div>
+            {/* Pseudonym — editable */}
             <div className="col-span-2 rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
-              <p className="font-arabic text-[10px] text-white/35 mb-1">الاسم المستعار</p>
-              <p className="font-mono text-white/80 text-xs font-bold">{userData.pseudonym}</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="font-arabic text-[10px] text-white/35">الاسم المستعار</p>
+                {!isEditing && (
+                  <button onClick={startEdit}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg active:scale-95 transition-transform"
+                    style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)" }}>
+                    <Pencil className="w-3 h-3 text-[#d4af37]" />
+                    <span className="font-arabic text-[10px] text-[#d4af37]">تعديل</span>
+                  </button>
+                )}
+              </div>
+
+              <AnimatePresence mode="wait">
+                {isEditing ? (
+                  <motion.div key="edit"
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                    className="space-y-2">
+                    <input
+                      dir="auto"
+                      value={editValue}
+                      onChange={e => { setEditValue(e.target.value); setEditError(""); }}
+                      onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
+                      maxLength={30}
+                      autoFocus
+                      placeholder="أدخل الاسم المستعار الجديد"
+                      className="w-full rounded-lg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-white/25"
+                      style={{
+                        background: "rgba(255,255,255,0.07)",
+                        border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`,
+                        caretColor: "#d4af37",
+                      }}
+                    />
+                    {editError && (
+                      <p className="font-arabic text-[11px] text-red-400">{editError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button onClick={handleSave} disabled={updateMutation.isPending}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
+                        style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
+                        {updateMutation.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Check className="w-3.5 h-3.5" />}
+                        {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+                      </button>
+                      <button onClick={cancelEdit} disabled={updateMutation.isPending}
+                        className="px-4 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.p key="display"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="font-mono text-white/80 text-sm font-bold">
+                    {pseudonym}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
             <div className="col-span-2 rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
               <p className="font-arabic text-[10px] text-white/35 mb-1">تاريخ الانضمام</p>
