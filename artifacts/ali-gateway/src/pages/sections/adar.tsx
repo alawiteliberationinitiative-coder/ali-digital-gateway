@@ -298,8 +298,9 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
           <option value="displacement">تهجير / نزوح</option>
           <option value="demolition">هدم / تدمير ممتلكات</option>
           <option value="detainees">حالات اعتقال</option>
-          <option value="economic">وضع اقتصادي</option>
-          <option value="education">تعليم وثقافة</option>
+          <option value="killing">قتل وتصفية جسدية</option>
+          <option value="kidnapping">خطف وإخفاء قسري</option>
+          <option value="armed_movements">تحركات فصائل وعصابات مسلحة وترهيب</option>
         </select>
         <textarea value={statValue} onChange={e => setStatValue(e.target.value)}
           rows={3}
