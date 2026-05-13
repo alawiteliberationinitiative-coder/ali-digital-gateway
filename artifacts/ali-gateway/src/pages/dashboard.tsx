@@ -328,9 +328,9 @@ export default function Dashboard() {
                 )}
 
                 {/* Emblem */}
-                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 72 }}>
-                  <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, rgba(212,175,55,0.12) 0%, transparent 70%)" }} />
-                  <AdarEmblem size={72} glow />
+                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 144 }}>
+                  <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, rgba(212,175,55,0.18) 0%, transparent 70%)" }} />
+                  <AdarEmblem size={144} glow />
                 </div>
 
                 {/* Text */}
