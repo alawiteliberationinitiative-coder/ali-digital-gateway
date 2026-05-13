@@ -530,8 +530,9 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
   const rankInfo      = getRankInfo(userData.loyaltyPoints);
   const referralCode  = userData.aliId;
   const BOT_USERNAME  = "ALI_MDD_BOT";
-  const botDeepLink   = `https://t.me/${BOT_USERNAME}?start=${referralCode}`;
-  const referralLink  = `https://t.me/share/url?url=${encodeURIComponent(botDeepLink)}&text=${encodeURIComponent(`🔰 A.L.I — مبادرة التحرير العلوي\nانضم إليّ باستخدام رابط الدعوة وابدأ رحلتك!`)}`;
+  const APP_NAME      = "app";
+  const botDeepLink   = `https://t.me/${BOT_USERNAME}/${APP_NAME}?startapp=${referralCode}`;
+  const referralLink  = `https://t.me/share/url?url=${encodeURIComponent(botDeepLink)}&text=${encodeURIComponent(`🔰 A.L.I — مبادرة التحرير العلوي\nانضم إليّ مباشرةً في التطبيق وابدأ رحلتك!`)}`;
 
   function openInviteLink() {
     const tg = window.Telegram?.WebApp;
@@ -850,7 +851,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
               <CopyButton text={referralCode} label="نسخ الكود" />
             </div>
             <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-              <p className="font-mono text-[10px] text-white/30 truncate">t.me/ALI_MDD_BOT?start={referralCode}</p>
+              <p className="font-mono text-[10px] text-white/30 truncate">t.me/ALI_MDD_BOT/app?startapp={referralCode}</p>
               <CopyButton text={botDeepLink} label="نسخ الرابط" />
             </div>
           </div>
