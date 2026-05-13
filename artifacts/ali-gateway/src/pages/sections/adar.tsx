@@ -635,7 +635,23 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
             }}>
               <div className="flex items-start gap-2" dir="rtl">
                 <div className="flex-1 min-w-0">
-                  <p className="font-arabic text-sm font-black leading-6" style={{ color: GOLD }}>{art.title}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-arabic text-sm font-black leading-6" style={{ color: GOLD }}>{art.title}</p>
+                    {Date.now() - new Date(art.createdAt).getTime() < 72 * 60 * 60 * 1000 && (
+                      <motion.span
+                        initial={{ scale: 0.7, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="font-arabic text-[9px] px-2 py-0.5 rounded-full font-bold flex-shrink-0"
+                        style={{
+                          background: "rgba(239,68,68,0.18)",
+                          color: "#f87171",
+                          border: "1px solid rgba(239,68,68,0.35)",
+                          boxShadow: "0 0 8px rgba(239,68,68,0.25)",
+                        }}>
+                        جديد
+                      </motion.span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="font-mono text-[9px] px-2 py-0.5 rounded-full"
                       style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.2)" }}>
@@ -798,6 +814,9 @@ const TABS: { id: AdarTab; label: string; icon: string }[] = [
   { id: "charter",  label: "الميثاق",           icon: "⚖️" },
 ];
 
+const BADGE_TABS: AdarTab[] = ["news", "research", "docs", "articles"];
+const tabSessionKey = (t: AdarTab) => `adar_vis_${t}`;
+
 export function AdarSection({
   onBack,
   onRead,
@@ -809,10 +828,32 @@ export function AdarSection({
   const telegramId = user?.id?.toString() || "";
   const [activeTab, setActiveTab] = useState<AdarTab>("news");
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<AdarTab>>(() => {
+    const s = new Set<AdarTab>();
+    BADGE_TABS.forEach(t => {
+      if (sessionStorage.getItem(tabSessionKey(t))) s.add(t);
+    });
+    return s;
+  });
+
+  const markVisited = useCallback((tab: AdarTab) => {
+    sessionStorage.setItem(tabSessionKey(tab), "1");
+    setVisitedTabs(prev => new Set([...prev, tab]));
+  }, []);
+
+  const handleTabClick = useCallback((tab: AdarTab) => {
+    setActiveTab(tab);
+    markVisited(tab);
+  }, [markVisited]);
+
+  const hasNewBadge = (tab: AdarTab) =>
+    BADGE_TABS.includes(tab) && !visitedTabs.has(tab);
+
   useEffect(() => {
+    markVisited("news");
     markRead(FOUNDING_POST.id);
     onRead();
-  }, [onRead]);
+  }, [markVisited, onRead]);
 
   return (
     <div className="flex flex-col min-h-full" style={{ background: "linear-gradient(160deg,#001208 0%,#002200 50%,#001008 100%)" }}>
@@ -850,9 +891,10 @@ export function AdarSection({
         <div className="flex gap-1 px-3 pb-2.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {TABS.map(tab => {
             const active = activeTab === tab.id;
+            const showDot = hasNewBadge(tab.id);
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full font-arabic text-xs font-bold transition-all active:scale-95"
+              <button key={tab.id} onClick={() => handleTabClick(tab.id)}
+                className="relative flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full font-arabic text-xs font-bold transition-all active:scale-95"
                 style={{
                   background: active ? `linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.12))` : "rgba(255,255,255,0.04)",
                   border: active ? `1.5px solid ${GOLD}60` : "1.5px solid rgba(255,255,255,0.08)",
@@ -860,6 +902,14 @@ export function AdarSection({
                 }}>
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
+                {showDot && (
+                  <motion.span
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                    style={{ background: "#ef4444", boxShadow: "0 0 6px rgba(239,68,68,0.8)" }}
+                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.55, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.6 }}
+                  />
+                )}
               </button>
             );
           })}
