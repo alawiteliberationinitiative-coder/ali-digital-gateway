@@ -166,6 +166,30 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
   );
 }
 
+// ── Fetch with retry + per-attempt timeout ────────────────────────────────────
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 3,
+  attemptTimeout = 12_000,
+): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), attemptTimeout);
+    try {
+      const res = await fetch(url, { ...options, signal: ctrl.signal });
+      clearTimeout(tid);
+      return res;
+    } catch {
+      clearTimeout(tid);
+      if (i === retries) throw new Error("max-retries");
+      // brief back-off before next attempt
+      await new Promise<void>((r) => setTimeout(r, 2_000));
+    }
+  }
+  throw new Error("unreachable");
+}
+
 // ─── Splash ────────────────────────────────────────────────────────────────────
 export default function Splash() {
   const [, setLocation] = useLocation();
@@ -175,8 +199,9 @@ export default function Splash() {
   const [verified, setVerified] = useState<boolean>(
     () => sessionStorage.getItem("ali_human_check") === "1"
   );
+  const [loadingMsg, setLoadingMsg] = useState("Initializing Secure Portal…");
 
-  // Guard: fires once only — plain ref, no hook dependency issues
+  // Guard: fires once only
   const initCalled = useRef(false);
 
   // Keep latest setLocation in a ref so the async closure is never stale
@@ -196,48 +221,54 @@ export default function Splash() {
     const go = (path: string) => navRef.current(path);
 
     (async () => {
-      // Let the splash animation play before calling the API
-      await new Promise<void>((res) => setTimeout(res, 3_000));
+      // Let the splash animation play
+      await new Promise<void>((r) => setTimeout(r, 2_000));
 
       const telegramId = user?.id?.toString() ?? null;
-      // start_param arrives via deep-link or URL query string
       const startParam =
         window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
         new URLSearchParams(window.location.search).get("startapp") ??
         null;
 
-      // Dev environment: no real Telegram user — go straight to dashboard
+      // Dev environment: no real Telegram user → go straight to dashboard
       if (!telegramId) {
         go("/dashboard");
         return;
       }
 
+      // Show "connecting…" while we warm up the server
+      setLoadingMsg("Connecting to Gateway…");
+
       try {
-        const res = await fetch("/api/users/register", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            telegramId,
-            telegramUsername: user?.username    ?? null,
-            firstName:        user?.first_name  ?? null,
-            lastName:         user?.last_name   ?? null,
-            referredBy:       startParam,
-          }),
-        });
+        const res = await fetchWithRetry(
+          "/api/users/register",
+          {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              telegramId,
+              telegramUsername: user?.username   ?? null,
+              firstName:        user?.first_name ?? null,
+              lastName:         user?.last_name  ?? null,
+              referredBy:       startParam,
+            }),
+          },
+          3,        // up to 3 retries
+          12_000,   // 12 s per attempt  (total max ≈ 50 s before giving up)
+        );
 
         if (res.ok) {
           const data = await res.json() as { keysConfirmed?: boolean };
           go(data.keysConfirmed ? "/dashboard" : "/onboarding");
         } else {
-          // API error: still navigate — don't leave user stuck on splash
           go("/dashboard");
         }
       } catch {
-        // Network error: navigate to dashboard rather than hanging
+        // All retries exhausted — go to dashboard rather than leaving user stuck
         go("/dashboard");
       }
     })();
-  }, [verified, user]); // ← minimal deps, no stale-closure risk
+  }, [verified, user]);
 
   function handleVerified() {
     sessionStorage.setItem("ali_human_check", "1");
@@ -305,10 +336,11 @@ export default function Splash() {
             </motion.div>
 
             <motion.p
+              key={loadingMsg}
               className="mt-3 text-[10px] font-mono text-white/30 tracking-widest uppercase"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              transition={{ delay: 2.1, duration: 0.5 }}>
-              Initializing Secure Portal…
+              transition={{ duration: 0.5 }}>
+              {loadingMsg}
             </motion.p>
           </motion.div>
         )}
