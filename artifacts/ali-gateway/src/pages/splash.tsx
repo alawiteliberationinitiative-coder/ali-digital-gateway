@@ -199,7 +199,7 @@ export default function Splash() {
   const [verified, setVerified] = useState<boolean>(
     () => sessionStorage.getItem("ali_human_check") === "1"
   );
-  const [loadingMsg, setLoadingMsg] = useState("Initializing Secure Portal…");
+  const [loadingMsg, setLoadingMsg] = useState("جاري تهيئة البوابة الآمنة...");
 
   // Guard: fires once only
   const initCalled = useRef(false);
@@ -224,7 +224,7 @@ export default function Splash() {
       const telegramId   = fallbackUser?.id?.toString() ?? null;
       const go = (path: string) => navRef.current(path);
       if (!telegramId) { go("/dashboard"); return; }
-      setLoadingMsg("Connecting to Gateway…");
+      setLoadingMsg("جاري الاتصال بالبوابة...");
       const startParam =
         window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
         new URLSearchParams(window.location.search).get("startapp") ??
@@ -287,7 +287,7 @@ export default function Splash() {
       }
 
       // Show "connecting…" while we warm up the server
-      setLoadingMsg("Connecting to Gateway…");
+      setLoadingMsg("جاري الاتصال بالبوابة...");
 
       const initData = window.Telegram?.WebApp?.initData ?? "";
 

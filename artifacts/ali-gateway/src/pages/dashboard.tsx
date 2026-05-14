@@ -219,6 +219,56 @@ function SectionCard({ card, onPress, delay }: { card: CardDef; onPress: () => v
   );
 }
 
+// ─── No-Auth Retry Screen ─────────────────────────────────────────────────────
+function NoAuthScreen() {
+  return (
+    <div
+      className="min-h-[100dvh] flex flex-col items-center justify-center gap-6 px-8"
+      style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 50%,#001208 100%)" }}
+      dir="rtl">
+      {/* Glow */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse 55% 35% at 50% 50%, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col items-center gap-6 w-full max-w-xs relative z-10">
+
+        {/* Icon */}
+        <div className="w-20 h-20 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(212,175,55,0.08)", border: "2px solid rgba(212,175,55,0.25)" }}>
+          <span className="text-4xl">🔐</span>
+        </div>
+
+        {/* Message */}
+        <div className="text-center">
+          <p className="font-arabic text-[#d4af37] font-bold text-xl mb-2 leading-snug">
+            تعذّر تحميل البوابة
+          </p>
+          <p className="font-arabic text-white/50 text-sm leading-7">
+            لم تصل بيانات تيليغرام في الوقت المناسب.
+            <br />افتح التطبيق من داخل Telegram وأعد المحاولة.
+          </p>
+        </div>
+
+        {/* Retry button */}
+        <motion.button
+          onClick={() => window.location.reload()}
+          whileTap={{ scale: 0.96 }}
+          className="w-full py-4 rounded-2xl font-arabic font-bold text-xl"
+          style={{
+            background: "linear-gradient(135deg,#d4af37,#f0d060)",
+            color: "#002b1b",
+            boxShadow: "0 5px 0 rgba(180,140,20,0.55)",
+          }}>
+          🔄 إعادة المحاولة
+        </motion.button>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -228,6 +278,14 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState<Section>(null);
   const [welcomeDone, setWelcomeDone] = useState(false);
   const [adarUnread, setAdarUnread] = useState(() => getAdarUnreadCount());
+
+  // ── Timeout احتياطي: إذا لم يصل telegramId خلال 6 ثوانٍ أظهر شاشة retry ──
+  const [noAuthReady, setNoAuthReady] = useState(false);
+  useEffect(() => {
+    if (telegramId) { setNoAuthReady(false); return; }
+    const t = setTimeout(() => setNoAuthReady(true), 6_000);
+    return () => clearTimeout(t);
+  }, [telegramId]);
 
   const { data: userData, isLoading, isError } = useGetMe({
     request: { headers: { "X-Telegram-ID": telegramId } },
@@ -245,12 +303,19 @@ export default function Dashboard() {
 
   const handleBack = useCallback(() => setActiveSection(null), []);
 
-  // Show loading spinner while fetching user data
+  // ── شاشة التحميل أو الخطأ ─────────────────────────────────────────────────
   if (isLoading || !userData) {
+    // لا يوجد telegramId بعد انتهاء المهلة → شاشة retry
+    if (noAuthReady && !telegramId) return <NoAuthScreen />;
+
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center"
-        style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 50%, #001208 100%)" }}>
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3"
+        style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 50%, #001208 100%)" }}
+        dir="rtl">
         <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+        {telegramId && (
+          <p className="font-arabic text-white/35 text-xs animate-pulse">جاري الاتصال بالبوابة...</p>
+        )}
       </div>
     );
   }
