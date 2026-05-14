@@ -27,8 +27,10 @@ interface KnowledgeBase {
 
 const QUESTIONS_PER_LEVEL = 5;
 const POINTS_PER_LEVEL    = 10;
-
-const BONUS_AD_POINTS = 5;
+const BONUS_AD_POINTS     = 5;
+// Must match MAX_LEVEL in artifacts/api-server/src/routes/quiz.ts
+// Levels beyond this cap earn no quiz points (but still unlock via completeLevel)
+const MAX_QUIZ_LEVEL = 5;
 
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -760,33 +762,60 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   async function handleStageAdWatch() {
     setAdError("");
     const completed = await stageAd.show();
+    // Only block progress if the ad was actively dismissed (user can retry).
+    // On any completed/timeout path we ALWAYS advance — user must never be stuck.
     if (!completed) return;
+
+    const lvl = selectedLevel!;
 
     if (telegramId) {
       const quizToken = quizChallengeRef.current;
-      quizChallengeRef.current = ""; // consume the quiz token
-      const res = await apiFetch("/api/quiz/complete-level", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ levelCompleted: selectedLevel, quizToken }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        setAdError(err.error ?? "خطأ في الخادم. حاول مجدداً.");
-        return;
+      quizChallengeRef.current = "";
+
+      // Only call the backend for levels within the reward cap.
+      // For levels beyond MAX_QUIZ_LEVEL the server rejects the request — we
+      // advance the level locally without points instead of blocking the user.
+      if (lvl <= MAX_QUIZ_LEVEL && quizToken) {
+        try {
+          const res = await apiFetch("/api/quiz/complete-level", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ levelCompleted: lvl, quizToken }),
+          });
+          if (res.ok) {
+            const data = await res.json() as { level: number; loyaltyPoints: number };
+            // Sync level + points from server (source of truth)
+            setCurrentLevel(data.level);
+            setTotalPoints(data.loyaltyPoints);
+          } else {
+            // API error (cooldown, token age, sequence mismatch…).
+            // Show a non-blocking message but always unlock the next level.
+            const err = await res.json().catch(() => ({})) as { error?: string };
+            setAdError(err.error ?? "لم تُضف النقاط — المستوى يُفتح رغم ذلك");
+            setCurrentLevel(c => Math.max(c, lvl + 1));
+          }
+        } catch {
+          setAdError("خطأ في الاتصال — المستوى يُفتح بدون نقاط");
+          setCurrentLevel(c => Math.max(c, lvl + 1));
+        }
+      } else {
+        // Level is beyond the quiz reward cap (or no token) — advance locally
+        setCurrentLevel(c => Math.max(c, lvl + 1));
       }
-      const data = await res.json() as { level: number; loyaltyPoints: number; pointsAwarded: number };
-      setCurrentLevel(data.level);
-      setTotalPoints(data.loyaltyPoints);
     } else {
+      // Dev / no-auth path
+      setCurrentLevel(c => Math.max(c, lvl + 1));
       setTotalPoints(p => p + POINTS_PER_LEVEL);
     }
+
+    // ⚠️ ALWAYS call completeLevel — the user watched the ad and must move forward
     completeLevel();
   }
 
   async function handleBonusAdWatch() {
     const token = await bonusAd.show();
-    if (token && telegramId) {
+    // `token` is a string (challengeToken) if ad completed, or false if dismissed
+    if (token !== false && telegramId) {
       try {
         const res = await apiFetch("/api/ads/reward", {
           method: "POST",
@@ -797,8 +826,14 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
           const data = await res.json() as { loyaltyPoints: number };
           setTotalPoints(data.loyaltyPoints);
         }
-      } catch { /* non-critical */ }
+      } catch { /* non-critical — bonus points only */ }
     }
+    // Ad completed → advance immediately (no points awarded if token was falsy)
+    if (token !== false) {
+      completeLevel();
+    }
+    // If dismissed (token === false) the BonusAdScreen stays visible so the user
+    // can retry via onWatch or skip via onSkip (handleBonusSkip).
   }
 
   function handleBonusSkip() {
@@ -812,6 +847,8 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
       next.add(lvl);
       return next;
     });
+    // Advance currentLevel so the next node on the map is unlocked immediately
+    setCurrentLevel(c => (c <= lvl ? lvl + 1 : c));
     setPhase("map");
     setSelectedLevel(null);
   }
