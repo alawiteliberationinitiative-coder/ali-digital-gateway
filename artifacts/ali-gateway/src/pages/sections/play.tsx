@@ -81,7 +81,8 @@ function StageAdScreen({ score, levelNum, onDone }: {
     if (doneRef.current) return;
     doneRef.current = true;
     setPhase("done");
-    setTimeout(onDone, 400);
+    // استدعاء فوري دون تأخير لمنع أي race condition
+    onDone();
   }, [onDone]);
 
   // ── عداد تنازلي 3→0 ────────────────────────────────────────────────────
@@ -290,9 +291,17 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   }, [telegramId]);
 
   // ── انتقال تلقائي للعب بعد شاشة "المرحلة التالية" ─────────────────────
+  // يطلب quiz token للمستوى الجديد قبل الانتقال لضمان عمل نظام المكافآت
   useEffect(() => {
     if (gameState !== "next-level") return;
-    const t = setTimeout(() => setGameState("playing"), 2_500);
+    const t = setTimeout(() => {
+      quizChallengeRef.current = "";
+      apiFetch("/api/quiz/start-level", { method: "POST" })
+        .then(r => r.ok ? r.json() as Promise<{ quizToken?: string }> : null)
+        .then(data => { if (data?.quizToken) quizChallengeRef.current = data.quizToken; })
+        .catch(() => {});
+      setGameState("playing");
+    }, 2_000);
     return () => clearTimeout(t);
   }, [gameState]);
 
@@ -301,8 +310,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   // elapsed time between challenge issuance and reward claim.
   useEffect(() => {
     if (gameState !== "ad-break") return;
-    const tid = telegramIdRef.current;
-    if (!tid) return;
     levelChallengeRef.current = "";
     apiFetch("/api/ads/challenge", { method: "POST" })
       .then(r => r.ok ? r.json() as Promise<{ challengeToken?: string }> : null)
