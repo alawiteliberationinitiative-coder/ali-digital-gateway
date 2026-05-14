@@ -10,7 +10,17 @@ import Splash from "@/pages/splash";
 import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
 
-const queryClient = new QueryClient();
+console.log("[ALI] App Started — Telegram WebApp available:", !!window.Telegram?.WebApp);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryDelay: (attempt) => Math.min(400 * (attempt + 1), 3000),
+      staleTime: 30_000,
+    },
+  },
+});
 
 function Router() {
   return (
