@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Star, CheckCircle, Play, Clock, XCircle } from "lucide-react";
 import { AliEmblem } from "../../components/ui/ali-emblem";
@@ -30,10 +31,7 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
 
   const rewardOnServer = useCallback(async () => {
     if (!telegramId) return null;
-    const res = await fetch("/api/ads/reward", {
-      method: "POST",
-      headers: { "x-telegram-id": telegramId },
-    });
+    const res = await apiFetch("/api/ads/reward", { method: "POST" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       throw new Error(body.error ?? "reward API failed");

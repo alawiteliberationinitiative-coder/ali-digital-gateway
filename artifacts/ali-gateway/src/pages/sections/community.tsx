@@ -7,6 +7,7 @@ import {
   Lock, Globe, Hash,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
+import { apiFetch } from "../../lib/api";
 
 const GOLD  = "#d4af37";
 const BLUE  = "#60a5fa";
@@ -53,9 +54,9 @@ function FollowButton({ targetTelegramId, myTelegramId, small = false }: {
 
   useEffect(() => {
     if (!myTelegramId || !targetTelegramId || myTelegramId === targetTelegramId) return;
-    fetch("/api/users/follow-check", {
+    apiFetch("/api/users/follow-check", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-id": myTelegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ telegramIds: [targetTelegramId] }),
     }).then(r => r.ok ? r.json() : {})
       .then(map => setIsFollowing(!!map[targetTelegramId]));
@@ -67,9 +68,7 @@ function FollowButton({ targetTelegramId, myTelegramId, small = false }: {
     e.stopPropagation();
     setLoading(true);
     const method = isFollowing ? "DELETE" : "POST";
-    await fetch(`/api/users/follow/${targetTelegramId}`, {
-      method, headers: { "x-telegram-id": myTelegramId },
-    });
+    await apiFetch(`/api/users/follow/${targetTelegramId}`, { method });
     setIsFollowing(p => !p);
     setLoading(false);
   };
@@ -150,9 +149,9 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
   const processedRef = useRef<Set<number>>(new Set());
 
   const postSignal = useCallback(async (toPeerId: string, type: string, payload: string) => {
-    await fetch(`/api/spaces/${spaceId}/signals`, {
+    await apiFetch(`/api/spaces/${spaceId}/signals`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-id": myTelegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ toPeerId, type, payload }),
     });
   }, [spaceId, myTelegramId]);
@@ -213,7 +212,7 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
   useEffect(() => {
     if (!enabled) return;
     const poll = async () => {
-      const res = await fetch(`/api/spaces/${spaceId}/signals`, { headers: { "x-telegram-id": myTelegramId } });
+      const res = await apiFetch(`/api/spaces/${spaceId}/signals`);
       if (!res.ok) return;
       const signals: { id: number; fromTelegramId: string; type: string; payload: string }[] = await res.json();
       for (const sig of signals) {
@@ -266,14 +265,14 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
   const [sending, setSending] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/users/me/following", { headers: { "x-telegram-id": myTelegramId } })
+    apiFetch("/api/users/me/following")
       .then(r => r.ok ? r.json() : [])
       .then(data => { setFollowing(data); setLoading(false); });
   }, [myTelegramId]);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.length < 2) { setSearchResults([]); return; }
-    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, { headers: { "x-telegram-id": myTelegramId } });
+    const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`);
     if (res.ok) setSearchResults(await res.json());
   }, [myTelegramId]);
 
@@ -285,9 +284,9 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
   const invite = async (user: UserResult, role: "listener" | "speaker") => {
     const key = `${user.telegramId}-${role}`;
     setSending(key);
-    await fetch(`/api/spaces/${spaceId}/invite`, {
+    await apiFetch(`/api/spaces/${spaceId}/invite`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-id": myTelegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ inviteeTelegramId: user.telegramId, role }),
     });
     setInvited(prev => new Set(prev).add(user.telegramId));
@@ -426,7 +425,7 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
 
   // Load followers on mount
   useEffect(() => {
-    fetch("/api/users/me/following", { headers: { "x-telegram-id": telegramId } })
+    apiFetch("/api/users/me/following")
       .then(r => r.ok ? r.json() : [])
       .then(data => { setFollowers(data); setFollowersLoading(false); });
   }, [telegramId]);
@@ -436,7 +435,7 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
     if (guestTab !== "search" || guestQuery.length < 2) { setGuestResults([]); return; }
     const t = setTimeout(async () => {
       setSearchingGuests(true);
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(guestQuery)}`, { headers: { "x-telegram-id": telegramId } });
+      const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(guestQuery)}`);
       if (res.ok) setGuestResults(await res.json());
       setSearchingGuests(false);
     }, 350);
@@ -455,7 +454,7 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
     const q = manualInput.trim();
     if (!q) return;
     // Try to find user by aliId or pseudonym
-    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, { headers: { "x-telegram-id": telegramId } });
+    const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`);
     if (res.ok) {
       const results: UserResult[] = await res.json();
       if (results.length > 0 && !selectedGuests.find(g => g.telegramId === results[0].telegramId)) {
@@ -471,23 +470,23 @@ function CreateSpaceModal({ telegramId, onClose, onCreated }: {
     try {
       const scheduledAt = scheduleDate && scheduleTime
         ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : undefined;
-      const res = await fetch("/api/spaces", {
+      const res = await apiFetch("/api/spaces", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined, scheduledAt, isPrivate }),
       });
       if (!res.ok) return;
       const space = await res.json();
       await Promise.all(
         selectedGuests.map(g =>
-          fetch(`/api/spaces/${space.id}/invite`, {
+          apiFetch(`/api/spaces/${space.id}/invite`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ inviteeTelegramId: g.telegramId, role: "speaker" }),
           })
         )
       );
-      const detailRes = await fetch(`/api/spaces/${space.id}`, { headers: { "x-telegram-id": telegramId } });
+      const detailRes = await apiFetch(`/api/spaces/${space.id}`);
       if (detailRes.ok) onCreated(await detailRes.json());
     } finally { setLoading(false); }
   };
@@ -749,7 +748,7 @@ function SpaceInvitesBanner({ telegramId, onAccept, onDismiss }: {
   useEffect(() => {
     if (!telegramId) return;
     const check = async () => {
-      const res = await fetch("/api/spaces/my-invites", { headers: { "x-telegram-id": telegramId } });
+      const res = await apiFetch("/api/spaces/my-invites");
       if (res.ok) setInvites(await res.json());
     };
     check();
@@ -1345,7 +1344,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   }, []);
 
   const fetchSpaceDetails = useCallback(async (id: number) => {
-    const res = await fetch(`/api/spaces/${id}`, { headers: { "x-telegram-id": telegramId } });
+    const res = await apiFetch(`/api/spaces/${id}`);
     if (res.ok) {
       const data: SpaceDetails = await res.json();
       setActiveSpace(data);
@@ -1356,7 +1355,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     fetchSpaces();
     if (telegramId) {
-      fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+      apiFetch("/api/users/me")
         .then(r => r.ok ? r.json() : null)
         .then(u => { if (u) setUserRole(u.role ?? "member"); });
     }
@@ -1369,7 +1368,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   }, [activeSpace?.id, fetchSpaceDetails]);
 
   const handleJoin = async (id: number) => {
-    const res = await fetch(`/api/spaces/${id}/join`, { method: "POST", headers: { "x-telegram-id": telegramId } });
+    const res = await apiFetch(`/api/spaces/${id}/join`, { method: "POST" });
     if (res.ok) {
       const { participant, space, participants } = await res.json();
       setMyParticipant(participant);
@@ -1378,7 +1377,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   };
 
   const handleAcceptInvite = async (spaceId: number, inviteId: number) => {
-    const res = await fetch(`/api/spaces/invites/${inviteId}/accept`, { method: "POST", headers: { "x-telegram-id": telegramId } });
+    const res = await apiFetch(`/api/spaces/invites/${inviteId}/accept`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       await handleJoin(data.spaceId);
@@ -1386,26 +1385,26 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   };
 
   const handleDismissInvite = async (inviteId: number) => {
-    await fetch(`/api/spaces/invites/${inviteId}/dismiss`, { method: "POST", headers: { "x-telegram-id": telegramId } });
+    await apiFetch(`/api/spaces/invites/${inviteId}/dismiss`, { method: "POST" });
   };
 
   const handleLeave = async () => {
     if (!activeSpace) return;
-    await fetch(`/api/spaces/${activeSpace.id}/leave`, { method: "POST", headers: { "x-telegram-id": telegramId } });
+    await apiFetch(`/api/spaces/${activeSpace.id}/leave`, { method: "POST" });
     setActiveSpace(null); setMyParticipant(undefined); fetchSpaces();
   };
 
   const handleRaiseHand = async () => {
     if (!activeSpace) return;
-    await fetch(`/api/spaces/${activeSpace.id}/raise-hand`, { method: "POST", headers: { "x-telegram-id": telegramId } });
+    await apiFetch(`/api/spaces/${activeSpace.id}/raise-hand`, { method: "POST" });
     await fetchSpaceDetails(activeSpace.id);
   };
 
   const handlePromote = async (tgId: string, role: ParticipantRole) => {
     if (!activeSpace) return;
-    await fetch(`/api/spaces/${activeSpace.id}/participants/${tgId}`, {
+    await apiFetch(`/api/spaces/${activeSpace.id}/participants/${tgId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role, raisedHand: false }),
     });
     await fetchSpaceDetails(activeSpace.id);
@@ -1413,9 +1412,9 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
 
   const handleKick = async (tgId: string) => {
     if (!activeSpace) return;
-    await fetch(`/api/spaces/${activeSpace.id}/participants/${tgId}`, {
+    await apiFetch(`/api/spaces/${activeSpace.id}/participants/${tgId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: "listener" }),
     });
     await fetchSpaceDetails(activeSpace.id);
@@ -1424,9 +1423,9 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   const handleMuteToggle = async () => {
     toggleMute();
     if (!activeSpace || !myParticipant) return;
-    await fetch(`/api/spaces/${activeSpace.id}/participants/${telegramId}`, {
+    await apiFetch(`/api/spaces/${activeSpace.id}/participants/${telegramId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isMuted: !isMuted }),
     });
   };

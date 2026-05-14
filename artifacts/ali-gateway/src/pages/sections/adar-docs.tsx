@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, Camera, X, CheckCircle,
@@ -310,9 +311,9 @@ function makeUpload(
     const photos = getPhotos?.() ?? [];
     if (telegramId && photos.length > 0) {
       photos.forEach((photo, idx) => {
-        fetch("/api/docs/upload-file", {
+        apiFetch("/api/docs/upload-file", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base64: photo, filename: `adar-doc-${Date.now()}-${idx}.jpg` }),
         }).catch(() => {});
       });
@@ -698,9 +699,9 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
     setTotalPoints(p => p + 200);
     if (!telegramId) return;
     try {
-      await fetch("/api/docs/submit", {
+      await apiFetch("/api/docs/submit", {
         method: "POST",
-        headers: { "x-telegram-id": telegramId, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
       });
     } catch {
       /* silent — points shown locally regardless */

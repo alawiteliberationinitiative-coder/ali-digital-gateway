@@ -20,7 +20,6 @@ export default function Onboarding() {
   const [keysSaved, setKeysSaved] = useState(false);
 
   const { data: userData, isLoading, isError } = useGetMe({
-    request: { headers: { "X-Telegram-ID": telegramId } },
     query: { enabled: !!telegramId, retry: 1 },
   });
 

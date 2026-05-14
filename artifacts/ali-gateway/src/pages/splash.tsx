@@ -239,14 +239,18 @@ export default function Splash() {
       // Show "connecting…" while we warm up the server
       setLoadingMsg("Connecting to Gateway…");
 
+      const initData = window.Telegram?.WebApp?.initData ?? "";
+
       try {
         const res = await fetchWithRetry(
           "/api/users/register",
           {
             method:  "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type":          "application/json",
+              "x-telegram-init-data":  initData,
+            },
             body: JSON.stringify({
-              telegramId,
               telegramUsername: user?.username   ?? null,
               firstName:        user?.first_name ?? null,
               lastName:         user?.last_name  ?? null,

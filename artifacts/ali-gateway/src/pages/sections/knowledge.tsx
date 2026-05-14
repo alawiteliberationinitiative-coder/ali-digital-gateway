@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Star, Lock, CheckCircle, Tv, XCircle } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
@@ -694,7 +695,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   // ── Load saved level from server ──
   useEffect(() => {
     if (!telegramId) { setServerLevelLoaded(true); return; }
-    fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+    apiFetch("/api/users/me")
       .then(r => r.ok ? r.json() : null)
       .then((u: { level: number; loyaltyPoints: number } | null) => {
         if (u && u.level >= 1) {
@@ -748,9 +749,9 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     if (!completed) return;
 
     if (telegramId) {
-      const res = await fetch("/api/quiz/complete-level", {
+      const res = await apiFetch("/api/quiz/complete-level", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-telegram-id": telegramId },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ levelCompleted: selectedLevel }),
       });
       if (!res.ok) {
@@ -771,10 +772,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     const completed = await bonusAd.show();
     if (completed && telegramId) {
       try {
-        const res = await fetch("/api/ads/reward", {
-          method: "POST",
-          headers: { "x-telegram-id": telegramId },
-        });
+        const res = await apiFetch("/api/ads/reward", { method: "POST" });
         if (res.ok) {
           const data = await res.json() as { loyaltyPoints: number };
           setTotalPoints(data.loyaltyPoints);

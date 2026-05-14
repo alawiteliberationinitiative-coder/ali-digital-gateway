@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio,
@@ -457,7 +458,7 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
         const promises: Promise<Response>[] = [fetch("/api/articles")];
         if (telegramId) {
           promises.push(
-            fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+            apiFetch("/api/users/me")
           );
         }
         const [artsRes, userRes] = await Promise.all(promises);
@@ -480,9 +481,9 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
     if (!artTitle.trim() || !artBody.trim() || !telegramId) return;
     setSubmitState("sending");
     try {
-      const res = await fetch("/api/articles", {
+      const res = await apiFetch("/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: artTitle.trim(), body: artBody.trim() }),
       });
       if (res.ok) {
@@ -503,10 +504,7 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
     if (!telegramId) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/articles/${id}`, {
-        method: "DELETE",
-        headers: { "x-telegram-id": telegramId },
-      });
+      const res = await apiFetch(`/api/articles/${id}`, { method: "DELETE" });
       if (res.ok) setArticles(prev => prev.filter(a => a.id !== id));
     } finally {
       setDeletingId(null);

@@ -6,6 +6,7 @@ import {
   UserPlus, UserCheck, Search, ChevronDown,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
+import { apiFetch } from "../../lib/api";
 import { useUpdatePseudonym, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -226,9 +227,9 @@ function ProfileFollowButton({ targetTelegramId, myTelegramId }: { targetTelegra
 
   useEffect(() => {
     if (!myTelegramId || !targetTelegramId || myTelegramId === targetTelegramId) return;
-    fetch("/api/users/follow-check", {
+    apiFetch("/api/users/follow-check", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-id": myTelegramId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ telegramIds: [targetTelegramId] }),
     }).then(r => r.ok ? r.json() : {})
       .then(map => setIsFollowing(!!map[targetTelegramId]));
@@ -239,7 +240,7 @@ function ProfileFollowButton({ targetTelegramId, myTelegramId }: { targetTelegra
   const toggle = async () => {
     setLoading(true);
     const method = isFollowing ? "DELETE" : "POST";
-    await fetch(`/api/users/follow/${targetTelegramId}`, { method, headers: { "x-telegram-id": myTelegramId } });
+    await apiFetch(`/api/users/follow/${targetTelegramId}`, { method });
     setIsFollowing(p => !p);
     setLoading(false);
   };
@@ -267,7 +268,7 @@ function ReferralCount({ telegramId }: { telegramId: string }) {
 
   useEffect(() => {
     if (!telegramId) return;
-    fetch("/api/users/me/referrals", { headers: { "x-telegram-id": telegramId } })
+    apiFetch("/api/users/me/referrals")
       .then(r => r.ok ? r.json() as Promise<{ count: number }> : Promise.reject())
       .then(d => { setCount(d.count); setLoading(false); })
       .catch(() => { setCount(0); setLoading(false); });
@@ -301,7 +302,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
   const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
-    fetch("/api/users/me/network-stats", { headers: { "x-telegram-id": myTelegramId } })
+    apiFetch("/api/users/me/network-stats")
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStats(data); });
   }, [myTelegramId]);
@@ -309,7 +310,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
   const loadList = useCallback(async (t: "followers" | "following") => {
     setLoadingList(true);
     const url = t === "followers" ? "/api/users/me/followers" : "/api/users/me/following";
-    const res = await fetch(url, { headers: { "x-telegram-id": myTelegramId } });
+    const res = await apiFetch(url);
     if (res.ok) {
       const data = await res.json();
       if (t === "followers") setFollowers(data); else setFollowing(data);
@@ -325,7 +326,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
   useEffect(() => {
     if (!showSearch || query.length < 2) { setSearchRes([]); return; }
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`, { headers: { "x-telegram-id": myTelegramId } });
+      const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`);
       if (res.ok) setSearchRes(await res.json());
     }, 350);
     return () => clearTimeout(t);
@@ -486,9 +487,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
   const [editValue,  setEditValue]  = useState("");
   const [editError,  setEditError]  = useState("");
 
-  const updateMutation = useUpdatePseudonym({
-    request: { headers: { "x-telegram-id": telegramId } },
-  });
+  const updateMutation = useUpdatePseudonym();
 
   function startEdit() {
     setEditValue(pseudonym);

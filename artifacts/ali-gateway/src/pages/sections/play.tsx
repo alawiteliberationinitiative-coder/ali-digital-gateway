@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Zap, Star, Trophy, Tv, CheckCircle2 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { useRewardedAd } from "../../hooks/use-rewarded-ad";
+import { apiFetch } from "../../lib/api";
 
 const slide = {
   initial: { x: -40, opacity: 0 },
@@ -261,7 +262,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   // ── تحميل مستوى المستخدم من الخادم ────────────────────────────────────
   useEffect(() => {
     if (!telegramId) return;
-    fetch("/api/users/me", { headers: { "x-telegram-id": telegramId } })
+    apiFetch("/api/users/me")
       .then(r => r.ok ? r.json() : { level: 1 })
       .then((data: { level?: number }) => {
         const lvl = data.level ?? 1;
@@ -315,13 +316,10 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     const tid = telegramIdRef.current;
 
     if (tid) {
-      fetch("/api/ads/reward", {
-        method: "POST",
-        headers: { "x-telegram-id": tid },
-      }).catch(() => {});
-      fetch("/api/quiz/complete-level", {
+      apiFetch("/api/ads/reward", { method: "POST" }).catch(() => {});
+      apiFetch("/api/quiz/complete-level", {
         method:  "POST",
-        headers: { "Content-Type": "application/json", "x-telegram-id": tid },
+        headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ levelCompleted: lvl }),
       }).catch(() => {});
     }
@@ -387,7 +385,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
       setDoubledScore(doubled);
       setScore(doubled);
       if (telegramId) {
-        fetch("/api/ads/reward", { method: "POST", headers: { "x-telegram-id": telegramId } }).catch(() => {});
+        apiFetch("/api/ads/reward", { method: "POST" }).catch(() => {});
       }
       setDoubleState("done");
     } else {
