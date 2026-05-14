@@ -97,8 +97,7 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const app = window.Telegram?.WebApp;
     if (app) {
-      app.ready();
-      app.expand();
+      // ready() and expand() already called in main.tsx before React mounts
       app.enableClosingConfirmation();
       // توحيد لون شريط الحالة مع لون هيدر التطبيق
       const APP_BG = "#001a10";

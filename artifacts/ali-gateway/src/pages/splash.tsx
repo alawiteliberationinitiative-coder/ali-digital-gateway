@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTelegram } from "@/lib/telegram";
 import { Shield } from "lucide-react";
 
 // ─── Human Verification ────────────────────────────────────────────────────────
@@ -75,11 +74,9 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
       className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
       style={{ background: "linear-gradient(160deg,#000e08 0%,#001a10 50%,#000a05 100%)" }}>
 
-      {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 65% 45% at 50% 48%, rgba(212,175,55,0.07) 0%, transparent 70%)" }} />
 
-      {/* Card */}
       <motion.div
         animate={shake ? { x: [-14, 14, -11, 11, -7, 7, -3, 3, 0] } : {}}
         transition={{ duration: 0.55 }}
@@ -92,7 +89,6 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
         }}
         dir="rtl">
 
-        {/* Icon */}
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 20 }}
@@ -104,7 +100,6 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
             : <Shield className="w-7 h-7 text-[#d4af37]" />}
         </motion.div>
 
-        {/* Title */}
         <p className="font-arabic text-[#d4af37] font-bold text-base text-center mb-1">
           {success ? "تم التحقق بنجاح!" : "التحقق من الهوية"}
         </p>
@@ -112,14 +107,12 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
           {success ? "جارٍ الدخول إلى البوابة الآمنة..." : "حل المسألة للتأكد من أنك إنسان"}
         </p>
 
-        {/* Question & Options */}
         <AnimatePresence mode="wait">
           {!success && (
             <motion.div key={challenge.question}
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
 
-              {/* Equation — LTR so numbers render in correct order */}
               <div className="rounded-2xl py-4 px-5 mb-5 text-center"
                 style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.18)" }}>
                 <p dir="ltr" className="font-mono text-[#d4af37] text-3xl font-black tracking-widest">
@@ -127,7 +120,6 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
                 </p>
               </div>
 
-              {/* Answer grid */}
               <div className="grid grid-cols-2 gap-3">
                 {challenge.options.map((opt) => {
                   const isSelected = selected === opt;
@@ -155,7 +147,6 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
           )}
         </AnimatePresence>
 
-        {/* Footer */}
         {!success && (
           <p className="font-arabic text-white/18 text-[10px] text-center mt-5">
             🔒 بوابة A.L.I الآمنة — مبادرة التحرير العلوي
@@ -183,8 +174,7 @@ async function fetchWithRetry(
     } catch {
       clearTimeout(tid);
       if (i === retries) throw new Error("max-retries");
-      // brief back-off before next attempt
-      await new Promise<void>((r) => setTimeout(r, 2_000));
+      await new Promise<void>((r) => setTimeout(r, 1_500 * (i + 1)));
     }
   }
   throw new Error("unreachable");
@@ -193,136 +183,87 @@ async function fetchWithRetry(
 // ─── Splash ────────────────────────────────────────────────────────────────────
 export default function Splash() {
   const [, setLocation] = useLocation();
-  const { user }        = useTelegram();
 
-  // Persist verification for the session so it only shows once
   const [verified, setVerified] = useState<boolean>(
     () => sessionStorage.getItem("ali_human_check") === "1"
   );
   const [loadingMsg, setLoadingMsg] = useState("جاري تهيئة البوابة الآمنة...");
 
-  // Guard: fires once only
   const initCalled = useRef(false);
+  const navRef     = useRef(setLocation);
+  useEffect(() => { navRef.current = setLocation; }, [setLocation]);
 
-  // Keep latest setLocation in a ref so the async closure is never stale
-  const navRef  = useRef(setLocation);
-  const userRef = useRef(user);
-  useEffect(() => { navRef.current  = setLocation; }, [setLocation]);
-  useEffect(() => { userRef.current = user; },        [user]);
-
-  // ── Timeout fallback: إذا لم يصل user خلال 4 ثوانٍ نتقدم على أي حال ─────
-  // يحدث في الإنتاج إذا كان initData موجوداً لكن user في الـ context لم يُحدَّث بعد
-  useEffect(() => {
-    if (!verified) return;
-    const t = setTimeout(() => {
-      if (initCalled.current) return;
-      initCalled.current = true;
-      // محاولة قراءة user من window مباشرةً كحل احتياطي
-      const fallbackUser = userRef.current
-        ?? window.Telegram?.WebApp?.initDataUnsafe?.user;
-      const initData     = window.Telegram?.WebApp?.initData ?? "";
-      const telegramId   = fallbackUser?.id?.toString() ?? null;
-      const go = (path: string) => navRef.current(path);
-      if (!telegramId) { go("/dashboard"); return; }
-      setLoadingMsg("جاري الاتصال بالبوابة...");
-      const startParam =
-        window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
-        new URLSearchParams(window.location.search).get("startapp") ??
-        null;
-      fetchWithRetry(
-        "/api/users/register",
-        {
-          method:  "POST",
-          headers: { "Content-Type": "application/json", "x-telegram-init-data": initData },
-          body: JSON.stringify({
-            telegramUsername: fallbackUser?.username   ?? null,
-            firstName:        fallbackUser?.first_name ?? null,
-            lastName:         fallbackUser?.last_name  ?? null,
-            referredBy:       startParam,
-          }),
-        },
-        2,
-        10_000,
-      )
-        .then(async r => {
-          if (r.ok) {
-            const data = await r.json() as { keysConfirmed?: boolean };
-            go(data.keysConfirmed ? "/dashboard" : "/onboarding");
-          } else {
-            go("/dashboard");
-          }
-        })
-        .catch(() => go("/dashboard"));
-    }, 4_000);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verified]);
-
+  // ── Main init: fires as soon as verified, reads DIRECTLY from window ──────
+  // لا ننتظر React context — نقرأ من window.Telegram.WebApp مباشرةً
+  // هذا يمنع التعليق التام حتى لو تأخّر الـ Context في الإقلاع
   useEffect(() => {
     if (!verified) return;
     if (initCalled.current) return;
-
-    // In real Telegram context wait until the user object is populated
-    const inTelegram = !!window.Telegram?.WebApp?.initData;
-    if (inTelegram && !user) return;
-
     initCalled.current = true;
 
     const go = (path: string) => navRef.current(path);
 
+    // ── قراءة بيانات Telegram مباشرةً من window (متاحة فور تحميل السكريبت) ──
+    const webApp      = window.Telegram?.WebApp;
+    const initData    = webApp?.initData    ?? "";
+    const initUnsafe  = webApp?.initDataUnsafe;
+    const telegramUser = initUnsafe?.user;
+    const telegramId  = telegramUser?.id?.toString() ?? null;
+    const startParam  =
+      initUnsafe?.start_param ??
+      new URLSearchParams(window.location.search).get("startapp") ??
+      null;
+
+    console.log("[ALI] Splash init — telegramId:", telegramId, "| initData:", !!initData);
+
+    // بيئة التطوير أو حالة عدم توفر initData → توجيه مباشر للـ Dashboard
+    if (!initData && !telegramId) {
+      console.log("[ALI] No Telegram context → /dashboard (dev mode)");
+      setTimeout(() => go("/dashboard"), 1_500);
+      return;
+    }
+
+    // ── بدء تسجيل المستخدم مع شريط تحميل ───────────────────────────────────
     (async () => {
-      // Let the splash animation play
-      await new Promise<void>((r) => setTimeout(r, 2_000));
-
-      const telegramId = user?.id?.toString() ?? null;
-      const startParam =
-        window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
-        new URLSearchParams(window.location.search).get("startapp") ??
-        null;
-
-      // Dev environment: no real Telegram user → go straight to dashboard
-      if (!telegramId) {
-        go("/dashboard");
-        return;
-      }
-
-      // Show "connecting…" while we warm up the server
+      // نتيح للـ splash animation وقتاً قصيراً للظهور
+      await new Promise<void>((r) => setTimeout(r, 1_500));
       setLoadingMsg("جاري الاتصال بالبوابة...");
-
-      const initData = window.Telegram?.WebApp?.initData ?? "";
 
       try {
         const res = await fetchWithRetry(
           "/api/users/register",
           {
-            method:  "POST",
+            method: "POST",
             headers: {
-              "Content-Type":          "application/json",
-              "x-telegram-init-data":  initData,
+              "Content-Type":         "application/json",
+              "x-telegram-init-data": initData,
             },
             body: JSON.stringify({
-              telegramUsername: user?.username   ?? null,
-              firstName:        user?.first_name ?? null,
-              lastName:         user?.last_name  ?? null,
+              telegramUsername: telegramUser?.username   ?? null,
+              firstName:        telegramUser?.first_name ?? null,
+              lastName:         telegramUser?.last_name  ?? null,
               referredBy:       startParam,
             }),
           },
-          3,        // up to 3 retries
-          12_000,   // 12 s per attempt  (total max ≈ 50 s before giving up)
+          3,
+          10_000,
         );
 
         if (res.ok) {
           const data = await res.json() as { keysConfirmed?: boolean };
           go(data.keysConfirmed ? "/dashboard" : "/onboarding");
         } else {
+          // 4xx/5xx → go to dashboard anyway, don't leave user stuck
+          console.warn("[ALI] register returned", res.status, "→ /dashboard");
           go("/dashboard");
         }
-      } catch {
-        // All retries exhausted — go to dashboard rather than leaving user stuck
+      } catch (err) {
+        // Network failure after retries → go to dashboard
+        console.warn("[ALI] register failed:", err, "→ /dashboard");
         go("/dashboard");
       }
     })();
-  }, [verified, user]);
+  }, [verified]);
 
   function handleVerified() {
     sessionStorage.setItem("ali_human_check", "1");
@@ -332,7 +273,6 @@ export default function Splash() {
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
 
-      {/* ── Splash visuals (always rendered behind) ── */}
       <motion.img
         src="/ali-emblem.jpg"
         alt="A.L.I. Emblem"
@@ -343,7 +283,6 @@ export default function Splash() {
         draggable={false}
       />
 
-      {/* Bottom gradient */}
       <motion.div
         className="absolute inset-x-0 bottom-0 h-2/5"
         style={{ background: "linear-gradient(to top, rgba(0,43,27,0.97) 0%, rgba(0,43,27,0.7) 55%, transparent 100%)" }}
@@ -352,11 +291,9 @@ export default function Splash() {
         transition={{ delay: 0.8, duration: 1 }}
       />
 
-      {/* Top vignette */}
       <div className="absolute inset-x-0 top-0 h-1/4 pointer-events-none"
         style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%)" }} />
 
-      {/* Text & progress (only visible after verification) */}
       <AnimatePresence>
         {verified && (
           <motion.div
@@ -378,7 +315,6 @@ export default function Splash() {
               </p>
             </motion.div>
 
-            {/* Progress bar */}
             <motion.div
               className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -400,7 +336,6 @@ export default function Splash() {
         )}
       </AnimatePresence>
 
-      {/* ── Human Verification Overlay ── */}
       <AnimatePresence>
         {!verified && <HumanVerify key="verify" onVerified={handleVerified} />}
       </AnimatePresence>
