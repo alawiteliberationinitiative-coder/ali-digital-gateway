@@ -73,10 +73,4 @@ app.use("/api/spaces/:id/signals",   strictLimiter);
 // ── API router ───────────────────────────────────────────────────────────────
 app.use("/api", router);
 
-// ── Temporary error logger ───────────────────────────────────────────────────
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  process.stderr.write(`[ERROR] ${err.message}\n[CAUSE] ${(err as any).cause?.message ?? 'none'}\n[STACK] ${err.stack}\n`);
-  res.status(500).json({ error: err.message, cause: (err as any).cause?.message });
-});
-
 export default app;
