@@ -4,6 +4,7 @@ import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
+import { LogOut } from "lucide-react";
 import { GuideSection } from "./sections/guide";
 import { GuardiansSection } from "./sections/guardians";
 import { AmbassadorsSection } from "./sections/ambassadors";
@@ -112,6 +113,10 @@ function ProgressHeader({
   const currentXp = pts % xpPerLevel;
   const pct = Math.min((currentXp / xpPerLevel) * 100, 100);
 
+  function handleClose() {
+    window.Telegram?.WebApp?.close();
+  }
+
   return (
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border px-4 py-2" dir="rtl">
       <div className="flex items-center gap-3">
@@ -165,6 +170,18 @@ function ProgressHeader({
             <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{currentXp}/{xpPerLevel}</span>
           </div>
         </div>
+
+        {/* ── زر الخروج الآمن ── في أقصى اليسار (بجانب أزرار نظام Telegram) */}
+        <button
+          onClick={handleClose}
+          aria-label="خروج آمن"
+          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-xl active:scale-90 transition-transform"
+          style={{
+            background: "rgba(212,175,55,0.08)",
+            border: "1px solid rgba(212,175,55,0.22)",
+          }}>
+          <LogOut className="w-3.5 h-3.5" style={{ color: "rgba(212,175,55,0.7)" }} />
+        </button>
       </div>
     </div>
   );

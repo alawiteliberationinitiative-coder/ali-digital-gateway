@@ -71,6 +71,9 @@ interface WebApp {
   close: () => void;
   enableClosingConfirmation: () => void;
   disableClosingConfirmation: () => void;
+  setHeaderColor: (color: string) => void;
+  setBackgroundColor: (color: string) => void;
+  setBottomBarColor: (color: string) => void;
 }
 
 declare global {
@@ -97,6 +100,11 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
       app.ready();
       app.expand();
       app.enableClosingConfirmation();
+      // توحيد لون شريط الحالة مع لون هيدر التطبيق
+      const APP_BG = "#001a10";
+      app.setHeaderColor(APP_BG);
+      app.setBackgroundColor(APP_BG);
+      app.setBottomBarColor(APP_BG);
       const userId = String(app.initDataUnsafe?.user?.id ?? "");
       configureApi(userId, app.initData);
       // Propagate auth headers to the generated API client fetcher
@@ -136,6 +144,9 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
         close: () => {},
         enableClosingConfirmation: () => {},
         disableClosingConfirmation: () => {},
+        setHeaderColor: () => {},
+        setBackgroundColor: () => {},
+        setBottomBarColor: () => {},
       });
     }
   }, []);
