@@ -304,10 +304,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     const tid = telegramIdRef.current;
     if (!tid) return;
     levelChallengeRef.current = "";
-    fetch("/api/ads/challenge", {
-      method: "POST",
-      headers: { "x-telegram-id": tid },
-    })
+    apiFetch("/api/ads/challenge", { method: "POST" })
       .then(r => r.ok ? r.json() as Promise<{ challengeToken?: string }> : null)
       .then(data => { if (data?.challengeToken) levelChallengeRef.current = data.challengeToken; })
       .catch(() => {});

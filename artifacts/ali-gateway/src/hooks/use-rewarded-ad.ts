@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { apiFetch } from "../lib/api";
 
 declare global {
   interface Window {
@@ -74,24 +75,20 @@ export function useRewardedAd(
     // Obtain a server-issued challenge token before the ad starts.
     // This token records the start time server-side; the reward endpoint
     // verifies the token is old enough to prove the ad was watched.
+    // Uses apiFetch so x-telegram-init-data (HMAC-verified) is sent automatically.
     let challengeToken: string | null = null;
-    if (telegramId) {
-      try {
-        const challengeRes = await fetch("/api/ads/challenge", {
-          method: "POST",
-          headers: { "x-telegram-id": telegramId },
-        });
-        if (challengeRes.ok) {
-          const data = await challengeRes.json() as { challengeToken?: string };
-          challengeToken = data.challengeToken ?? null;
-        } else if (challengeRes.status === 429) {
-          // Still in cooldown — surface the server's error to the caller.
-          setPhase("idle");
-          return false;
-        }
-      } catch {
-        // Network error: proceed without token; reward will be rejected server-side.
+    try {
+      const challengeRes = await apiFetch("/api/ads/challenge", { method: "POST" });
+      if (challengeRes.ok) {
+        const data = await challengeRes.json() as { challengeToken?: string };
+        challengeToken = data.challengeToken ?? null;
+      } else if (challengeRes.status === 429) {
+        // Still in cooldown — surface the server's error to the caller.
+        setPhase("idle");
+        return false;
       }
+    } catch {
+      // Network error: proceed without token; reward will be rejected server-side.
     }
 
     try {

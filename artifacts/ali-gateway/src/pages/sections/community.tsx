@@ -1511,7 +1511,7 @@ export function SpaceAnnouncementBanner({ onOpen }: { onOpen: () => void }) {
 
   useEffect(() => {
     const check = async () => {
-      const res = await fetch("/api/spaces");
+      const res = await apiFetch("/api/spaces");
       if (!res.ok) return;
       const spaces: SpaceSummary[] = await res.json();
       const live = spaces.find(s => s.status === "live");
