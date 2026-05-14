@@ -433,7 +433,6 @@ type ArticleData = {
   id: number;
   title: string;
   body: string;
-  authorTelegramId: string;
   authorPseudonym: string;
   authorAliId: string;
   createdAt: string;
@@ -448,6 +447,7 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
   const [artBody, setArtBody] = useState("");
   const [submitState, setSubmitState] = useState<FormState>("idle");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [userAliId, setUserAliId] = useState<string | null>(null);
 
   const isAdmin = ARTICLE_ADMIN_IDS.includes(telegramId);
   const canPublish = isAdmin || userRole === "staff" || userRole === "admin";
@@ -469,6 +469,7 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
         if (userRes?.ok) {
           const u = await userRes.json();
           setUserRole(u.role ?? "member");
+          setUserAliId(u.aliId ?? null);
         }
       } finally {
         setLoading(false);
@@ -512,7 +513,7 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
   };
 
   const canDelete = (art: ArticleData) =>
-    isAdmin || userRole === "admin" || art.authorTelegramId === telegramId;
+    isAdmin || userRole === "admin" || (userAliId !== null && art.authorAliId === userAliId);
 
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("ar-SA", {

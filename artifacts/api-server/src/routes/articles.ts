@@ -11,7 +11,18 @@ async function getUser(telegramId: string) {
 }
 
 router.get("/articles", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(articlesTable).orderBy(articlesTable.createdAt);
+  const rows = await db
+    .select({
+      id: articlesTable.id,
+      title: articlesTable.title,
+      body: articlesTable.body,
+      authorPseudonym: articlesTable.authorPseudonym,
+      authorAliId: articlesTable.authorAliId,
+      createdAt: articlesTable.createdAt,
+      updatedAt: articlesTable.updatedAt,
+    })
+    .from(articlesTable)
+    .orderBy(articlesTable.createdAt);
   res.json(rows);
 });
 
