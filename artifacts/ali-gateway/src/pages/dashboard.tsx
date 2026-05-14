@@ -1,24 +1,39 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut } from "lucide-react";
-import { GuideSection } from "./sections/guide";
-import { GuardiansSection } from "./sections/guardians";
-import { AmbassadorsSection } from "./sections/ambassadors";
-import { CommunitySection, SpaceAnnouncementBanner } from "./sections/community";
-import { MddSection } from "./sections/mdd";
-import { LeaderboardSection } from "./sections/leaderboard";
-import { PlaySection } from "./sections/play";
-import { WatchSection } from "./sections/watch";
-import { KnowledgeSection } from "./sections/knowledge";
-import { ProfileSection } from "./sections/profile";
-import { AdarSection, AdarEmblem } from "./sections/adar";
+import { AdarEmblem } from "./sections/adar";
+import { SpaceAnnouncementBanner } from "./sections/community";
 import { getAdarUnreadCount } from "./sections/adar-utils";
 
+const AdarSection        = lazy(() => import("./sections/adar").then(m => ({ default: m.AdarSection })));
+const GuideSection       = lazy(() => import("./sections/guide").then(m => ({ default: m.GuideSection })));
+const GuardiansSection   = lazy(() => import("./sections/guardians").then(m => ({ default: m.GuardiansSection })));
+const AmbassadorsSection = lazy(() => import("./sections/ambassadors").then(m => ({ default: m.AmbassadorsSection })));
+const CommunitySection   = lazy(() => import("./sections/community").then(m => ({ default: m.CommunitySection })));
+const MddSection         = lazy(() => import("./sections/mdd").then(m => ({ default: m.MddSection })));
+const LeaderboardSection = lazy(() => import("./sections/leaderboard").then(m => ({ default: m.LeaderboardSection })));
+const PlaySection        = lazy(() => import("./sections/play").then(m => ({ default: m.PlaySection })));
+const WatchSection       = lazy(() => import("./sections/watch").then(m => ({ default: m.WatchSection })));
+const KnowledgeSection   = lazy(() => import("./sections/knowledge").then(m => ({ default: m.KnowledgeSection })));
+const ProfileSection     = lazy(() => import("./sections/profile").then(m => ({ default: m.ProfileSection })));
+
 type Section = "adar" | "guide" | "guardians" | "ambassadors" | "community" | "mdd" | "leaderboard" | "play" | "watch" | "knowledge" | "profile" | null;
+
+// ─── Section Loading Fallback ─────────────────────────────────────────────────
+function SectionLoading() {
+  return (
+    <div className="fixed inset-0 z-30 bg-background flex items-center justify-center" dir="rtl">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+        <p className="font-arabic text-white/35 text-xs animate-pulse">جاري التحميل...</p>
+      </div>
+    </div>
+  );
+}
 
 // ─── Full-Screen Welcome Sequence ────────────────────────────────────────────
 function WelcomeSequence({ onDone }: { onDone: () => void }) {
@@ -363,17 +378,19 @@ export default function Dashboard() {
                 className="fixed inset-0 z-30 bg-background overflow-hidden"
                 initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}>
-                {activeSection === "adar"        && <AdarSection onBack={handleBack} onRead={() => setAdarUnread(0)} />}
-                {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
-                {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
-                {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
-                {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
-                {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
-                {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
-                {activeSection === "play"        && <PlaySection onBack={handleBack} />}
-                {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
-                {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
-                {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} />}
+                <Suspense fallback={<SectionLoading />}>
+                  {activeSection === "adar"        && <AdarSection onBack={handleBack} onRead={() => setAdarUnread(0)} />}
+                  {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
+                  {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
+                  {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
+                  {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
+                  {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
+                  {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
+                  {activeSection === "play"        && <PlaySection onBack={handleBack} />}
+                  {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
+                  {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
+                  {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} />}
+                </Suspense>
               </motion.div>
             )}
           </AnimatePresence>
