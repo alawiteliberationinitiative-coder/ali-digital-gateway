@@ -19,8 +19,8 @@ Production scope for this scan:
 
 ## Trust Boundaries
 
-- **Telegram client / Mini App to API** — all client requests to `artifacts/api-server/src` are untrusted until the server validates Telegram identity. Any fallback to caller-controlled headers weakens the core authentication boundary.
-- **Bot process to API** — `index.js` calls `http://localhost:22729/api/users/me` and trusts the API for registration state. This boundary is local-only but still security-sensitive because the API determines identity and registration state.
+- **Telegram client / Mini App to API** — all client requests to `artifacts/api-server/src` are untrusted until the server validates Telegram identity from signed Telegram Mini App `initData`. Caller-controlled headers such as `x-telegram-id` are not a trusted authentication mechanism.
+- **Bot process to Telegram and deployment entry point** — `index.js` is production-relevant because `start.sh` launches it beside the API, and it emits Mini App launch links using deployment domains and the bot token. Even without a privileged API fallback, compromise of the bot process or launch URL generation affects the user onboarding boundary.
 - **API to database** — the API has direct database write access through `@workspace/db`. Broken authorization or injection in the API would directly modify stored user and space state.
 - **API to Telegram/third-party services** — the API sends documents to Telegram and queries external TON/CoinGecko services. Misuse can leak data or consume third-party quotas.
 - **Public vs authenticated surfaces** — health checks, leaderboard-style reads, and public content should remain public; profile, follows, spaces participation, points, and document actions must be bound to the real Telegram user server-side.
@@ -28,8 +28,8 @@ Production scope for this scan:
 ## Scan Anchors
 
 - Production entry points: `index.js`, `start.sh`, `artifacts/api-server/src/index.ts`, `artifacts/api-server/src/app.ts`, `artifacts/ali-gateway/src/main.tsx`.
-- Highest-risk area: `artifacts/api-server/src/middleware/telegram-auth.ts` because it defines identity for nearly every protected route.
-- Protected server surfaces are mainly under `artifacts/api-server/src/routes/{users,ads,quiz,spaces,follows,docs}.ts`.
+- Highest-risk areas: `artifacts/api-server/src/middleware/telegram-auth.ts` for identity establishment, `artifacts/api-server/src/routes/spaces.ts` and `artifacts/api-server/src/routes/follows.ts` for private-space authorization, and `artifacts/api-server/src/routes/{quiz,ads}.ts` for points-farming abuse.
+- Protected server surfaces are mainly under `artifacts/api-server/src/routes/{users,ads,quiz,spaces,follows,docs,articles}.ts`.
 - Frontend auth header setup lives in `artifacts/ali-gateway/src/lib/api.ts` and `artifacts/ali-gateway/src/lib/telegram.tsx`.
 - Ignore dev-only workflow conflict handling unless it becomes reachable from deployed HTTP routes.
 
@@ -37,15 +37,15 @@ Production scope for this scan:
 
 ### Spoofing
 
-This application relies on Telegram identity to decide which user profile, points balance, follows graph, and space membership a request can access or modify. The API MUST only accept Telegram identity derived from a verified Mini App `initData` payload or another server-controlled mechanism; it MUST NOT trust client-supplied identity headers as an authentication substitute.
+This application relies on Telegram identity to decide which user profile, points balance, follows graph, and space membership a request can access or modify. The API MUST only accept Telegram identity derived from a verified Mini App `initData` payload or another server-controlled mechanism; it MUST NOT trust client-supplied identity headers such as `x-telegram-id` as an authentication substitute.
 
 ### Tampering
 
-Many endpoints mutate points, levels, follows, invites, uploads, and space state. These actions MUST be authorized against the authenticated Telegram user on the server, and sensitive state changes MUST not accept another user’s identifier from a request body or URL unless the caller is explicitly authorized to act on that target.
+Many endpoints mutate points, levels, follows, invites, uploads, and space state. These actions MUST be authorized against the authenticated Telegram user on the server, and sensitive state changes MUST not accept another user’s identifier from a request body or URL unless the caller is explicitly authorized to act on that target. Reward and progression endpoints MUST verify completion server-side rather than trusting the client to claim that an ad or quiz step was completed.
 
 ### Information Disclosure
 
-User profiles, followers, participants, invites, and uploaded document metadata are sensitive application data. The API MUST scope responses to the authenticated user where appropriate, and error messages, logs, and bot-upload captions MUST not expose secrets or enable spoofed audit trails.
+User profiles, followers, participants, invites, and uploaded document metadata are sensitive application data. Private spaces and invite-only participation metadata MUST not be enumerable by anonymous or unrelated users, and public responses SHOULD minimize raw Telegram identifiers to only the callers who actually need them. Error messages, logs, and bot-upload captions MUST not expose secrets or enable spoofed audit trails.
 
 ### Denial of Service
 
@@ -53,4 +53,4 @@ The bot polls Telegram continuously and the API exposes public and semi-public r
 
 ### Elevation of Privilege
 
-The most serious privilege boundary is between anonymous/public callers and authenticated Telegram users, and between normal users and hosts/admins in the spaces system. Server-side authorization MUST be enforced from trusted identity data on every route, because any bypass at the authentication middleware would expose nearly the entire API surface to arbitrary account takeover and unauthorized state changes.
+The most serious privilege boundaries are between anonymous/public callers and authenticated Telegram users, and between normal users and hosts/admins in the spaces system. Server-side authorization MUST be enforced from trusted identity data on every route, and per-space actions MUST confirm that the caller is actually a participant or authorized host before exposing details, creating invites, or relaying WebRTC signals.
