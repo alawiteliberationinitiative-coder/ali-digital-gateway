@@ -257,6 +257,11 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   // Fetched when the game enters ad-break state and consumed by advanceLevel.
   const levelChallengeRef = useRef<string>("");
 
+  // Quiz session token: obtained from /api/quiz/start-level when the user
+  // presses "Start" and passed to /api/quiz/complete-level as server-side
+  // proof that a quiz session was open before the reward is claimed.
+  const quizChallengeRef = useRef<string>("");
+
   // ── Refs للوصول الآمن في callbacks بدون stale closure ──────────────────
   const playingLevelRef = useRef(1);
   const telegramIdRef   = useRef("");
@@ -346,10 +351,12 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         }).catch(() => {});
         levelChallengeRef.current = ""; // consume the token
       }
+      const quizToken = quizChallengeRef.current;
+      quizChallengeRef.current = ""; // consume the quiz token
       apiFetch("/api/quiz/complete-level", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ levelCompleted: lvl }),
+        body:    JSON.stringify({ levelCompleted: lvl, quizToken }),
       }).catch(() => {});
     }
 
@@ -379,6 +386,16 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     setStreak(0);
     setDoubleState("idle");
     setDoubledScore(0);
+    quizChallengeRef.current = "";
+    // Request a quiz session token before showing questions so the server can
+    // verify the session was open for a realistic duration at completion time.
+    const tid = telegramIdRef.current;
+    if (tid) {
+      apiFetch("/api/quiz/start-level", { method: "POST" })
+        .then(r => r.ok ? r.json() as Promise<{ quizToken?: string }> : null)
+        .then(data => { if (data?.quizToken) quizChallengeRef.current = data.quizToken; })
+        .catch(() => {});
+    }
     setGameState("playing");
   }
 

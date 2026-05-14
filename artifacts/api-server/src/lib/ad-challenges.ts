@@ -4,6 +4,8 @@
  * Flow:
  *   1. Client calls POST /api/ads/challenge before starting the ad.
  *      The server records a token with the caller's telegramId and issuedAt.
+ *      Any previously outstanding (unconsumed) token for the same user is
+ *      immediately revoked, so only one active token exists per user at a time.
  *   2. Client shows the ad (real network call or dev timeout).
  *   3. Client calls POST /api/ads/reward with the challenge token.
  *      The server verifies:
@@ -12,9 +14,9 @@
  *        - token has not yet expired (TTL)
  *        - token has not already been spent (single-use)
  *
- * This prevents reward farming by direct API replay: an attacker cannot obtain
- * points without first receiving a server-issued token and then waiting the
- * minimum ad duration before claiming the reward.
+ * The one-token-per-user invariant closes the stockpiling attack: a caller
+ * cannot pre-mint a batch of valid tokens because each new /challenge request
+ * revokes the previous outstanding one.
  */
 
 import { randomUUID } from "crypto";
@@ -27,17 +29,29 @@ interface ChallengeEntry {
   issuedAt:   number;
 }
 
-const challenges = new Map<string, ChallengeEntry>();
+const challenges  = new Map<string, ChallengeEntry>();
+
+// Reverse index: telegramId → current outstanding token UUID.
+// Maintained so that issuing a new challenge can revoke the previous one.
+const userToken   = new Map<string, string>();
 
 export function issueChallenge(telegramId: string): string {
+  // Revoke any previously outstanding token for this user.
+  const previous = userToken.get(telegramId);
+  if (previous) challenges.delete(previous);
+
   const token    = randomUUID();
   const issuedAt = Date.now();
   challenges.set(token, { telegramId, issuedAt });
+  userToken.set(telegramId, token);
 
   // Opportunistic GC: prune expired entries while we are here.
   const expiry = issuedAt - TTL_MS;
   for (const [k, v] of challenges) {
-    if (v.issuedAt < expiry) challenges.delete(k);
+    if (v.issuedAt < expiry) {
+      userToken.delete(v.telegramId);
+      challenges.delete(k);
+    }
   }
 
   return token;
@@ -56,7 +70,8 @@ export function validateAndConsume(
   if (entry.telegramId !== telegramId) return null;
 
   const age = Date.now() - entry.issuedAt;
-  challenges.delete(token); // consume regardless so it can't be retried
+  challenges.delete(token);
+  userToken.delete(telegramId);
 
   if (age < MIN_AGE_MS) return null; // submitted too quickly — ad not watched
   if (age > TTL_MS)     return null; // expired

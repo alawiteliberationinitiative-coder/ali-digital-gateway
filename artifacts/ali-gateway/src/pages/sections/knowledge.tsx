@@ -684,6 +684,11 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   const stageAd = useRewardedAd(0, telegramId);
   const bonusAd = useRewardedAd(0, telegramId);
 
+  // Quiz session token: obtained from /api/quiz/start-level when the user
+  // selects a level and passed to /api/quiz/complete-level as server-side
+  // proof that a quiz session was open before the reward is claimed.
+  const quizChallengeRef = useRef<string>("");
+
   // ── Load KB from JSON ──
   useEffect(() => {
     fetch("/knowledge_base.json")
@@ -728,6 +733,15 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     setAdError("");
     stageAd.reset();
     bonusAd.reset();
+    quizChallengeRef.current = "";
+    // Request a quiz session token before showing questions so the server can
+    // verify the session was open for a realistic duration at completion time.
+    if (telegramId) {
+      apiFetch("/api/quiz/start-level", { method: "POST" })
+        .then(r => r.ok ? r.json() as Promise<{ quizToken?: string }> : null)
+        .then(data => { if (data?.quizToken) quizChallengeRef.current = data.quizToken; })
+        .catch(() => {});
+    }
     setPhase("quiz");
   }
 
@@ -749,10 +763,12 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     if (!completed) return;
 
     if (telegramId) {
+      const quizToken = quizChallengeRef.current;
+      quizChallengeRef.current = ""; // consume the quiz token
       const res = await apiFetch("/api/quiz/complete-level", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ levelCompleted: selectedLevel }),
+        body: JSON.stringify({ levelCompleted: selectedLevel, quizToken }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string };
