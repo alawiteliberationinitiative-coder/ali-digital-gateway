@@ -14,38 +14,43 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
+/** Inline $1, $2, ... placeholders — drizzle constructs these from typed ORM calls, never raw user input. */
+function inlineParams(rawSql: string, params: unknown[]): string {
+  let out = rawSql;
+  for (let i = params.length; i >= 1; i--) {
+    const val = params[i - 1];
+    let lit: string;
+    if (val === null || val === undefined) {
+      lit = "NULL";
+    } else if (typeof val === "number") {
+      lit = String(val);
+    } else if (typeof val === "boolean") {
+      lit = val ? "TRUE" : "FALSE";
+    } else {
+      lit = `'${String(val).replace(/'/g, "''")}'`;
+    }
+    out = out.replace(new RegExp(`\\$${i}(?!\\d)`, "g"), lit);
+  }
+  return out;
+}
+
 /**
- * Execute SQL via Supabase's drizzle_query RPC function.
- * The function must be created first — run scripts/supabase-rpc.sql in SQL Editor.
- *
- * Drizzle sends parameterized queries like: SELECT ... WHERE id = $1, params: [42]
- * We inline the parameters into the SQL string before sending (safe because
- * drizzle itself constructs these queries from typed ORM operations, never from
- * raw user strings).
+ * drizzle pg-proxy expects: { rows: unknown[][] }
+ * Our drizzle_query RPC uses json_agg which preserves SELECT column order,
+ * so Object.keys() gives the correct positional order.
  */
+function objectsToArrays(rows: Record<string, unknown>[]): unknown[][] {
+  if (rows.length === 0) return [];
+  const keys = Object.keys(rows[0]);
+  return rows.map((row) => keys.map((k) => row[k] ?? null));
+}
+
 async function remoteQuery(
   rawSql: string,
   params: unknown[],
   _method: "all" | "execute",
-) {
-  // Inline parameters into SQL to avoid needing EXECUTE...USING in the RPC
-  // Drizzle uses $1, $2, ... placeholders
-  let inlinedSql = rawSql;
-  for (let i = params.length; i >= 1; i--) {
-    const val = params[i - 1];
-    let literal: string;
-    if (val === null || val === undefined) {
-      literal = "NULL";
-    } else if (typeof val === "number") {
-      literal = String(val);
-    } else if (typeof val === "boolean") {
-      literal = val ? "TRUE" : "FALSE";
-    } else {
-      // String — escape single quotes
-      literal = `'${String(val).replace(/'/g, "''")}'`;
-    }
-    inlinedSql = inlinedSql.replace(new RegExp(`\\$${i}`, "g"), literal);
-  }
+): Promise<{ rows: unknown[][] }> {
+  const inlinedSql = inlineParams(rawSql, params);
 
   const res = await fetch(`${supabaseUrl}/rest/v1/rpc/drizzle_query`, {
     method: "POST",
@@ -62,8 +67,9 @@ async function remoteQuery(
     throw new Error(`drizzle_query RPC failed (${res.status}): ${text}`);
   }
 
-  const rows = (await res.json()) as Record<string, unknown>[] | null;
-  return { rows: Array.isArray(rows) ? rows : [] };
+  const data = (await res.json()) as Record<string, unknown>[] | null;
+  const objects = Array.isArray(data) ? data : [];
+  return { rows: objectsToArrays(objects) };
 }
 
 export const db = drizzle(remoteQuery, { schema });

@@ -1,28 +1,29 @@
 -- ============================================================
 -- ALI Digital Gateway — SQL Proxy RPC Function
 -- Run ONCE in: Supabase Dashboard → SQL Editor
+-- https://supabase.com/dashboard/project/fgvdtxxggpiukhllntfd/sql
 -- ============================================================
--- This function allows the app to query the database via HTTP
--- since Replit cannot reach Supabase over TCP/PostgreSQL directly.
+-- Required because Replit cannot reach Supabase over TCP/PostgreSQL.
+-- The app uses this function to run all DB queries via HTTPS.
 
 CREATE OR REPLACE FUNCTION drizzle_query(sql text)
-RETURNS jsonb
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  result jsonb;
+  result json;
 BEGIN
-  EXECUTE 'SELECT COALESCE(jsonb_agg(row_to_json(t)), ''[]''::jsonb) FROM (' || sql || ') t'
+  -- json_agg (not jsonb_agg) preserves SELECT column order
+  EXECUTE 'SELECT COALESCE(json_agg(row_to_json(t)), ''[]''::json) FROM (' || sql || ') t'
     INTO result;
-  RETURN COALESCE(result, '[]'::jsonb);
+  RETURN COALESCE(result, '[]'::json);
 END;
 $$;
 
--- Restrict to service_role only (the app uses SUPABASE_SERVICE_ROLE_KEY)
 REVOKE ALL ON FUNCTION drizzle_query(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION drizzle_query(text) TO service_role;
 
--- Verify it works
-SELECT drizzle_query('SELECT COUNT(*) as cnt FROM ali_users');
+-- Verify
+SELECT drizzle_query('SELECT COUNT(*) as cnt, SUM(loyalty_points) as pts FROM ali_users');
