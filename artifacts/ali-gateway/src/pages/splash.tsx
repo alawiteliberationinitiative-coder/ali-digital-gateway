@@ -1,9 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTelegram } from "@/lib/telegram";
-import { useRegisterUser } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
 import { Shield } from "lucide-react";
 
 // ─── Human Verification ────────────────────────────────────────────────────────
@@ -172,68 +170,74 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
 export default function Splash() {
   const [, setLocation] = useLocation();
   const { user }        = useTelegram();
-  const { toast }       = useToast();
 
   // Persist verification for the session so it only shows once
   const [verified, setVerified] = useState<boolean>(
     () => sessionStorage.getItem("ali_human_check") === "1"
   );
 
-  const registerMutation = useRegisterUser();
-  // Guard: ensure registration only fires once per app open
+  // Guard: fires once only — plain ref, no hook dependency issues
   const initCalled = useRef(false);
 
-  const initApp = useCallback(async (resolvedUser: typeof user) => {
-    await new Promise<void>((res) => setTimeout(res, 3000));
+  // Keep latest setLocation in a ref so the async closure is never stale
+  const navRef = useRef(setLocation);
+  useEffect(() => { navRef.current = setLocation; }, [setLocation]);
 
-    const telegramId = resolvedUser?.id?.toString() || `dev-${Date.now()}`;
-    // start_param is set when opened via t.me/BOT/APP?startapp=CODE deep link.
-    // When the bot opens the WebApp via a keyboard button with ?startapp=CODE in the URL,
-    // the code lands in the URL query string instead — read both as fallback.
-    const startParam =
-      window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
-      new URLSearchParams(window.location.search).get("startapp") ??
-      null;
-
-    registerMutation.mutate(
-      {
-        data: {
-          telegramId,
-          telegramUsername: resolvedUser?.username ?? null,
-          firstName:        resolvedUser?.first_name ?? null,
-          lastName:         resolvedUser?.last_name  ?? null,
-          referredBy:       startParam,
-        } as Parameters<typeof registerMutation.mutate>[0]["data"],
-      },
-      {
-        onSuccess: (data) => {
-          if (data.keysConfirmed) setLocation("/dashboard");
-          else                    setLocation("/onboarding");
-        },
-        onError: () => {
-          toast({
-            title:       "Initialization Failed",
-            description: "Could not establish secure connection to the Gateway.",
-            variant:     "destructive",
-          });
-        },
-      },
-    );
-  }, [setLocation, registerMutation, toast]);
-
-  // Start init only after human verification passes AND Telegram user is ready.
-  // Use a ref so we never double-fire even if deps change after the first call.
   useEffect(() => {
     if (!verified) return;
     if (initCalled.current) return;
 
-    // In real Telegram context, wait until user object is populated
+    // In real Telegram context wait until the user object is populated
     const inTelegram = !!window.Telegram?.WebApp?.initData;
     if (inTelegram && !user) return;
 
     initCalled.current = true;
-    initApp(user);
-  }, [verified, user, initApp]);
+
+    const go = (path: string) => navRef.current(path);
+
+    (async () => {
+      // Let the splash animation play before calling the API
+      await new Promise<void>((res) => setTimeout(res, 3_000));
+
+      const telegramId = user?.id?.toString() ?? null;
+      // start_param arrives via deep-link or URL query string
+      const startParam =
+        window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
+        new URLSearchParams(window.location.search).get("startapp") ??
+        null;
+
+      // Dev environment: no real Telegram user — go straight to dashboard
+      if (!telegramId) {
+        go("/dashboard");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/users/register", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            telegramId,
+            telegramUsername: user?.username    ?? null,
+            firstName:        user?.first_name  ?? null,
+            lastName:         user?.last_name   ?? null,
+            referredBy:       startParam,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json() as { keysConfirmed?: boolean };
+          go(data.keysConfirmed ? "/dashboard" : "/onboarding");
+        } else {
+          // API error: still navigate — don't leave user stuck on splash
+          go("/dashboard");
+        }
+      } catch {
+        // Network error: navigate to dashboard rather than hanging
+        go("/dashboard");
+      }
+    })();
+  }, [verified, user]); // ← minimal deps, no stale-closure risk
 
   function handleVerified() {
     sessionStorage.setItem("ali_human_check", "1");
