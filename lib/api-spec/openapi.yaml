@@ -5,177 +5,19 @@ info:
 servers:
   - url: /api
 
-paths:
-  /healthz:
-    get:
-      operationId: healthCheck
-      summary: Health check
-      tags: [health]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-
-  /users/register:
-    post:
-      operationId: registerUser
-      summary: Register or retrieve a user by Telegram ID
-      tags: [users]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterInput"
-      responses:
-        "200":
-          description: Existing user returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "201":
-          description: New user created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-
-  /users/me:
-    get:
-      operationId: getMe
-      summary: Get current user by Telegram ID header
-      tags: [users]
-      parameters:
-        - in: header
-          name: x-telegram-id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: User found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-
-  /users/me/pseudonym:
-    patch:
-      operationId: updatePseudonym
-      summary: Update the current user's pseudonym
-      tags: [users]
-      parameters:
-        - in: header
-          name: x-telegram-id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdatePseudonymInput"
-      responses:
-        "200":
-          description: Pseudonym updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "400":
-          description: Invalid pseudonym or validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        "409":
-          description: Pseudonym already taken
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-
-  /users/confirm-keys:
-    post:
-      operationId: confirmKeys
-      summary: Mark user's Triple Key Vault as confirmed
-      tags: [users]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ConfirmKeysInput"
-      responses:
-        "200":
-          description: Confirmed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-
-  /ads/reward:
-    post:
-      operationId: rewardAd
-      summary: Award loyalty points after watching a rewarded ad
-      tags: [ads]
-      parameters:
-        - in: header
-          name: x-telegram-id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Points awarded successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdRewardResult"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-
-  /treasury/balance:
-    get:
-      operationId: getTreasuryBalance
-      summary: Get TON treasury wallet public balance
-      tags: [treasury]
-      responses:
-        "200":
-          description: Treasury balance info
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TreasuryBalance"
-
 components:
+  securitySchemes:
+    TelegramInitData:
+      type: apiKey
+      in: header
+      name: x-telegram-init-data
+      description: >
+        HMAC-SHA256-signed Telegram Mini App initData string. The server
+        validates the signature and freshness (≤ 1 hour) and derives the
+        caller's identity from the embedded user object. Requests without a
+        valid payload are treated as unauthenticated; protected endpoints
+        return 401.
+
   schemas:
     HealthStatus:
       type: object
@@ -251,23 +93,13 @@ components:
 
     RegisterInput:
       type: object
-      required: [telegramId]
       properties:
-        telegramId:
-          type: string
         telegramUsername:
           type: ["string", "null"]
         firstName:
           type: ["string", "null"]
         lastName:
           type: ["string", "null"]
-
-    ConfirmKeysInput:
-      type: object
-      required: [telegramId]
-      properties:
-        telegramId:
-          type: string
 
     UpdatePseudonymInput:
       type: object
@@ -305,3 +137,193 @@ components:
         lastUpdated:
           type: string
           format: date-time
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      tags: [health]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /users/register:
+    post:
+      operationId: registerUser
+      summary: Register or retrieve the authenticated user
+      description: >
+        Identity is derived from the verified x-telegram-init-data header.
+        Returns the existing user record if the account already exists, or
+        creates a new one with generated keys and initial balance.
+      tags: [users]
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "200":
+          description: Existing user returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "201":
+          description: New user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /users/me:
+    get:
+      operationId: getMe
+      summary: Get the authenticated user's profile
+      tags: [users]
+      security:
+        - TelegramInitData: []
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /users/me/pseudonym:
+    patch:
+      operationId: updatePseudonym
+      summary: Update the authenticated user's pseudonym
+      tags: [users]
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePseudonymInput"
+      responses:
+        "200":
+          description: Pseudonym updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid pseudonym or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Pseudonym already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /users/confirm-keys:
+    post:
+      operationId: confirmKeys
+      summary: Mark the authenticated user's Triple Key Vault as confirmed
+      tags: [users]
+      security:
+        - TelegramInitData: []
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ads/reward:
+    post:
+      operationId: rewardAd
+      summary: Award loyalty points after watching a rewarded ad
+      tags: [ads]
+      security:
+        - TelegramInitData: []
+      responses:
+        "200":
+          description: Points awarded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdRewardResult"
+        "401":
+          description: Missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /treasury/balance:
+    get:
+      operationId: getTreasuryBalance
+      summary: Get TON treasury wallet public balance
+      tags: [treasury]
+      responses:
+        "200":
+          description: Treasury balance info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryBalance"

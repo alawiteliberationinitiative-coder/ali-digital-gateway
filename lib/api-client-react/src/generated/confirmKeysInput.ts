@@ -5,6 +5,4 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface ConfirmKeysInput {
-  telegramId: string;
-}
+export interface ConfirmKeysInput { [key: string]: unknown }

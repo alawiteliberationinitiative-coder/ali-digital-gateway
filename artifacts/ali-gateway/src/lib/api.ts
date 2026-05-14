@@ -1,6 +1,8 @@
 /**
  * Centralized fetch utility that automatically attaches Telegram auth headers.
- * Send x-telegram-init-data (validated on server) + x-telegram-id (for compat).
+ * x-telegram-init-data is the authoritative identity signal validated by the server.
+ * x-telegram-id is sent for informational purposes but is not trusted by the server
+ * for external connections — the server only accepts it from local bot processes.
  */
 
 let _initData = "";

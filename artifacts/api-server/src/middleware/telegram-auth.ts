@@ -10,14 +10,14 @@ declare global {
 }
 
 /**
- * Validates Telegram Mini App initData (HMAC-SHA256) when present.
- * Sets req.telegramId from the verified data or falls back to x-telegram-id header.
- * Non-blocking: public endpoints are allowed through without authentication.
+ * Validates Telegram Mini App initData (HMAC-SHA256) when present and sets
+ * req.telegramId from the verified payload. If initData is absent, invalid,
+ * expired, or unparseable, req.telegramId remains undefined; protected routes
+ * that check for it will return 401. No header fallback is trusted.
  */
 export function verifyTelegram(req: Request, res: Response, next: NextFunction): void {
   const token    = process.env.TELEGRAM_BOT_TOKEN;
   const initData = req.headers["x-telegram-init-data"] as string | undefined;
-  const rawId    = req.headers["x-telegram-id"] as string | undefined;
 
   // ── 1. Validate initData signature when provided ─────────────────────────
   if (initData && token) {
@@ -50,15 +50,15 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
         }
       }
     } catch {
-      // fall through to header fallback
+      // ignore parse errors; req.telegramId remains undefined
     }
   }
 
-  // ── 2. Fallback: trust x-telegram-id header ───────────────────────────────
-  // (Acceptable because Telegram Mini Apps cannot spoof this inside the client)
-  if (rawId) {
-    req.telegramId = rawId;
-  }
-
+  // ── 2. No fallback ────────────────────────────────────────────────────────────
+  // x-telegram-id is a caller-controlled header — any HTTP client can forge it.
+  // The API is publicly reachable behind a reverse proxy, so socket-address checks
+  // are not a reliable trust boundary. Identity is only set from a verified
+  // initData payload above; protected routes that require req.telegramId will
+  // return 401 to unauthenticated callers.
   next();
 }

@@ -21,7 +21,6 @@ import type {
 import type {
   AdRewardResult,
   ApiError,
-  ConfirmKeysInput,
   HealthStatus,
   RegisterInput,
   TreasuryBalance,
@@ -106,7 +105,9 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 /**
- * @summary Register or retrieve a user by Telegram ID
+ * Identity is derived from the verified x-telegram-init-data header. Returns the existing user record if the account already exists, or creates a new one with generated keys and initial balance.
+
+ * @summary Register or retrieve the authenticated user
  */
 export const registerUser = (
     registerInput: RegisterInput,
@@ -124,7 +125,7 @@ export const registerUser = (
   
 
 
-export const getRegisterUserMutationOptions = <TError = unknown,
+export const getRegisterUserMutationOptions = <TError = ApiError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerUser>>, TError,{data: RegisterInput}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof registerUser>>, TError,{data: RegisterInput}, TContext> => {
 
@@ -151,12 +152,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RegisterUserMutationResult = NonNullable<Awaited<ReturnType<typeof registerUser>>>
     export type RegisterUserMutationBody = RegisterInput
-    export type RegisterUserMutationError = unknown
+    export type RegisterUserMutationError = ApiError
 
     /**
- * @summary Register or retrieve a user by Telegram ID
+ * @summary Register or retrieve the authenticated user
  */
-export const useRegisterUser = <TError = unknown,
+export const useRegisterUser = <TError = ApiError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerUser>>, TError,{data: RegisterInput}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof registerUser>>,
@@ -171,7 +172,7 @@ export const useRegisterUser = <TError = unknown,
     }
     
 /**
- * @summary Get current user by Telegram ID header
+ * @summary Get the authenticated user's profile
  */
 export const getMe = (
     
@@ -218,7 +219,7 @@ export type GetMeQueryError = ApiError
 
 
 /**
- * @summary Get current user by Telegram ID header
+ * @summary Get the authenticated user's profile
  */
 
 export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = ApiError>(
@@ -240,7 +241,7 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Api
 
 
 /**
- * @summary Update the current user's pseudonym
+ * @summary Update the authenticated user's pseudonym
  */
 export const updatePseudonym = (
     updatePseudonymInput: UpdatePseudonymInput,
@@ -287,7 +288,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdatePseudonymMutationError = ApiError
 
     /**
- * @summary Update the current user's pseudonym
+ * @summary Update the authenticated user's pseudonym
  */
 export const useUpdatePseudonym = <TError = ApiError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePseudonym>>, TError,{data: UpdatePseudonymInput}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -304,18 +305,16 @@ export const useUpdatePseudonym = <TError = ApiError,
     }
     
 /**
- * @summary Mark user's Triple Key Vault as confirmed
+ * @summary Mark the authenticated user's Triple Key Vault as confirmed
  */
 export const confirmKeys = (
-    confirmKeysInput: ConfirmKeysInput,
+    
  options?: SecondParameter<typeof customFetch>,signal?: AbortSignal
 ) => {
       
       
       return customFetch<User>(
-      {url: `/users/confirm-keys`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: confirmKeysInput, signal
+      {url: `/users/confirm-keys`, method: 'POST', signal
     },
       options);
     }
@@ -323,8 +322,8 @@ export const confirmKeys = (
 
 
 export const getConfirmKeysMutationOptions = <TError = ApiError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,{data: ConfirmKeysInput}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,{data: ConfirmKeysInput}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,void, TContext> => {
 
 const mutationKey = ['confirmKeys'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -336,10 +335,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmKeys>>, {data: ConfirmKeysInput}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmKeys>>, void> = () => {
+          
 
-          return  confirmKeys(data,requestOptions)
+          return  confirmKeys(requestOptions)
         }
 
         
@@ -348,18 +347,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ConfirmKeysMutationResult = NonNullable<Awaited<ReturnType<typeof confirmKeys>>>
-    export type ConfirmKeysMutationBody = ConfirmKeysInput
+    
     export type ConfirmKeysMutationError = ApiError
 
     /**
- * @summary Mark user's Triple Key Vault as confirmed
+ * @summary Mark the authenticated user's Triple Key Vault as confirmed
  */
 export const useConfirmKeys = <TError = ApiError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,{data: ConfirmKeysInput}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmKeys>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof confirmKeys>>,
         TError,
-        {data: ConfirmKeysInput},
+        void,
         TContext
       > => {
 

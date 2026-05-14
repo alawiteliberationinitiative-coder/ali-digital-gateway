@@ -35,22 +35,16 @@ function generateKey(prefix: string): string {
 
 /* ── Register ────────────────────────────────────────────────────────────── */
 router.post("/users/register", async (req, res): Promise<void> => {
-  const { telegramId, telegramUsername, firstName, lastName, referredBy } = req.body as {
-    telegramId?: string;
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { telegramUsername, firstName, lastName, referredBy } = req.body as {
     telegramUsername?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     referredBy?: string | null;
   };
 
-  if (!telegramId || typeof telegramId !== "string") {
-    res.status(400).json({ error: "telegramId is required" });
-    return;
-  }
-  if (!/^\d+$/.test(telegramId)) {
-    res.status(400).json({ error: "Invalid telegramId format" });
-    return;
-  }
   // Input length guards
   if (telegramUsername && telegramUsername.length > 64)  { res.status(400).json({ error: "Username too long" }); return; }
   if (firstName       && firstName.length > 64)          { res.status(400).json({ error: "First name too long" }); return; }
@@ -209,10 +203,8 @@ router.get("/users/stats", async (_req, res): Promise<void> => {
 
 /* ── Confirm keys saved ──────────────────────────────────────────────────── */
 router.post("/users/confirm-keys", async (req, res): Promise<void> => {
-  const { telegramId } = req.body as { telegramId?: string };
-  if (!telegramId || !/^\d+$/.test(telegramId)) {
-    res.status(400).json({ error: "telegramId is required" }); return;
-  }
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const [user] = await db
     .update(usersTable)

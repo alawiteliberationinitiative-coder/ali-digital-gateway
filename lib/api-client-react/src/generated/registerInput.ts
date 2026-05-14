@@ -9,7 +9,6 @@ import type { RegisterInputFirstName } from './registerInputFirstName';
 import type { RegisterInputLastName } from './registerInputLastName';
 
 export interface RegisterInput {
-  telegramId: string;
   telegramUsername?: RegisterInputTelegramUsername;
   firstName?: RegisterInputFirstName;
   lastName?: RegisterInputLastName;

@@ -15,10 +15,11 @@ export const healthCheckResponse = zod.object({
 
 
 /**
- * @summary Register or retrieve a user by Telegram ID
+ * Identity is derived from the verified x-telegram-init-data header. Returns the existing user record if the account already exists, or creates a new one with generated keys and initial balance.
+
+ * @summary Register or retrieve the authenticated user
  */
 export const registerUserBody = zod.object({
-  "telegramId": zod.string(),
   "telegramUsername": zod.string().nullish(),
   "firstName": zod.string().nullish(),
   "lastName": zod.string().nullish()
@@ -45,12 +46,8 @@ export const registerUserResponse = zod.object({
 
 
 /**
- * @summary Get current user by Telegram ID header
+ * @summary Get the authenticated user's profile
  */
-export const getMeHeader = zod.object({
-  "x-telegram-id": zod.string()
-})
-
 export const getMeResponse = zod.object({
   "id": zod.number(),
   "aliId": zod.string().describe('Format: ALI-2026-XXXX'),
@@ -72,12 +69,8 @@ export const getMeResponse = zod.object({
 
 
 /**
- * @summary Update the current user's pseudonym
+ * @summary Update the authenticated user's pseudonym
  */
-export const updatePseudonymHeader = zod.object({
-  "x-telegram-id": zod.string()
-})
-
 export const updatePseudonymBodyPseudonymMin = 3;
 export const updatePseudonymBodyPseudonymMax = 30;
 
@@ -108,12 +101,8 @@ export const updatePseudonymResponse = zod.object({
 
 
 /**
- * @summary Mark user's Triple Key Vault as confirmed
+ * @summary Mark the authenticated user's Triple Key Vault as confirmed
  */
-export const confirmKeysBody = zod.object({
-  "telegramId": zod.string()
-})
-
 export const confirmKeysResponse = zod.object({
   "id": zod.number(),
   "aliId": zod.string().describe('Format: ALI-2026-XXXX'),
@@ -137,10 +126,6 @@ export const confirmKeysResponse = zod.object({
 /**
  * @summary Award loyalty points after watching a rewarded ad
  */
-export const rewardAdHeader = zod.object({
-  "x-telegram-id": zod.string()
-})
-
 export const rewardAdResponse = zod.object({
   "loyaltyPoints": zod.number().describe('New total loyalty points balance'),
   "pointsAwarded": zod.number().describe('Points awarded for this ad view')

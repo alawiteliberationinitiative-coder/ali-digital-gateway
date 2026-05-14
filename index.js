@@ -27,17 +27,11 @@ const MAX_WRONG  = 3;
 const COOLDOWN_MS = 60_000;          // 1 min after max wrong answers
 const cooldowns  = new Map();        // chatId → unblockTimestamp
 
-// ── DB check: is this Telegram user already registered? ────────────────────
-async function isRegisteredUser(chatId) {
-  try {
-    const res = await fetch(`${API_BASE}/api/users/me`, {
-      headers: { 'x-telegram-id': String(chatId) }
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+// NOTE: A DB-backed registration check via the API was removed because
+// the only available mechanism (x-telegram-id header) is not trusted by
+// the API for external or proxied connections. The in-memory `verified`
+// set handles repeat interactions within a session, and new sessions
+// require a one-time captcha regardless of prior registration state.
 
 // ── Captcha helpers ─────────────────────────────────────────────────────────
 function randInt(min, max) {
@@ -173,17 +167,7 @@ bot.on('message', async (msg) => {
       return;
     }
 
-    // ── Check DB: if already registered, skip captcha ─────────────────────
-    const alreadyRegistered = await isRegisteredUser(chatId);
-    if (alreadyRegistered) {
-      verified.add(chatId);            // cache for this session
-      const storedRef = refCodes.get(chatId) || null;
-      refCodes.delete(chatId);
-      await sendAppMessage(chatId, storedRef);
-      return;
-    }
-
-    // ── New user: show captcha ────────────────────────────────────────────
+    // ── Not yet verified: show captcha ───────────────────────────────────
     pending.delete(chatId);
     pending.set(chatId, { answer: null, attempts: 0, msgId: null });
     await sendCaptcha(chatId);
