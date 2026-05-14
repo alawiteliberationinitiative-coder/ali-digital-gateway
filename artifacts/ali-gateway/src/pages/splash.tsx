@@ -251,6 +251,13 @@ export default function Splash() {
 
         if (res.ok) {
           const data = await res.json() as { keysConfirmed?: boolean };
+          // Fire-and-forget ping to record last_seen in users_activity
+          fetchWithRetry(
+            "/api/users/ping",
+            { method: "POST", headers: { "x-telegram-init-data": initData } },
+            1,
+            4_000,
+          ).catch(() => {});
           go(data.keysConfirmed ? "/dashboard" : "/onboarding");
         } else {
           // 4xx/5xx → go to dashboard anyway, don't leave user stuck

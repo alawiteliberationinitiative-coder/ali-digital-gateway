@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, sql, desc, count, usersTable, articlesTable } from "@workspace/db";
+import { db, eq, sql, desc, count, usersTable, articlesTable, usersActivityTable } from "@workspace/db";
 import { consumeUploadToken } from "../lib/upload-tokens.js";
 
 const router = Router();
@@ -216,6 +216,44 @@ router.get("/users/stats", async (_req, res): Promise<void> => {
     totalPoints:   Number(userStats?.totalPoints ?? 0),
     totalArticles: articleStats?.totalArticles ?? 0,
   });
+});
+
+/* ── Ping: update last_seen + current_quiz_level in users_activity ───────── */
+router.post("/users/ping", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const numericId = parseInt(telegramId, 10);
+  if (isNaN(numericId)) { res.status(400).json({ error: "Invalid telegram id" }); return; }
+
+  // Read current level + username from the main users table
+  const [user] = await db
+    .select({ level: usersTable.level, telegramUsername: usersTable.telegramUsername })
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId));
+
+  const now = new Date();
+
+  // Upsert into users_activity: insert on first visit, update last_seen + level on subsequent ones
+  await db
+    .insert(usersActivityTable)
+    .values({
+      telegramId:       numericId,
+      username:         user?.telegramUsername ?? null,
+      currentQuizLevel: user?.level ?? 1,
+      lastSeen:         now,
+    })
+    .onConflictDoUpdate({
+      target: usersActivityTable.telegramId,
+      set: {
+        username:         user?.telegramUsername ?? null,
+        currentQuizLevel: user?.level ?? 1,
+        lastSeen:         now,
+      },
+    });
+
+  req.log.info({ telegramId, level: user?.level }, "user ping recorded");
+  res.json({ ok: true, lastSeen: now.toISOString() });
 });
 
 /* ── Confirm keys saved ──────────────────────────────────────────────────── */

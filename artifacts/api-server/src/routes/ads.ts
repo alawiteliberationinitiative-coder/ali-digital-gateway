@@ -1,5 +1,5 @@
 import { Router }   from "express";
-import { db, eq, and, or, lt, isNull, sql, usersTable } from "@workspace/db";
+import { db, eq, and, or, lt, isNull, sql, usersTable, adsRevenueTable } from "@workspace/db";
 import { issueChallenge, validateAndConsume, MIN_AGE_MS } from "../lib/ad-challenges.js";
 
 const router = Router();
@@ -126,6 +126,28 @@ router.post("/ads/reward", async (req, res): Promise<void> => {
   }
 
   req.log.info({ telegramId, pointsAwarded: AD_POINTS_REWARD, challengeAgeMs: ageMs }, "ad reward granted");
+
+  // Track ad revenue per user in ads_revenue table (fire-and-forget, non-critical)
+  const numericId = parseInt(telegramId, 10);
+  if (!isNaN(numericId)) {
+    db.insert(adsRevenueTable)
+      .values({
+        telegramId:         numericId,
+        totalRevenuePoints: AD_POINTS_REWARD,
+        adCount:            1,
+        lastAdAt:           new Date(),
+      })
+      .onConflictDoUpdate({
+        target: adsRevenueTable.telegramId,
+        set: {
+          totalRevenuePoints: sql`${adsRevenueTable.totalRevenuePoints} + ${AD_POINTS_REWARD}`,
+          adCount:            sql`${adsRevenueTable.adCount} + 1`,
+          lastAdAt:           new Date(),
+        },
+      })
+      .catch(() => { /* non-critical — don't fail the reward response */ });
+  }
+
   res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded: AD_POINTS_REWARD });
 });
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, and, or, lt, isNull, sql, usersTable } from "@workspace/db";
+import { db, eq, and, or, lt, isNull, sql, usersTable, usersActivityTable } from "@workspace/db";
 import { issueQuizChallenge, validateAndConsumeQuiz, MIN_QUIZ_AGE_MS } from "../lib/quiz-challenges.js";
 
 const router = Router();
@@ -160,6 +160,26 @@ router.post("/quiz/complete-level", async (req, res): Promise<void> => {
   }
 
   req.log.info({ telegramId, levelCompleted, newLevel: updated.level, quizAgeMs: ageMs }, "quiz level completed");
+
+  // Sync current_quiz_level in users_activity (fire-and-forget, non-critical)
+  const numericId = parseInt(telegramId, 10);
+  if (!isNaN(numericId)) {
+    db.insert(usersActivityTable)
+      .values({
+        telegramId:       numericId,
+        username:         null,
+        currentQuizLevel: updated.level,
+        lastSeen:         new Date(),
+      })
+      .onConflictDoUpdate({
+        target: usersActivityTable.telegramId,
+        set: {
+          currentQuizLevel: updated.level,
+          lastSeen:         new Date(),
+        },
+      })
+      .catch(() => { /* non-critical */ });
+  }
 
   res.json({
     level: updated.level,
