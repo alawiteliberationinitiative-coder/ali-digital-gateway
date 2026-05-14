@@ -121,10 +121,10 @@ function HumanVerify({ onVerified }: { onVerified: () => void }) {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
 
-              {/* Equation */}
+              {/* Equation — LTR so numbers render in correct order */}
               <div className="rounded-2xl py-4 px-5 mb-5 text-center"
                 style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.18)" }}>
-                <p className="font-mono text-[#d4af37] text-3xl font-black tracking-widest">
+                <p dir="ltr" className="font-mono text-[#d4af37] text-3xl font-black tracking-widest">
                   {challenge.question} = ?
                 </p>
               </div>
