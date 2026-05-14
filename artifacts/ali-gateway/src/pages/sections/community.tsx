@@ -1338,7 +1338,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   });
 
   const fetchSpaces = useCallback(async () => {
-    const res = await fetch("/api/spaces");
+    const res = await apiFetch("/api/spaces");
     if (res.ok) setSpaces(await res.json());
     setLoading(false);
   }, []);

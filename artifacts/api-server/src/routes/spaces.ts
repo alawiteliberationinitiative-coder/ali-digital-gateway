@@ -3,9 +3,9 @@ import {
   db, eq, and, or, gte, usersTable,
   spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
 } from "@workspace/db";
+import { ADMIN_IDS } from "../lib/admin";
 
 const router = Router();
-const ADMIN_IDS = ["6213952907"];
 
 async function getUser(telegramId: string) {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.telegramId, telegramId));
@@ -18,7 +18,8 @@ function canHost(user: Awaited<ReturnType<typeof getUser>>, telegramId: string) 
 }
 
 /* ── List spaces ─────────────────────────────────────────────────────────── */
-router.get("/spaces", async (_req, res): Promise<void> => {
+router.get("/spaces", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
   const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
   const all = await db
@@ -33,8 +34,31 @@ router.get("/spaces", async (_req, res): Promise<void> => {
     )
     .orderBy(spacesTable.createdAt);
 
+  // Determine which private spaces the caller is a member of (or has an invite for)
+  let memberSpaceIds = new Set<number>();
+  if (telegramId) {
+    const participations = await db
+      .select({ spaceId: spaceParticipantsTable.spaceId })
+      .from(spaceParticipantsTable)
+      .where(eq(spaceParticipantsTable.telegramId, telegramId));
+    const invites = await db
+      .select({ spaceId: spaceInvitesTable.spaceId })
+      .from(spaceInvitesTable)
+      .where(eq(spaceInvitesTable.inviteeTelegramId, telegramId));
+    memberSpaceIds = new Set([
+      ...participations.map(p => p.spaceId),
+      ...invites.map(i => i.spaceId),
+    ]);
+  }
+
+  const visible = all.filter(s =>
+    !s.isPrivate ||
+    (telegramId && (s.hostTelegramId === telegramId || memberSpaceIds.has(s.id))) ||
+    (telegramId && ADMIN_IDS.includes(telegramId))
+  );
+
   const withCounts = await Promise.all(
-    all.map(async (s) => {
+    visible.map(async (s) => {
       const participants = await db
         .select()
         .from(spaceParticipantsTable)
@@ -95,11 +119,26 @@ router.post("/spaces", async (req, res): Promise<void> => {
 
 /* ── Get space details ───────────────────────────────────────────────────── */
 router.get("/spaces/:id", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, id));
   if (!space) { res.status(404).json({ error: "Space not found" }); return; }
+
+  if (space.isPrivate) {
+    const canAccess = telegramId && (
+      ADMIN_IDS.includes(telegramId) ||
+      space.hostTelegramId === telegramId ||
+      await db.select().from(spaceParticipantsTable)
+        .where(and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId)))
+        .then(rows => rows.length > 0) ||
+      await db.select().from(spaceInvitesTable)
+        .where(and(eq(spaceInvitesTable.spaceId, id), eq(spaceInvitesTable.inviteeTelegramId, telegramId)))
+        .then(rows => rows.length > 0)
+    );
+    if (!canAccess) { res.status(404).json({ error: "Space not found" }); return; }
+  }
 
   const participants = await db
     .select()
@@ -275,7 +314,12 @@ router.delete("/spaces/:id", async (req, res): Promise<void> => {
 router.get("/spaces/:id/signals", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
-  if (!telegramId || isNaN(id)) { res.status(400).json({ error: "Bad request" }); return; }
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [participant] = await db.select().from(spaceParticipantsTable).where(
+    and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
+  );
+  if (!participant) { res.status(403).json({ error: "Not a participant in this space" }); return; }
 
   const signals = await db
     .select()
@@ -304,11 +348,21 @@ router.get("/spaces/:id/signals", async (req, res): Promise<void> => {
 router.post("/spaces/:id/signals", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
-  if (!telegramId || isNaN(id)) { res.status(400).json({ error: "Bad request" }); return; }
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const { toPeerId, type, payload } = req.body as { toPeerId?: string; type?: string; payload?: string };
   if (!toPeerId || !type || !payload) { res.status(400).json({ error: "Missing fields" }); return; }
   if (payload.length > 65535) { res.status(413).json({ error: "Signal payload too large" }); return; }
+
+  const [senderParticipant] = await db.select().from(spaceParticipantsTable).where(
+    and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
+  );
+  if (!senderParticipant) { res.status(403).json({ error: "Not a participant in this space" }); return; }
+
+  const [recipientParticipant] = await db.select().from(spaceParticipantsTable).where(
+    and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, toPeerId))
+  );
+  if (!recipientParticipant) { res.status(403).json({ error: "Recipient is not a participant in this space" }); return; }
 
   const [signal] = await db.insert(spaceSignalsTable).values({
     spaceId: id, fromTelegramId: telegramId,

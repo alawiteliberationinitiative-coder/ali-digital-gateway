@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, eq, and, sql, usersTable, followsTable, spaceInvitesTable, spacesTable, spaceParticipantsTable } from "@workspace/db";
+import { ADMIN_IDS } from "../lib/admin";
 
 const router = Router();
 
@@ -158,8 +159,8 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
   const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, spaceId));
   if (!space || space.status === "ended") { res.status(404).json({ error: "Space not found" }); return; }
 
-  if (role === "speaker" && space.hostTelegramId !== myId) {
-    res.status(403).json({ error: "فقط المضيف يمكنه تعيين الضيوف" }); return;
+  if (space.hostTelegramId !== myId && !ADMIN_IDS.includes(myId)) {
+    res.status(403).json({ error: "فقط المضيف يمكنه إرسال الدعوات" }); return;
   }
 
   try {
