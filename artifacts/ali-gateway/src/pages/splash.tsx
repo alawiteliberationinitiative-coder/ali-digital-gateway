@@ -205,8 +205,58 @@ export default function Splash() {
   const initCalled = useRef(false);
 
   // Keep latest setLocation in a ref so the async closure is never stale
-  const navRef = useRef(setLocation);
-  useEffect(() => { navRef.current = setLocation; }, [setLocation]);
+  const navRef  = useRef(setLocation);
+  const userRef = useRef(user);
+  useEffect(() => { navRef.current  = setLocation; }, [setLocation]);
+  useEffect(() => { userRef.current = user; },        [user]);
+
+  // ── Timeout fallback: إذا لم يصل user خلال 4 ثوانٍ نتقدم على أي حال ─────
+  // يحدث في الإنتاج إذا كان initData موجوداً لكن user في الـ context لم يُحدَّث بعد
+  useEffect(() => {
+    if (!verified) return;
+    const t = setTimeout(() => {
+      if (initCalled.current) return;
+      initCalled.current = true;
+      // محاولة قراءة user من window مباشرةً كحل احتياطي
+      const fallbackUser = userRef.current
+        ?? window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const initData     = window.Telegram?.WebApp?.initData ?? "";
+      const telegramId   = fallbackUser?.id?.toString() ?? null;
+      const go = (path: string) => navRef.current(path);
+      if (!telegramId) { go("/dashboard"); return; }
+      setLoadingMsg("Connecting to Gateway…");
+      const startParam =
+        window.Telegram?.WebApp?.initDataUnsafe?.start_param ??
+        new URLSearchParams(window.location.search).get("startapp") ??
+        null;
+      fetchWithRetry(
+        "/api/users/register",
+        {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "x-telegram-init-data": initData },
+          body: JSON.stringify({
+            telegramUsername: fallbackUser?.username   ?? null,
+            firstName:        fallbackUser?.first_name ?? null,
+            lastName:         fallbackUser?.last_name  ?? null,
+            referredBy:       startParam,
+          }),
+        },
+        2,
+        10_000,
+      )
+        .then(async r => {
+          if (r.ok) {
+            const data = await r.json() as { keysConfirmed?: boolean };
+            go(data.keysConfirmed ? "/dashboard" : "/onboarding");
+          } else {
+            go("/dashboard");
+          }
+        })
+        .catch(() => go("/dashboard"));
+    }, 4_000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verified]);
 
   useEffect(() => {
     if (!verified) return;
