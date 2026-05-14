@@ -1,91 +1,71 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/pg-proxy";
 import * as schema from "./schema/index.js";
 
 export { eq, and, or, gte, lt, isNull, sql, desc, count } from "drizzle-orm";
 
-const rawString = process.env.SUPABASE_CONNECTION_STRING ?? process.env.DATABASE_URL;
+const supabaseUrl = (process.env.SUPABASE_URL ?? "")
+  .replace(/\/rest\/v1\/?$/, "")
+  .replace(/\/$/, "");
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-if (!rawString) {
-  throw new Error("No database connection string configured. Set SUPABASE_CONNECTION_STRING or DATABASE_URL.");
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.",
+  );
 }
 
 /**
- * Parse a postgresql:// URI that may contain special characters in the password
- * (brackets, $, !, /, @) by anchoring on the LAST @<host>:<port>/<db> segment.
+ * Execute SQL via Supabase's drizzle_query RPC function.
+ * The function must be created first — run scripts/supabase-rpc.sql in SQL Editor.
  *
- * Also auto-converts Supabase Direct Connection URIs to Transaction Pooler so
- * the app works even when the user copies the wrong string from the dashboard.
- * Replit can resolve aws-0-eu-central-1.pooler.supabase.com but NOT the
- * project-specific pooler subdomains, so we always use the regional endpoint.
+ * Drizzle sends parameterized queries like: SELECT ... WHERE id = $1, params: [42]
+ * We inline the parameters into the SQL string before sending (safe because
+ * drizzle itself constructs these queries from typed ORM operations, never from
+ * raw user strings).
  */
-function buildPoolConfig(raw: string): ConstructorParameters<typeof Pool>[0] {
-  const isSupabaseStr = raw.includes("supabase.co") || raw.includes("supabase.com");
-
-  if (!isSupabaseStr) {
-    // Non-Supabase URL (e.g. Replit DATABASE_URL) — pass as-is
-    return { connectionString: raw };
+async function remoteQuery(
+  rawSql: string,
+  params: unknown[],
+  _method: "all" | "execute",
+) {
+  // Inline parameters into SQL to avoid needing EXECUTE...USING in the RPC
+  // Drizzle uses $1, $2, ... placeholders
+  let inlinedSql = rawSql;
+  for (let i = params.length; i >= 1; i--) {
+    const val = params[i - 1];
+    let literal: string;
+    if (val === null || val === undefined) {
+      literal = "NULL";
+    } else if (typeof val === "number") {
+      literal = String(val);
+    } else if (typeof val === "boolean") {
+      literal = val ? "TRUE" : "FALSE";
+    } else {
+      // String — escape single quotes
+      literal = `'${String(val).replace(/'/g, "''")}'`;
+    }
+    inlinedSql = inlinedSql.replace(new RegExp(`\\$${i}`, "g"), literal);
   }
 
-  // Extract host:port/db by finding the last @ in the string
-  const lastAtIdx = raw.lastIndexOf("@");
-  if (lastAtIdx === -1) return { connectionString: raw };
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/drizzle_query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({ sql: inlinedSql }),
+  });
 
-  const afterAt = raw.substring(lastAtIdx + 1); // host:port/database
-  const hostPortDbMatch = afterAt.match(/^([^:/]+):(\d+)\/([^?]+)/);
-  if (!hostPortDbMatch) return { connectionString: raw };
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`drizzle_query RPC failed (${res.status}): ${text}`);
+  }
 
-  const [, origHost, origPort, database] = hostPortDbMatch;
-
-  // Extract user:password from before the last @
-  const beforeAt = raw.substring(0, lastAtIdx);
-  const protoEnd = beforeAt.indexOf("://");
-  const userPassStr = protoEnd !== -1 ? beforeAt.substring(protoEnd + 3) : beforeAt;
-  const firstColon = userPassStr.indexOf(":");
-  const origUser = firstColon !== -1 ? userPassStr.substring(0, firstColon) : userPassStr;
-  const password = firstColon !== -1 ? userPassStr.substring(firstColon + 1) : "";
-
-  // Determine the real project ref
-  // Priority: SUPABASE_URL env var > host ref > hardcoded project ref
-  const SUPABASE_PROJECT_REF = "fgvdbxxggpiukhlintfd";
-  const supabaseUrlRef = (process.env.SUPABASE_URL ?? "")
-    .match(/https?:\/\/([a-z0-9]{20})\.supabase\.co/i)?.[1];
-  const hostRef = origHost.match(/^db\.([a-z0-9]+)\.supabase\.co$/i)?.[1];
-  const ref = SUPABASE_PROJECT_REF || supabaseUrlRef || hostRef || "";
-
-  // Always use Transaction Pooler via the regional endpoint (resolvable from Replit)
-  // Try eu-central-1 first (most common), fall back handled at connection time
-  const host = "aws-0-eu-central-1.pooler.supabase.com";
-  const port = 6543;
-  const user = ref ? `postgres.${ref}` : origUser;
-
-  process.stderr.write(`[db] Supabase Pooler: host=${host} user=${user} db=${database}\n`);
-
-  return {
-    host,
-    port,
-    user,
-    password,
-    database,
-    ssl: { rejectUnauthorized: false },
-  };
+  const rows = (await res.json()) as Record<string, unknown>[] | null;
+  return { rows: Array.isArray(rows) ? rows : [] };
 }
 
-const poolConfig = buildPoolConfig(rawString);
-
-const pool = new Pool({
-  ...poolConfig,
-  max: 10,
-  connectionTimeoutMillis: 15_000,
-  idleTimeoutMillis: 30_000,
-  statement_timeout: 15_000,
-  query_timeout: 15_000,
-});
-
-pool.on("error", (err) => {
-  process.stderr.write(`[db-pool] idle client error: ${err.message}\n`);
-});
-
-export const db = drizzle(pool, { schema });
+export const db = drizzle(remoteQuery, { schema });
 
 export * from "./schema/index.js";

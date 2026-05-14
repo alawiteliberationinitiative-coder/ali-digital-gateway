@@ -1035,3 +1035,33 @@ ON CONFLICT DO NOTHING;
   UNION ALL SELECT 'users_activity', COUNT(*) FROM users_activity
   UNION ALL SELECT 'ads_revenue', COUNT(*) FROM ads_revenue;
   
+-- ── 5. SQL PROXY FUNCTION (required for Replit → Supabase TCP-less connection) ──
+-- This function lets the app run parameterized SQL via HTTP (PostgREST RPC).
+-- SECURITY: Only callable with the service_role key (RLS bypassed by SECURITY DEFINER).
+
+CREATE OR REPLACE FUNCTION drizzle_query(sql text, params jsonb DEFAULT '[]'::jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result jsonb;
+  param_values text[];
+  i int;
+BEGIN
+  -- Convert jsonb array to text array for EXECUTE ... USING
+  IF jsonb_array_length(params) = 0 THEN
+    EXECUTE sql INTO result;
+  ELSE
+    -- Build dynamic query with positional parameters
+    EXECUTE 'SELECT jsonb_agg(row_to_json(t)) FROM (' || sql || ') t'
+      INTO result
+      USING params;
+  END IF;
+  RETURN COALESCE(result, '[]'::jsonb);
+END;
+$$;
+
+-- Revoke from public, only service_role can call it
+REVOKE ALL ON FUNCTION drizzle_query(text, jsonb) FROM PUBLIC;
