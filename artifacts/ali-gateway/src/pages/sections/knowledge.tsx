@@ -681,8 +681,8 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   const [adError, setAdError]             = useState("");
   const [totalPoints, setTotalPoints]     = useState(0);
 
-  const stageAd = useRewardedAd(0);
-  const bonusAd = useRewardedAd(0);
+  const stageAd = useRewardedAd(0, telegramId);
+  const bonusAd = useRewardedAd(0, telegramId);
 
   // ── Load KB from JSON ──
   useEffect(() => {
@@ -769,10 +769,14 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
   }
 
   async function handleBonusAdWatch() {
-    const completed = await bonusAd.show();
-    if (completed && telegramId) {
+    const token = await bonusAd.show();
+    if (token && telegramId) {
       try {
-        const res = await apiFetch("/api/ads/reward", { method: "POST" });
+        const res = await apiFetch("/api/ads/reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ challengeToken: token }),
+        });
         if (res.ok) {
           const data = await res.json() as { loyaltyPoints: number };
           setTotalPoints(data.loyaltyPoints);

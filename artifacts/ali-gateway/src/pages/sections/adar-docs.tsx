@@ -298,7 +298,7 @@ function makeUpload(
   setState: (s: "idle" | "uploading" | "done") => void,
   setProgress: (fn: (p: number) => number) => void,
   clearForm: () => void,
-  onSubmit: () => void,
+  onSubmit: (fileId: string) => void,
   telegramId?: string,
   getPhotos?: () => string[],
 ) {
@@ -309,21 +309,37 @@ function makeUpload(
     setProgress(() => 0);
 
     const photos = getPhotos?.() ?? [];
+
+    // Upload all photos; resolve with the first server-issued fileId that comes
+    // back, or null if no photos were provided or all uploads fail.
+    let uploadPromise: Promise<string | null>;
     if (telegramId && photos.length > 0) {
-      photos.forEach((photo, idx) => {
+      const uploadRequests = photos.map((photo, idx) =>
         apiFetch("/api/docs/upload-file", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base64: photo, filename: `adar-doc-${Date.now()}-${idx}.jpg` }),
-        }).catch(() => {});
-      });
+        })
+          .then(r => r.ok ? (r.json() as Promise<{ fileId?: string }>) : Promise.reject())
+          .then(data => {
+            if (data.fileId) return data.fileId;
+            return Promise.reject(new Error("no fileId"));
+          })
+      );
+      uploadPromise = Promise.any(uploadRequests).catch(() => null);
+    } else {
+      uploadPromise = Promise.resolve(null);
     }
 
     const iv = setInterval(() => setProgress(p => {
       if (p >= 100) {
         clearInterval(iv);
         setState("done");
-        onSubmit();
+        // Wait for the first successful upload before awarding points.
+        // If no fileId was obtained (no photos or all failed), skip the reward call.
+        uploadPromise.then(fileId => {
+          if (fileId) onSubmit(fileId);
+        });
         setTimeout(() => setState("idle"), 4200);
         return 100;
       }
@@ -402,7 +418,7 @@ function PersonalFields({ data, onChange }: {
 }
 
 // ─── Form 1: المفقودون ──────────────────────────────────────────────────────
-function MissingPersonForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function MissingPersonForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -427,7 +443,7 @@ function MissingPersonForm({ onSubmit, telegramId }: { onSubmit: () => void; tel
 }
 
 // ─── Form 2: الشهداء والضحايا ────────────────────────────────────────────────
-function MartyrForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function MartyrForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -460,7 +476,7 @@ function MartyrForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId
 }
 
 // ─── Form 3: المختطفات ──────────────────────────────────────────────────────
-function KidnappedWomanForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function KidnappedWomanForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -506,7 +522,7 @@ function KidnappedWomanForm({ onSubmit, telegramId }: { onSubmit: () => void; te
 }
 
 // ─── Form 4: المهجرون قسرياً ─────────────────────────────────────────────────
-function DisplacedFamilyForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function DisplacedFamilyForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [children, setChildren] = useState<{ name: string; age: string }[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -581,7 +597,7 @@ function DisplacedFamilyForm({ onSubmit, telegramId }: { onSubmit: () => void; t
 }
 
 // ─── Form 5: الأراضي والأملاك المسلوبة ──────────────────────────────────────
-function StolenPropertyForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function StolenPropertyForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -624,7 +640,7 @@ function StolenPropertyForm({ onSubmit, telegramId }: { onSubmit: () => void; te
 }
 
 // ─── Form 6: الموظفون المفصولون ──────────────────────────────────────────────
-function DismissedEmployeeForm({ onSubmit, telegramId }: { onSubmit: () => void; telegramId: string }) {
+function DismissedEmployeeForm({ onSubmit, telegramId }: { onSubmit: (fileId: string) => void; telegramId: string }) {
   const [d, setD] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [state, setState] = useState<"idle" | "uploading" | "done">("idle");
@@ -694,17 +710,20 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
 
   const toggle = useCallback((id: string) => setOpenId(prev => prev === id ? null : id), []);
 
-  const handleSubmit = useCallback(async (formId: string) => {
-    setSubmittedIds(prev => new Set(prev).add(formId));
-    setTotalPoints(p => p + 200);
-    if (!telegramId) return;
+  const handleSubmit = useCallback(async (formId: string, fileId: string) => {
+    if (!telegramId || !fileId) return;
     try {
-      await apiFetch("/api/docs/submit", {
+      const res = await apiFetch("/api/docs/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId }),
       });
+      if (res.ok) {
+        setSubmittedIds(prev => new Set(prev).add(formId));
+        setTotalPoints(p => p + 200);
+      }
     } catch {
-      /* silent — points shown locally regardless */
+      /* non-critical: server will have recorded the state if upload was valid */
     }
   }, [telegramId]);
 
@@ -748,12 +767,12 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
             isOpen={openId === form.id}
             onToggle={() => !isDone && toggle(form.id)}
             submitState={isDone ? "done" : "idle"}>
-            {form.id === "missing"   && <MissingPersonForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "martyr"    && <MartyrForm           telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "kidnapped" && <KidnappedWomanForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "displaced" && <DisplacedFamilyForm  telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "property"  && <StolenPropertyForm   telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
-            {form.id === "employee"  && <DismissedEmployeeForm telegramId={telegramId} onSubmit={() => handleSubmit(form.id)} />}
+            {form.id === "missing"   && <MissingPersonForm   telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
+            {form.id === "martyr"    && <MartyrForm           telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
+            {form.id === "kidnapped" && <KidnappedWomanForm   telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
+            {form.id === "displaced" && <DisplacedFamilyForm  telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
+            {form.id === "property"  && <StolenPropertyForm   telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
+            {form.id === "employee"  && <DismissedEmployeeForm telegramId={telegramId} onSubmit={(fileId) => handleSubmit(form.id, fileId)} />}
           </AccordionShell>
         );
       })}

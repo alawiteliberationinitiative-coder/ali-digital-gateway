@@ -16,7 +16,14 @@ export type AdPhase =
 
 export interface UseRewardedAdResult {
   phase: AdPhase;
-  show: () => Promise<boolean>;
+  /**
+   * Show the rewarded ad.
+   * Returns the server-issued challengeToken (string) if the ad completed
+   * and a valid challenge was obtained, or false if the ad was skipped /
+   * dismissed / the challenge request failed.
+   * Pass the token to POST /api/ads/reward to claim points.
+   */
+  show: () => Promise<string | false>;
   reset: () => void;
   isActive: boolean;
   cooldownLeft: number;
@@ -28,7 +35,10 @@ const DEV_DURATION_MS = 2500;
 // so the user is never permanently stuck on the ad screen.
 const AD_TIMEOUT_MS = 18000;
 
-export function useRewardedAd(cooldownMs = 0): UseRewardedAdResult {
+export function useRewardedAd(
+  cooldownMs = 0,
+  telegramId = ""
+): UseRewardedAdResult {
   const [phase, setPhase] = useState<AdPhase>("idle");
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const lastShownAt = useRef<number>(0);
@@ -54,12 +64,35 @@ export function useRewardedAd(cooldownMs = 0): UseRewardedAdResult {
     []
   );
 
-  const show = useCallback(async (): Promise<boolean> => {
+  const show = useCallback(async (): Promise<string | false> => {
     if (phase === "loading" || phase === "showing") return false;
     if (cooldownMs > 0 && Date.now() - lastShownAt.current < cooldownMs)
       return false;
 
     setPhase("loading");
+
+    // Obtain a server-issued challenge token before the ad starts.
+    // This token records the start time server-side; the reward endpoint
+    // verifies the token is old enough to prove the ad was watched.
+    let challengeToken: string | null = null;
+    if (telegramId) {
+      try {
+        const challengeRes = await fetch("/api/ads/challenge", {
+          method: "POST",
+          headers: { "x-telegram-id": telegramId },
+        });
+        if (challengeRes.ok) {
+          const data = await challengeRes.json() as { challengeToken?: string };
+          challengeToken = data.challengeToken ?? null;
+        } else if (challengeRes.status === 429) {
+          // Still in cooldown — surface the server's error to the caller.
+          setPhase("idle");
+          return false;
+        }
+      } catch {
+        // Network error: proceed without token; reward will be rejected server-side.
+      }
+    }
 
     try {
       setPhase("showing");
@@ -76,13 +109,13 @@ export function useRewardedAd(cooldownMs = 0): UseRewardedAdResult {
       setPhase("completed");
       if (cooldownMs > 0) startCooldown(cooldownMs);
       setTimeout(() => setPhase("idle"), 2800);
-      return true;
+      return challengeToken ?? false;
     } catch {
       setPhase("dismissed");
       setTimeout(() => setPhase("idle"), 2500);
       return false;
     }
-  }, [phase, cooldownMs, startCooldown]);
+  }, [phase, cooldownMs, telegramId, startCooldown]);
 
   const reset = useCallback(() => {
     setPhase("idle");

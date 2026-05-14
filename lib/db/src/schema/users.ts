@@ -30,6 +30,7 @@ export const usersTable = pgTable("ali_users", {
   loyaltyPoints: integer("loyalty_points").notNull().default(0),
   role: text("role").notNull().default("member"),
   referredBy: text("referred_by"),
+  lastAdRewardAt: timestamp("last_ad_reward_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

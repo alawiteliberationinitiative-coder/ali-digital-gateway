@@ -63,6 +63,7 @@ app.use(verifyTelegram as express.RequestHandler);
 
 // ── Strict limiters on write / reward endpoints ──────────────────────────────
 app.use("/api/users/register",       strictLimiter);
+app.use("/api/ads/challenge",        strictLimiter);
 app.use("/api/ads/reward",           strictLimiter);
 app.use("/api/quiz/complete-level",  strictLimiter);
 app.use("/api/docs/submit",          strictLimiter);

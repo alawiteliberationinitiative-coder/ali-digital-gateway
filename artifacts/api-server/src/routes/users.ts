@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, eq, sql, desc, count, usersTable, articlesTable } from "@workspace/db";
+import { consumeUploadToken } from "../lib/upload-tokens.js";
 
 const router = Router();
 
@@ -139,6 +140,21 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
+  // Require a server-issued upload token from a prior /api/docs/upload-file
+  // call.  Without this a caller could farm 200 points by hitting this
+  // endpoint directly, with no file ever uploaded.
+  const { fileId } = req.body as { fileId?: string };
+  if (!fileId || typeof fileId !== "string") {
+    res.status(400).json({ error: "fileId required" });
+    return;
+  }
+
+  if (!consumeUploadToken(telegramId, fileId)) {
+    req.log.warn({ telegramId, fileId }, "docs/submit: invalid or already-used upload token");
+    res.status(403).json({ error: "Invalid or expired upload token" });
+    return;
+  }
+
   const [user] = await db
     .update(usersTable)
     .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + 200` })
@@ -146,6 +162,7 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
     .returning({ loyaltyPoints: usersTable.loyaltyPoints });
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  req.log.info({ telegramId, fileId, pointsAwarded: 200 }, "docs submit reward granted");
   res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded: 200 });
 });
 

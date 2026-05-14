@@ -251,7 +251,11 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   const [doubleState,  setDoubleState]  = useState<DoubleState>("idle");
   const [doubledScore, setDoubledScore] = useState(0);
 
-  const doubleAd = useRewardedAd(0);
+  const doubleAd = useRewardedAd(0, telegramId);
+
+  // Challenge token for the inter-level ad-break reward.
+  // Fetched when the game enters ad-break state and consumed by advanceLevel.
+  const levelChallengeRef = useRef<string>("");
 
   // ── Refs للوصول الآمن في callbacks بدون stale closure ──────────────────
   const playingLevelRef = useRef(1);
@@ -287,6 +291,23 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     return () => clearTimeout(t);
   }, [gameState]);
 
+  // ── Fetch a challenge token as soon as the ad-break begins ───────────────
+  // This must happen *before* the ad is shown so the server can measure the
+  // elapsed time between challenge issuance and reward claim.
+  useEffect(() => {
+    if (gameState !== "ad-break") return;
+    const tid = telegramIdRef.current;
+    if (!tid) return;
+    levelChallengeRef.current = "";
+    fetch("/api/ads/challenge", {
+      method: "POST",
+      headers: { "x-telegram-id": tid },
+    })
+      .then(r => r.ok ? r.json() as Promise<{ challengeToken?: string }> : null)
+      .then(data => { if (data?.challengeToken) levelChallengeRef.current = data.challengeToken; })
+      .catch(() => {});
+  }, [gameState]);
+
   // ── ضمان صلب: إذا ظل في ad-break أكثر من 20 ثانية انتقل قسراً ────────
   // (يعمل كطبقة احتياط خلف المؤقت الداخلي في StageAdScreen)
   useEffect(() => {
@@ -312,11 +333,19 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   // ── advanceLevel: مستقر تماماً (useCallback بـ [] فارغة) ─────────────
   // يقرأ القيم الحالية من الـ refs دائماً — لا stale closure
   const advanceLevel = useCallback(() => {
-    const lvl = playingLevelRef.current;
-    const tid = telegramIdRef.current;
+    const lvl   = playingLevelRef.current;
+    const tid   = telegramIdRef.current;
+    const token = levelChallengeRef.current;
 
     if (tid) {
-      apiFetch("/api/ads/reward", { method: "POST" }).catch(() => {});
+      if (token) {
+        apiFetch("/api/ads/reward", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ challengeToken: token }),
+        }).catch(() => {});
+        levelChallengeRef.current = ""; // consume the token
+      }
       apiFetch("/api/quiz/complete-level", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -379,13 +408,17 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   async function handleDoublePoints() {
     if (doubleState !== "idle" || !score) return;
     setDoubleState("loading");
-    const ok = await doubleAd.show();
-    if (ok) {
+    const token = await doubleAd.show();
+    if (token) {
       const doubled = score * 2;
       setDoubledScore(doubled);
       setScore(doubled);
       if (telegramId) {
-        apiFetch("/api/ads/reward", { method: "POST" }).catch(() => {});
+        apiFetch("/api/ads/reward", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ challengeToken: token }),
+        }).catch(() => {});
       }
       setDoubleState("done");
     } else {

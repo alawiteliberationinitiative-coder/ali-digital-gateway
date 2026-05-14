@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { registerUploadToken } from "../lib/upload-tokens.js";
 
 const router = Router();
 
@@ -6,6 +7,12 @@ const MAX_BASE64_BYTES = 6 * 1024 * 1024; // 6 MB max payload
 
 router.post("/docs/upload-file", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
+
+  if (!telegramId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { base64, filename = "document.jpg", formType = "unknown" } = req.body as {
     base64?: string;
     filename?: string;
@@ -26,7 +33,11 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
   const channelId = process.env.TELEGRAM_STORAGE_CHANNEL_ID;
 
   if (!botToken || !channelId) {
-    res.json({ fileId: `local_${Date.now()}`, stored: false, reason: "storage_not_configured" });
+    // Storage not configured: issue a tracked local token so the submit flow
+    // still works in dev/staging environments.
+    const fileId = `local_${Date.now()}`;
+    registerUploadToken(telegramId, fileId);
+    res.json({ fileId, stored: false, reason: "storage_not_configured" });
     return;
   }
 
@@ -48,7 +59,7 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
     form.append(
       "caption",
       `📁 <b>ADAR Sovereign Archive</b>\n` +
-      `👤 User: <code>${telegramId ?? "anonymous"}</code>\n` +
+      `👤 User: <code>${telegramId}</code>\n` +
       `📋 Form: ${formType}\n` +
       `🕒 ${new Date().toISOString()}\n` +
       `🔒 AES-256 · Encrypted at rest`
@@ -68,14 +79,17 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
 
     if (!data.ok) {
       const tgErr = (data as Record<string, unknown>).description ?? "unknown";
-      res.json({ fileId: `local_${Date.now()}`, stored: false, reason: "telegram_error", detail: tgErr, usedChatId: chatId });
+      // Telegram rejected the upload — do NOT issue a token; no reward possible.
+      res.status(502).json({ stored: false, reason: "telegram_error", detail: tgErr });
       return;
     }
 
     const fileId = data.result?.document?.file_id ?? `local_${Date.now()}`;
+    registerUploadToken(telegramId, fileId);
     res.json({ fileId, stored: true, fileSize: data.result?.document?.file_size });
   } catch {
-    res.json({ fileId: `local_${Date.now()}`, stored: false, reason: "exception" });
+    // Network or parse failure — do NOT issue a token.
+    res.status(502).json({ stored: false, reason: "exception" });
   }
 });
 

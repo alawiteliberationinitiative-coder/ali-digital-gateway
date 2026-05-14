@@ -27,11 +27,15 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
   const [watchCount, setWatchCount] = useState(0);
   const [apiError, setApiError] = useState("");
 
-  const ad = useRewardedAd(COOLDOWN_MS);
+  const ad = useRewardedAd(COOLDOWN_MS, telegramId);
 
-  const rewardOnServer = useCallback(async () => {
+  const rewardOnServer = useCallback(async (challengeToken: string) => {
     if (!telegramId) return null;
-    const res = await apiFetch("/api/ads/reward", { method: "POST" });
+    const res = await apiFetch("/api/ads/reward", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ challengeToken }),
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       throw new Error(body.error ?? "reward API failed");
@@ -42,10 +46,10 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
   async function handleWatch() {
     if (ad.isActive || !telegramId) return;
     setApiError("");
-    const completed = await ad.show();
-    if (completed) {
+    const token = await ad.show();
+    if (token) {
       try {
-        const data = await rewardOnServer();
+        const data = await rewardOnServer(token);
         if (data) {
           setTotalEarned(t => t + data.pointsAwarded);
           setWatchCount(c => c + 1);
