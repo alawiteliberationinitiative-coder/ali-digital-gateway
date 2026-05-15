@@ -5,3 +5,4 @@ export * from "./follows";
 export * from "./activity";
 export * from "./messages";
 export * from "./blocks";
+export * from "./calls";

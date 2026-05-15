@@ -4,7 +4,8 @@ import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
-  Trash2, Ban, Camera, Wallet,
+  Trash2, Ban, Camera, Wallet, Phone, PhoneOff, PhoneIncoming, PhoneMissed,
+  MicOff, Mic,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
@@ -47,6 +48,16 @@ interface Conversation {
   partnerId: string; pseudonym: string; aliId: string;
   civicRole: string | null; rank: string; level: number;
   lastMessage: string; lastAt: string; unread: number; isMine: boolean;
+}
+
+// ─── Call Types ───────────────────────────────────────────────────────────────
+type CallStatus = "idle" | "calling" | "ringing" | "active" | "rejected" | "missed" | "ended";
+interface ActiveCall {
+  callId: number;
+  partnerId: string;
+  partnerPseudonym: string;
+  status: CallStatus;
+  isInitiator: boolean;
 }
 
 function formatMsgTime(iso: string): string {
@@ -479,8 +490,8 @@ function ProfileFollowButton({ targetTelegramId, myTelegramId }: { targetTelegra
         color: isFollowing ? "#4ade80" : "#60a5fa",
       }}>
       {loading ? <Loader2 className="w-3 h-3 animate-spin" />
-        : isFollowing ? <><UserCheck className="w-3 h-3" />متابَع</>
-        : <><UserPlus className="w-3 h-3" />متابعة</>}
+        : isFollowing ? <><UserCheck className="w-3 h-3" />صديق</>
+        : <><UserPlus className="w-3 h-3" />إضافة</>}
     </button>
   );
 }
@@ -515,38 +526,29 @@ function ReferralCount({ telegramId }: { telegramId: string }) {
   );
 }
 
-function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: { myTelegramId: string; onMessage?: (u: NetUser) => void; onViewFriend?: (u: NetUser) => void; autoExpand?: boolean }) {
-  const [tab, setTab] = useState<"followers" | "following">("followers");
-  const [expanded, setExpanded] = useState(!!autoExpand);
-  const [followers, setFollowers] = useState<NetUser[]>([]);
-  const [following, setFollowing] = useState<NetUser[]>([]);
-  const [stats, setStats] = useState({ followersCount: 0, followingCount: 0 });
+function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand, onCall }: {
+  myTelegramId: string;
+  onMessage?: (u: NetUser) => void;
+  onViewFriend?: (u: NetUser) => void;
+  autoExpand?: boolean;
+  onCall?: (u: NetUser) => void;
+}) {
+  type FriendUser = NetUser & { isMutual: boolean };
+  const [expanded, setExpanded]     = useState(!!autoExpand);
+  const [friends, setFriends]       = useState<FriendUser[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searchRes, setSearchRes] = useState<NetUser[]>([]);
+  const [query, setQuery]           = useState("");
+  const [searchRes, setSearchRes]   = useState<NetUser[]>([]);
   const [showSearch, setShowSearch] = useState(false);
 
-  useEffect(() => {
-    apiFetch("/api/users/me/network-stats")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setStats(data); });
-  }, [myTelegramId]);
-
-  const loadBoth = useCallback(async () => {
+  const loadFriends = useCallback(async () => {
     setLoadingList(true);
-    const [rF, rFing] = await Promise.all([
-      apiFetch("/api/users/me/followers"),
-      apiFetch("/api/users/me/following"),
-    ]);
-    if (rF.ok) setFollowers(await rF.json());
-    if (rFing.ok) setFollowing(await rFing.json());
+    const r = await apiFetch("/api/users/me/friends");
+    if (r.ok) setFriends(await r.json());
     setLoadingList(false);
   }, [myTelegramId]);
 
-  useEffect(() => {
-    if (!expanded) return;
-    loadBoth();
-  }, [expanded, loadBoth]);
+  useEffect(() => { if (expanded) loadFriends(); }, [expanded, loadFriends]);
 
   useEffect(() => {
     if (!showSearch || query.length < 2) { setSearchRes([]); return; }
@@ -555,11 +557,10 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
       if (res.ok) setSearchRes(await res.json());
     }, 350);
     return () => clearTimeout(t);
-  }, [query, showSearch, myTelegramId]);
+  }, [query, showSearch]);
 
-  const displayList = tab === "followers" ? followers : following;
-  const followingIds = new Set(following.map(u => u.telegramId));
-  const followerIds  = new Set(followers.map(u => u.telegramId));
+  const mutualCount = friends.filter(f => f.isMutual).length;
+  const displayList = showSearch ? searchRes : friends;
 
   return (
     <div className="rounded-2xl overflow-hidden"
@@ -567,22 +568,22 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
 
       {/* Stats Row */}
       <div className="flex items-center gap-0 divide-x divide-white/5" dir="rtl">
-        <button onClick={() => { setTab("followers"); setExpanded(true); setShowSearch(false); }}
+        <button onClick={() => { setExpanded(true); setShowSearch(false); }}
           className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
           <p className="font-mono font-black text-2xl" style={{ color: "#60a5fa", textShadow: "0 0 12px rgba(96,165,250,0.4)" }}>
-            {stats.followersCount}
+            {friends.length}
           </p>
-          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متابِع</p>
+          <p className="font-arabic text-[10px] text-white/40 mt-0.5">أصدقاء</p>
         </button>
 
         <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
 
-        <button onClick={() => { setTab("following"); setExpanded(true); setShowSearch(false); }}
+        <button onClick={() => { setExpanded(true); setShowSearch(false); }}
           className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
           <p className="font-mono font-black text-2xl" style={{ color: "#4ade80", textShadow: "0 0 12px rgba(74,222,128,0.4)" }}>
-            {stats.followingCount}
+            {mutualCount}
           </p>
-          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متابَع</p>
+          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متبادل</p>
         </button>
 
         <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
@@ -607,24 +608,8 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
             style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
 
-            {!showSearch && (
-              <div className="flex gap-2 px-4 pt-3 pb-2" dir="rtl">
-                {(["followers", "following"] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
-                    style={{
-                      background: tab === t ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${tab === t ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.07)"}`,
-                      color: tab === t ? "#60a5fa" : "rgba(255,255,255,0.35)",
-                    }}>
-                    {t === "followers" ? `متابِعون (${stats.followersCount})` : `متابَعون (${stats.followingCount})`}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {showSearch && (
-              <div className="px-4 pt-3 pb-2 space-y-2">
+              <div className="px-4 pt-3 pb-2">
                 <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
                   style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)" }}>
                   <Search className="w-4 h-4 text-white/25 flex-shrink-0" />
@@ -642,27 +627,15 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
                 <div className="flex justify-center py-6">
                   <Loader2 className="w-5 h-5 animate-spin text-white/30" />
                 </div>
-              ) : showSearch ? (
-                searchRes.length === 0 ? (
-                  <p className="font-arabic text-xs text-white/20 text-center py-4">
-                    {query.length < 2 ? "اكتب للبحث..." : "لا نتائج"}
-                  </p>
-                ) : (
-                  searchRes.map(u => (
-                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
-                      isMutual={followingIds.has(u.telegramId) && followerIds.has(u.telegramId)}
-                      onMessage={onMessage} onViewProfile={onViewFriend} />
-                  ))
-                )
               ) : displayList.length === 0 ? (
                 <p className="font-arabic text-xs text-white/20 text-center py-6">
-                  {tab === "followers" ? "لا يتابعك أحد بعد" : "لا تتابع أحداً بعد"}
+                  {showSearch && query.length < 2 ? "اكتب للبحث..." : showSearch ? "لا نتائج" : "لا أصدقاء بعد — أرسل دعوة لتبدأ!"}
                 </p>
               ) : (
                 displayList.map(u => (
                   <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
-                    isMutual={tab === "followers" ? followingIds.has(u.telegramId) : followerIds.has(u.telegramId)}
-                    onMessage={onMessage} onViewProfile={onViewFriend} />
+                    isMutual={"isMutual" in u ? (u as FriendUser).isMutual : false}
+                    onMessage={onMessage} onViewProfile={onViewFriend} onCall={onCall} />
                 ))
               )}
             </div>
@@ -673,7 +646,7 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
   );
 }
 
-function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void; isMutual?: boolean }) {
+function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual, onCall }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void; isMutual?: boolean; onCall?: (u: NetUser) => void }) {
   const RANKS: Record<string, string> = {
     Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
@@ -714,6 +687,13 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: 
               🤝 صديق
             </span>
           )}
+          {onCall && isMutual && myTelegramId !== user.telegramId && (
+            <button onClick={() => onCall(user)}
+              className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
+              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80" }}>
+              <Phone className="w-3 h-3" />
+            </button>
+          )}
           {onMessage && myTelegramId !== user.telegramId && (
             <button onClick={() => onMessage(user)}
               className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
@@ -730,11 +710,10 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: 
 }
 
 // ─── Friend Profile View ──────────────────────────────────────────────────────
-function FriendProfileView({ friend, myTelegramId, onBack, onMessage, onInvite, inviting }: {
+function FriendProfileView({ friend, myTelegramId, onBack, onMessage, onCall }: {
   friend: NetUser; myTelegramId: string; onBack: () => void;
   onMessage: (u: NetUser) => void;
-  onInvite: () => void;
-  inviting: boolean;
+  onCall: (u: NetUser) => void;
 }) {
   const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
   const rankColor = RANK_COLORS[friend.rank] ?? "#94a3b8";
@@ -792,11 +771,11 @@ function FriendProfileView({ friend, myTelegramId, onBack, onMessage, onInvite, 
             <MessageSquare className="w-4 h-4" />
             مراسلة في الدردشة
           </button>
-          <button onClick={onInvite} disabled={inviting}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all disabled:opacity-60"
-            style={{ background: "rgba(96,165,250,0.12)", border: "1.5px solid rgba(96,165,250,0.35)", color: "#60a5fa" }}>
-            {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-base">🎙</span>}
-            دعوة لجلسة صوتية خاصة
+          <button onClick={() => onCall(friend)}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all"
+            style={{ background: "rgba(34,197,94,0.12)", border: "1.5px solid rgba(34,197,94,0.35)", color: "#4ade80" }}>
+            <Phone className="w-4 h-4" />
+            مكالمة صوتية
           </button>
         </div>
 
@@ -930,12 +909,18 @@ const ChatInput = memo(function ChatInput({ onSend }: { onSend: (text: string) =
 // ─── Chat View ────────────────────────────────────────────────────────────────
 function ChatView({
   myTelegramId, partner, onBack, onDeleted, onBlocked,
+  onInitiateCall, incomingCallActive, onAnswerCall, onRejectCall, callStatus,
 }: {
   myTelegramId: string;
   partner: ChatPartner;
   onBack: () => void;
   onDeleted?: () => void;
   onBlocked?: () => void;
+  onInitiateCall?: () => void;
+  incomingCallActive?: boolean;
+  onAnswerCall?: () => void;
+  onRejectCall?: () => void;
+  callStatus?: CallStatus;
 }) {
   const [messages, setMessages]           = useState<ChatMessage[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1025,7 +1010,7 @@ function ChatView({
   };
 
   return (
-    <motion.div className="absolute inset-0 z-40 flex flex-col"
+    <motion.div className="absolute inset-0 z-40 flex flex-col relative overflow-hidden"
       style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
       initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}>
@@ -1051,6 +1036,23 @@ function ChatView({
         </div>
         {/* Action buttons */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Call button — shown when not already in a call */}
+          {onInitiateCall && (!callStatus || callStatus === "idle" || callStatus === "ended" || callStatus === "rejected" || callStatus === "missed") && (
+            <button onClick={onInitiateCall}
+              className="p-2 rounded-xl active:scale-90 transition-all"
+              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}
+              title="مكالمة صوتية">
+              <Phone className="w-4 h-4 text-green-400" />
+            </button>
+          )}
+          {/* Outgoing call status pill */}
+          {callStatus === "calling" && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl"
+              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="font-arabic text-[10px] text-green-400">جاري الاتصال...</span>
+            </div>
+          )}
           <button onClick={() => setConfirmDelete(true)}
             className="p-2 rounded-xl active:scale-90 transition-all"
             style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
@@ -1065,6 +1067,41 @@ function ChatView({
           </button>
         </div>
       </div>
+
+      {/* Incoming call overlay — shown when the caller is this partner */}
+      <AnimatePresence>
+        {incomingCallActive && (
+          <motion.div className="absolute inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: "rgba(0,20,12,0.92)", backdropFilter: "blur(12px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="w-full max-w-xs flex flex-col items-center gap-6 text-center">
+              <motion.div
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.5)" }}
+                animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.4)", "0 0 0 24px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
+                transition={{ repeat: Infinity, duration: 1.8 }}>
+                <PhoneIncoming className="w-10 h-10 text-green-400" />
+              </motion.div>
+              <div>
+                <p className="font-arabic font-bold text-white text-lg">{partner.pseudonym}</p>
+                <p className="font-arabic text-white/50 text-sm mt-1">مكالمة صوتية واردة</p>
+              </div>
+              <div className="flex items-center gap-6">
+                <button onClick={onRejectCall}
+                  className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-all"
+                  style={{ background: "rgba(239,68,68,0.25)", border: "2px solid rgba(239,68,68,0.5)" }}>
+                  <PhoneOff className="w-7 h-7 text-red-400" />
+                </button>
+                <button onClick={onAnswerCall}
+                  className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-all"
+                  style={{ background: "rgba(34,197,94,0.25)", border: "2px solid rgba(34,197,94,0.5)" }}>
+                  <Phone className="w-7 h-7 text-green-400" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Delete confirmation overlay */}
       <AnimatePresence>
@@ -1216,37 +1253,259 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
   const [unreadCount,  setUnreadCount]  = useState(0);
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
-  const [invitingFriend, setInvitingFriend] = useState(false);
   const [walletOpen,  setWalletOpen]  = useState(false);
   const [pointsOpen,  setPointsOpen]  = useState(false);
   const [logOpen,     setLogOpen]     = useState(false);
 
-  // Civic role
-  const handleInviteToPrivateSession = async (friend: NetUser) => {
-    setInvitingFriend(true);
+  // ── P2P Call System ──────────────────────────────────────────────────────
+  const [callState,    setCallState]    = useState<ActiveCall | null>(null);
+  const [callSeconds,  setCallSeconds]  = useState(0);
+  const [callMuted,    setCallMuted]    = useState(false);
+  const callRef           = useRef<ActiveCall | null>(null);
+  const pcRef             = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef    = useRef<MediaStream | null>(null);
+  const remoteAudioRef    = useRef<HTMLAudioElement>(null);
+  const callTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const signalPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ringtoneRef       = useRef<{ ctx: AudioContext; interval: ReturnType<typeof setInterval> } | null>(null);
+
+  const updateCallState = useCallback((fn: (prev: ActiveCall | null) => ActiveCall | null) => {
+    const next = fn(callRef.current);
+    callRef.current = next;
+    setCallState(next);
+  }, []);
+
+  const stopRingtone = useCallback(() => {
+    if (!ringtoneRef.current) return;
+    clearInterval(ringtoneRef.current.interval);
+    ringtoneRef.current.ctx.close().catch(() => {});
+    ringtoneRef.current = null;
+  }, []);
+
+  const startRingtone = useCallback(() => {
+    if (ringtoneRef.current || typeof AudioContext === "undefined") return;
+    const ctx = new AudioContext();
+    const playBeep = () => {
+      if (ctx.state === "closed") return;
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.setValueAtTime(520, ctx.currentTime);
+      gain.gain.setValueAtTime(0.22, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
+      osc.start(); osc.stop(ctx.currentTime + 0.7);
+    };
+    playBeep();
+    const interval = setInterval(playBeep, 1800);
+    ringtoneRef.current = { ctx, interval };
+  }, []);
+
+  const cleanupCall = useCallback(() => {
+    stopRingtone();
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    localStreamRef.current = null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+    pcRef.current?.close(); pcRef.current = null;
+    if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
+    if (signalPollRef.current) { clearInterval(signalPollRef.current); signalPollRef.current = null; }
+    setCallSeconds(0); setCallMuted(false);
+  }, [stopRingtone]);
+
+  const setupPeerConnection = useCallback(async (callId: number, isInitiator: boolean): Promise<boolean> => {
     try {
-      const res = await apiFetch("/api/spaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: `جلسة مع ${friend.pseudonym}`, isPrivate: true }),
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        window.Telegram?.WebApp?.showAlert?.((err as { error?: string }).error ?? "تعذّر إنشاء الجلسة");
-        setInvitingFriend(false);
-        return;
+      localStreamRef.current = stream;
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      pcRef.current = pc;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      pc.ontrack = (e) => {
+        if (!remoteAudioRef.current) return;
+        remoteAudioRef.current.srcObject = e.streams[0];
+        remoteAudioRef.current.play().catch(() => {});
+      };
+      pc.onicecandidate = (e) => {
+        if (!e.candidate) return;
+        apiFetch(`/api/calls/${callId}/signal`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "ice", payload: JSON.stringify(e.candidate) }),
+        }).catch(() => {});
+      };
+      if (isInitiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await apiFetch(`/api/calls/${callId}/signal`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "offer", payload: JSON.stringify(offer) }),
+        });
       }
-      const space = await res.json() as { id: number };
-      await apiFetch(`/api/spaces/${space.id}/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteeTelegramId: friend.telegramId, role: "speaker" }),
+      // Poll for remote signals (fallback to SSE fast-path)
+      signalPollRef.current = setInterval(async () => {
+        const c = callRef.current;
+        if (!c || c.status !== "active") return;
+        const res = await apiFetch(`/api/calls/${callId}/signals`).catch(() => null);
+        if (!res?.ok) return;
+        const sigs = await res.json() as { type: string; payload: string }[];
+        const currentPc = pcRef.current;
+        if (!currentPc) return;
+        for (const sig of sigs) {
+          try {
+            if (sig.type === "offer" && !isInitiator && currentPc.signalingState === "stable") {
+              await currentPc.setRemoteDescription(JSON.parse(sig.payload));
+              const ans = await currentPc.createAnswer();
+              await currentPc.setLocalDescription(ans);
+              await apiFetch(`/api/calls/${callId}/signal`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type: "answer", payload: JSON.stringify(ans) }),
+              });
+            } else if (sig.type === "answer" && isInitiator && currentPc.signalingState === "have-local-offer") {
+              await currentPc.setRemoteDescription(JSON.parse(sig.payload));
+            } else if (sig.type === "ice") {
+              await currentPc.addIceCandidate(JSON.parse(sig.payload));
+            }
+          } catch { /* WebRTC errors are non-fatal */ }
+        }
+      }, 800);
+      return true;
+    } catch { return false; }
+  }, []);
+
+  const handleInitiateCall = useCallback(async (partnerId: string, partnerPseudonym: string) => {
+    if (callRef.current) return;
+    const res = await apiFetch("/api/calls/initiate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ calleeId: partnerId }),
+    }).catch(() => null);
+    if (!res?.ok) return;
+    const { callId } = await res.json() as { callId: number };
+    updateCallState(() => ({ callId, partnerId, partnerPseudonym, status: "calling", isInitiator: true }));
+    // Auto-cancel after 30 s with no answer
+    setTimeout(() => {
+      if (callRef.current?.callId === callId && callRef.current.status === "calling") {
+        cleanupCall(); callRef.current = null; setCallState(null);
+      }
+    }, 30_000);
+  }, [updateCallState, cleanupCall]);
+
+  const handleAnswerCall = useCallback(async () => {
+    const c = callRef.current;
+    if (!c || c.status !== "ringing") return;
+    stopRingtone();
+    const res = await apiFetch(`/api/calls/${c.callId}/answer`, { method: "POST" });
+    if (!res.ok) return;
+    updateCallState(p => p ? { ...p, status: "active" } : null);
+    const ok = await setupPeerConnection(c.callId, false);
+    if (ok) callTimerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+  }, [stopRingtone, updateCallState, setupPeerConnection]);
+
+  const handleRejectCall = useCallback(async () => {
+    const c = callRef.current;
+    if (!c) return;
+    await apiFetch(`/api/calls/${c.callId}/reject`, { method: "POST" }).catch(() => {});
+    cleanupCall(); callRef.current = null; setCallState(null);
+  }, [cleanupCall]);
+
+  const handleHangupCall = useCallback(async () => {
+    const c = callRef.current;
+    if (!c) return;
+    await apiFetch(`/api/calls/${c.callId}/hangup`, { method: "POST" }).catch(() => {});
+    cleanupCall();
+    updateCallState(() => ({ ...c, status: "ended" }));
+    setTimeout(() => { callRef.current = null; setCallState(null); }, 2500);
+  }, [cleanupCall, updateCallState]);
+
+  const handleToggleMute = useCallback(() => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    setCallMuted(!track.enabled);
+  }, []);
+
+  // SSE — call events
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let cancelled = false;
+    const connect = async () => {
+      const r = await apiFetch("/api/calls/events-ticket", { method: "POST" }).catch(() => null);
+      if (!r?.ok || cancelled) return;
+      const { ticket } = await r.json() as { ticket: string };
+      if (cancelled) return;
+      es = new EventSource(`/api/calls/events?ticket=${encodeURIComponent(ticket)}`);
+
+      es.addEventListener("call_incoming", (e) => {
+        if (callRef.current) return;
+        const d = JSON.parse(e.data) as { callId: number; callerId: string; callerPseudonym: string };
+        updateCallState(() => ({ callId: d.callId, partnerId: d.callerId, partnerPseudonym: d.callerPseudonym, status: "ringing", isInitiator: false }));
+        startRingtone();
       });
-      setFriendProfile(null);
-      onOpenCommunity?.(space.id);
-    } catch { /* ignore */ }
-    setInvitingFriend(false);
-  };
+
+      es.addEventListener("call_accepted", async (e) => {
+        const d = JSON.parse(e.data) as { callId: number };
+        const c = callRef.current;
+        if (!c || c.callId !== d.callId) return;
+        updateCallState(p => p ? { ...p, status: "active" } : null);
+        const ok = await setupPeerConnection(c.callId, true);
+        if (ok) callTimerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+      });
+
+      es.addEventListener("call_rejected", (e) => {
+        const d = JSON.parse(e.data) as { callId: number };
+        const c = callRef.current;
+        if (!c || c.callId !== d.callId) return;
+        cleanupCall();
+        updateCallState(() => ({ ...c, status: "rejected" }));
+        setTimeout(() => { callRef.current = null; setCallState(null); }, 2500);
+      });
+
+      es.addEventListener("call_ended", (e) => {
+        const d = JSON.parse(e.data) as { callId: number };
+        const c = callRef.current;
+        if (!c || c.callId !== d.callId) return;
+        cleanupCall();
+        updateCallState(() => ({ ...c, status: "ended" }));
+        setTimeout(() => { callRef.current = null; setCallState(null); }, 2500);
+      });
+
+      es.addEventListener("call_signal", async (e) => {
+        const d = JSON.parse(e.data) as { callId: number; type: string; payload: string };
+        const c = callRef.current;
+        if (!c || c.callId !== d.callId || c.status !== "active") return;
+        const pc = pcRef.current; if (!pc) return;
+        try {
+          if (d.type === "offer" && !c.isInitiator && pc.signalingState === "stable") {
+            await pc.setRemoteDescription(JSON.parse(d.payload));
+            const ans = await pc.createAnswer();
+            await pc.setLocalDescription(ans);
+            await apiFetch(`/api/calls/${c.callId}/signal`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "answer", payload: JSON.stringify(ans) }),
+            });
+          } else if (d.type === "answer" && c.isInitiator && pc.signalingState === "have-local-offer") {
+            await pc.setRemoteDescription(JSON.parse(d.payload));
+          } else if (d.type === "ice") {
+            await pc.addIceCandidate(JSON.parse(d.payload));
+          }
+        } catch { /* non-fatal */ }
+      });
+
+      es.onerror = () => { es?.close(); es = null; if (!cancelled) setTimeout(connect, 5000); };
+    };
+    if (typeof EventSource !== "undefined") connect();
+    return () => { cancelled = true; es?.close(); };
+  }, [telegramId, updateCallState, setupPeerConnection, cleanupCall, startRingtone]);
+
+  // Presence heartbeat
+  useEffect(() => {
+    const ctx = chatPartner ? `chat:${chatPartner.telegramId}` : "app";
+    const hb = () => apiFetch("/api/calls/presence", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: ctx }),
+    }).catch(() => {});
+    hb();
+    const id = setInterval(hb, 15_000);
+    return () => clearInterval(id);
+  }, [telegramId, chatPartner]);
 
   const [civicRole,    setCivicRole]    = useState<string | null>(userData.civicRole ?? null);
   const [savingRole,   setSavingRole]   = useState(false);
@@ -1445,6 +1704,130 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         </div>
       </div>
 
+      {/* Hidden audio element for remote call audio */}
+      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
+
+      {/* ── Global call overlay (when no chatView is open or ringing from non-chat partner) ── */}
+      <AnimatePresence>
+        {callState && (
+          (() => {
+            const isInChat = chatPartner?.telegramId === callState.partnerId;
+            const showGlobal = !isInChat || callState.status === "calling";
+            if (!showGlobal) return null;
+
+            if (callState.status === "ringing") {
+              return (
+                <motion.div key="global-ring"
+                  className="absolute inset-0 z-[60] flex items-center justify-center px-6"
+                  style={{ background: "rgba(0,20,12,0.95)", backdropFilter: "blur(16px)" }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="w-full max-w-xs flex flex-col items-center gap-6 text-center">
+                    <motion.div
+                      className="w-28 h-28 rounded-full flex items-center justify-center"
+                      style={{ background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.5)" }}
+                      animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.45)", "0 0 0 28px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
+                      transition={{ repeat: Infinity, duration: 1.8 }}>
+                      <PhoneIncoming className="w-12 h-12 text-green-400" />
+                    </motion.div>
+                    <div>
+                      <p className="font-arabic font-black text-white text-xl">{callState.partnerPseudonym}</p>
+                      <p className="font-arabic text-white/45 text-sm mt-1">مكالمة صوتية واردة</p>
+                    </div>
+                    <div className="flex items-center gap-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <button onClick={handleRejectCall}
+                          className="w-18 h-18 w-[72px] h-[72px] rounded-full flex items-center justify-center active:scale-90 transition-all"
+                          style={{ background: "rgba(239,68,68,0.3)", border: "2px solid rgba(239,68,68,0.6)" }}>
+                          <PhoneOff className="w-8 h-8 text-red-400" />
+                        </button>
+                        <span className="font-arabic text-[11px] text-white/35">رفض</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                        <button onClick={handleAnswerCall}
+                          className="w-[72px] h-[72px] rounded-full flex items-center justify-center active:scale-90 transition-all"
+                          style={{ background: "rgba(34,197,94,0.3)", border: "2px solid rgba(34,197,94,0.6)" }}>
+                          <Phone className="w-8 h-8 text-green-400" />
+                        </button>
+                        <span className="font-arabic text-[11px] text-white/35">قبول</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            }
+
+            if (callState.status === "calling") {
+              return (
+                <motion.div key="calling-toast"
+                  className="absolute top-16 left-4 right-4 z-[60] rounded-2xl px-4 py-3 flex items-center gap-3"
+                  style={{ background: "rgba(0,30,18,0.97)", border: "1.5px solid rgba(34,197,94,0.4)", backdropFilter: "blur(14px)" }}
+                  initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}>
+                  <motion.div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.5)" }}
+                    animate={{ scale: [1, 1.12, 1] }} transition={{ repeat: Infinity, duration: 1.2 }}>
+                    <Phone className="w-4 h-4 text-green-400" />
+                  </motion.div>
+                  <div className="flex-1 min-w-0" dir="rtl">
+                    <p className="font-arabic text-xs font-bold text-white/80 truncate">{callState.partnerPseudonym}</p>
+                    <p className="font-arabic text-[10px] text-green-400/70">جاري الاتصال...</p>
+                  </div>
+                  <button onClick={handleHangupCall}
+                    className="p-2 rounded-xl active:scale-90 transition-all flex-shrink-0"
+                    style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)" }}>
+                    <PhoneOff className="w-4 h-4 text-red-400" />
+                  </button>
+                </motion.div>
+              );
+            }
+
+            if (callState.status === "active") {
+              const mm = String(Math.floor(callSeconds / 60)).padStart(2, "0");
+              const ss = String(callSeconds % 60).padStart(2, "0");
+              return (
+                <motion.div key="active-call-bar"
+                  className="absolute bottom-0 left-0 right-0 z-[60] px-4 py-3 flex items-center gap-3 rounded-t-2xl"
+                  style={{ background: "rgba(0,25,14,0.98)", border: "1.5px solid rgba(34,197,94,0.35)", backdropFilter: "blur(16px)" }}
+                  initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}>
+                  <div className="flex-1 min-w-0" dir="rtl">
+                    <p className="font-arabic text-sm font-bold text-white truncate">{callState.partnerPseudonym}</p>
+                    <p className="font-mono text-xs text-green-400/80 mt-0.5">{mm}:{ss}</p>
+                  </div>
+                  <button onClick={handleToggleMute}
+                    className="p-2.5 rounded-xl active:scale-90 transition-all"
+                    style={{
+                      background: callMuted ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)",
+                      border: `1px solid ${callMuted ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"}`,
+                    }}>
+                    {callMuted ? <MicOff className="w-4 h-4 text-red-400" /> : <Mic className="w-4 h-4 text-white/60" />}
+                  </button>
+                  <button onClick={handleHangupCall}
+                    className="p-2.5 rounded-xl active:scale-90 transition-all"
+                    style={{ background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.5)" }}>
+                    <PhoneOff className="w-4 h-4 text-red-400" />
+                  </button>
+                </motion.div>
+              );
+            }
+
+            if (callState.status === "rejected" || callState.status === "ended") {
+              return (
+                <motion.div key="call-ended-toast"
+                  className="absolute top-16 left-4 right-4 z-[60] rounded-2xl px-4 py-3 flex items-center gap-3"
+                  style={{ background: "rgba(0,20,12,0.97)", border: "1.5px solid rgba(239,68,68,0.3)", backdropFilter: "blur(14px)" }}
+                  initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -30, opacity: 0 }}>
+                  <PhoneMissed className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  <p className="font-arabic text-xs text-white/70 flex-1" dir="rtl">
+                    {callState.status === "rejected" ? "تم رفض المكالمة" : "انتهت المكالمة"}
+                  </p>
+                </motion.div>
+              );
+            }
+
+            return null;
+          })()
+        )}
+      </AnimatePresence>
+
       {/* ── Chat overlay (full-screen within profile) ── */}
       <AnimatePresence>
         {chatPartner && (
@@ -1455,6 +1838,11 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             onBack={handleCloseChat}
             onDeleted={handleCloseChat}
             onBlocked={handleCloseChat}
+            onInitiateCall={() => handleInitiateCall(chatPartner.telegramId, chatPartner.pseudonym)}
+            incomingCallActive={callState?.status === "ringing" && callState.partnerId === chatPartner.telegramId}
+            onAnswerCall={handleAnswerCall}
+            onRejectCall={handleRejectCall}
+            callStatus={callState?.partnerId === chatPartner.telegramId ? callState.status : "idle"}
           />
         )}
       </AnimatePresence>
@@ -1469,10 +1857,12 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             onBack={() => setFriendProfile(null)}
             onMessage={(u) => {
               setFriendProfile(null);
-              handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole, rank: u.rank, level: u.level });
+              handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole ?? null, rank: u.rank, level: u.level });
             }}
-            onInvite={() => handleInviteToPrivateSession(friendProfile)}
-            inviting={invitingFriend}
+            onCall={(u) => {
+              setFriendProfile(null);
+              handleInitiateCall(u.telegramId, u.pseudonym);
+            }}
           />
         )}
       </AnimatePresence>
@@ -1509,8 +1899,9 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           <ReferralCount telegramId={telegramId} />
           <NetworkSection
             myTelegramId={telegramId}
-            onMessage={(u) => handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole, rank: u.rank, level: u.level })}
+            onMessage={(u) => handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole ?? null, rank: u.rank, level: u.level })}
             onViewFriend={(u) => setFriendProfile(u)}
+            onCall={(u) => handleInitiateCall(u.telegramId, u.pseudonym)}
             autoExpand
           />
         </div>

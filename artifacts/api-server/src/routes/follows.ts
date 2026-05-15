@@ -102,6 +102,46 @@ router.get("/users/me/followers", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
+/* ── Friends (merged followers + following, mutual sorted first) ─────────── */
+router.get("/users/me/friends", async (req, res): Promise<void> => {
+  const myId = req.telegramId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const cols = {
+    telegramId: usersTable.telegramId,
+    aliId:      usersTable.aliId,
+    pseudonym:  usersTable.pseudonym,
+    rank:       usersTable.rank,
+    level:      usersTable.level,
+    civicRole:  usersTable.civicRole,
+  };
+
+  const [following, followers] = await Promise.all([
+    db.select(cols).from(followsTable)
+      .innerJoin(usersTable, eq(followsTable.followingTelegramId, usersTable.telegramId))
+      .where(eq(followsTable.followerTelegramId, myId)),
+    db.select(cols).from(followsTable)
+      .innerJoin(usersTable, eq(followsTable.followerTelegramId, usersTable.telegramId))
+      .where(eq(followsTable.followingTelegramId, myId)),
+  ]);
+
+  const followingIds = new Set(following.map(u => u.telegramId));
+  const followerIds  = new Set(followers.map(u => u.telegramId));
+
+  const map = new Map<string, typeof following[0] & { isMutual: boolean }>();
+  for (const u of [...following, ...followers]) {
+    if (!map.has(u.telegramId)) {
+      map.set(u.telegramId, {
+        ...u,
+        isMutual: followingIds.has(u.telegramId) && followerIds.has(u.telegramId),
+      });
+    }
+  }
+
+  const result = [...map.values()].sort((a, b) => Number(b.isMutual) - Number(a.isMutual));
+  res.json(result);
+});
+
 /* ── Network stats ───────────────────────────────────────────────────────── */
 router.get("/users/me/network-stats", async (req, res): Promise<void> => {
   const myId = req.telegramId;

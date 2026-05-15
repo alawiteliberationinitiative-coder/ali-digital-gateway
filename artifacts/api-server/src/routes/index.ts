@@ -10,6 +10,7 @@ import followsRouter   from "./follows.js";
 import docsRouter      from "./docs.js";
 import messagesRouter  from "./messages.js";
 import webhookRouter   from "./webhook.js";
+import callsRouter     from "./calls.js";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use(spacesRouter);
 router.use(followsRouter);
 router.use(docsRouter);
 router.use(messagesRouter);
+router.use(callsRouter);
 
 export default router;
