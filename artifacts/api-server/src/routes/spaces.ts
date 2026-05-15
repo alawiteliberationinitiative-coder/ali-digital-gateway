@@ -65,6 +65,17 @@ function broadcastSpaceEnded(spaceId: number) {
   }
 }
 
+/** Notify existing participants that someone new joined (skip the joiner). */
+function broadcastJoined(spaceId: number, joiner: { telegramId: string; pseudonym: string; aliId: string }) {
+  const clients = participantClients.get(spaceId);
+  if (!clients || clients.size === 0) return;
+  const payload = `event: joined\ndata: ${JSON.stringify(joiner)}\n\n`;
+  for (const [tid, res] of clients) {
+    if (tid === joiner.telegramId) continue;
+    try { res.write(payload); } catch {}
+  }
+}
+
 // ── DB helpers ───────────────────────────────────────────────────────────────
 async function getUser(telegramId: string) {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.telegramId, telegramId));
@@ -469,8 +480,9 @@ router.post("/spaces/:id/join", async (req, res): Promise<void> => {
 
   const participants = await db.select().from(spaceParticipantsTable).where(eq(spaceParticipantsTable.spaceId, id));
 
-  // Notify all SSE clients of new participant
+  // Notify all SSE clients of new participant list + joined event
   broadcastParticipants(id).catch(() => {});
+  broadcastJoined(id, { telegramId, pseudonym: user.pseudonym, aliId: user.aliId });
 
   res.json({ participant, space, participants });
 });
@@ -759,5 +771,42 @@ router.post("/spaces/invites/:inviteId/dismiss", async (req, res): Promise<void>
 
   res.json({ ok: true });
 });
+
+// ── Auto-cleanup: end stale live spaces every 2 minutes ──────────────────────
+// A space is "stale" when ALL its participants have stopped sending heartbeats
+// for more than 5 minutes (they closed the app without pressing Leave).
+const STALE_MS = 5 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const liveSpaces = await db
+      .select({ id: spacesTable.id })
+      .from(spacesTable)
+      .where(eq(spacesTable.status, "live"));
+    if (liveSpaces.length === 0) return;
+
+    const threshold = new Date(Date.now() - STALE_MS);
+
+    for (const space of liveSpaces) {
+      // Count participants with a recent heartbeat
+      const [{ active }] = await db
+        .select({ active: count(spaceParticipantsTable.id) })
+        .from(spaceParticipantsTable)
+        .where(and(
+          eq(spaceParticipantsTable.spaceId, space.id),
+          gte(spaceParticipantsTable.lastSeenAt, threshold),
+        ));
+
+      if (active === 0) {
+        // No active heartbeats — end the space and evict participants
+        await db.update(spacesTable)
+          .set({ status: "ended", endedAt: new Date() })
+          .where(eq(spacesTable.id, space.id));
+        await db.delete(spaceParticipantsTable)
+          .where(eq(spaceParticipantsTable.spaceId, space.id));
+        broadcastSpaceEnded(space.id);
+      }
+    }
+  } catch { /* ignore cleanup errors — next tick will retry */ }
+}, 2 * 60 * 1000);
 
 export default router;

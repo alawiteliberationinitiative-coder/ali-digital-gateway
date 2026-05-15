@@ -1625,6 +1625,8 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [userRole, setUserRole] = useState("member");
+  const [joinToast, setJoinToast] = useState<{ pseudonym: string } | null>(null);
+  const joinToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isAdmin = ["6213952907"].includes(telegramId);
   const canCreate = isAdmin || userRole === "staff" || userRole === "admin";
@@ -1728,6 +1730,16 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
           setActiveSpace(null);
           setMyParticipant(undefined);
           fetchSpaces();
+        });
+
+        es.addEventListener("joined", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data as string) as { telegramId: string; pseudonym: string };
+            if (data.telegramId === telegramId) return;
+            if (joinToastTimer.current) clearTimeout(joinToastTimer.current);
+            setJoinToast({ pseudonym: data.pseudonym });
+            joinToastTimer.current = setTimeout(() => setJoinToast(null), 4000);
+          } catch {}
         });
 
         es.onerror = () => {
@@ -1865,14 +1877,35 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {activeSpace ? (
-          <SpaceView
-            space={activeSpace} telegramId={telegramId}
-            myParticipant={myParticipant} isMuted={isMuted}
-            isSpeaking={isSpeaking} speakingPeers={speakingPeers}
-            onLeave={handleLeave} onRaiseHand={handleRaiseHand}
-            onMuteToggle={handleMuteToggle} onPromote={handlePromote}
-            onKick={handleKick} onRefresh={() => fetchSpaceDetails(activeSpace.id)}
-          />
+          <div className="relative">
+            {/* Join notification toast */}
+            <AnimatePresence>
+              {joinToast && (
+                <motion.div
+                  key="join-toast"
+                  initial={{ y: -16, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -16, opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="absolute top-3 right-3 left-3 z-50 flex items-center gap-2 rounded-2xl px-4 py-2.5 pointer-events-none"
+                  style={{ background: "rgba(0,20,10,0.93)", border: "1px solid rgba(212,175,55,0.35)" }}
+                >
+                  <span className="text-xs" style={{ color: "#d4af37" }}>✦</span>
+                  <span className="font-arabic text-xs text-white/85">
+                    <span style={{ color: "#d4af37" }}>{joinToast.pseudonym}</span> انضم إلى الجلسة
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <SpaceView
+              space={activeSpace} telegramId={telegramId}
+              myParticipant={myParticipant} isMuted={isMuted}
+              isSpeaking={isSpeaking} speakingPeers={speakingPeers}
+              onLeave={handleLeave} onRaiseHand={handleRaiseHand}
+              onMuteToggle={handleMuteToggle} onPromote={handlePromote}
+              onKick={handleKick} onRefresh={() => fetchSpaceDetails(activeSpace.id)}
+            />
+          </div>
         ) : (
           <div className="px-4 py-5 pb-24 space-y-4">
             <SpaceInvitesBanner telegramId={telegramId} onAccept={handleAcceptInvite} onDismiss={handleDismissInvite} />
