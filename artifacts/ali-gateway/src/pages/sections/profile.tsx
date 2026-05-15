@@ -679,6 +679,7 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: 
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
   };
   const rankColor = RANKS[user.rank] ?? "#94a3b8";
+  const roleLabel = user.civicRole === "guardian" ? "حارس الأرض" : user.civicRole === "ambassador" ? "سفير القضية" : null;
 
   return (
     <div className="rounded-xl px-2.5 py-2"
@@ -696,7 +697,15 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: 
           className="flex-1 min-w-0 text-right active:opacity-70 transition-opacity"
           style={{ cursor: onViewProfile ? "pointer" : "default" }}>
           <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
-          <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
+          <div className="flex items-center justify-end gap-1.5 mt-0.5 flex-wrap-reverse">
+            {roleLabel && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-md font-arabic text-[9px] font-bold flex-shrink-0"
+                style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.4)", color: GOLD }}>
+                {user.civicRole === "guardian" ? "⚔" : "🕊"} {roleLabel}
+              </span>
+            )}
+            <p className="font-mono text-[9px] text-white/30 truncate">{user.aliId} · LVL {user.level}</p>
+          </div>
         </button>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {isMutual && (
@@ -716,11 +725,6 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: 
           <ProfileFollowButton targetTelegramId={user.telegramId} myTelegramId={myTelegramId} />
         </div>
       </div>
-      {user.civicRole && (
-        <div className="mt-1.5 mr-12">
-          <CivicRoleShield role={user.civicRole} size="xs" />
-        </div>
-      )}
     </div>
   );
 }
@@ -1500,12 +1504,12 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           />
 
           {/* Avatar */}
-          <div className="relative mb-3" style={{ filter: "drop-shadow(0 0 22px rgba(212,175,55,0.38))" }}>
+          <div className="relative mb-4" style={{ filter: "drop-shadow(0 0 28px rgba(212,175,55,0.42))" }}>
             <AvatarFrame
               photoUrl={photoUrl}
               initials={initials}
               civicRole={civicRole}
-              size={96}
+              size={120}
               accent={GOLD}
               onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
             />
@@ -1514,20 +1518,20 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               disabled={uploadingPhoto}
               className="absolute flex items-center justify-center rounded-full active:scale-90 transition-all"
               style={{
-                bottom: 2, right: civicRole ? Math.round(96 * 0.44) + 2 : 2,
-                width: 28, height: 28,
+                bottom: 2, right: civicRole ? Math.round(120 * 0.44) + 2 : 2,
+                width: 30, height: 30,
                 background: "rgba(0,20,12,0.88)",
                 border: `1.5px solid ${GOLD}55`,
                 zIndex: 10,
               }}
             >
               {uploadingPhoto
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: GOLD }} />
-                : <Camera className="w-3.5 h-3.5" style={{ color: GOLD }} />}
+                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: GOLD }} />
+                : <Camera className="w-4 h-4" style={{ color: GOLD }} />}
             </button>
             {user?.is_premium && (
               <div className="absolute -top-1 flex items-center justify-center"
-                style={{ left: civicRole ? Math.round(96 * 0.44) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
+                style={{ left: civicRole ? Math.round(120 * 0.44) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
                 <Star className="w-2.5 h-2.5 text-white" fill="white" />
               </div>
             )}
