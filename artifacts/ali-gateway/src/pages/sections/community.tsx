@@ -522,11 +522,11 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
 }
 
 // ─── Invite Modal (followers list + search) ───────────────────────────────────
-function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
-  spaceId: number; myTelegramId: string; isHost: boolean; onClose: () => void;
+function InviteModal({ spaceId, myTelegramId, canInvite, onClose }: {
+  spaceId: number; myTelegramId: string; canInvite: boolean; onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"following" | "search">("following");
-  const [following, setFollowing] = useState<UserResult[]>([]);
+  const [tab, setTab] = useState<"friends" | "search">("friends");
+  const [friends, setFriends] = useState<UserResult[]>([]);
   const [searchResults, setSearchResults] = useState<UserResult[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -534,9 +534,9 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
   const [sending, setSending] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch("/api/users/me/following")
+    apiFetch("/api/users/me/friends")
       .then(r => r.ok ? r.json() : [])
-      .then(data => { setFollowing(data); setLoading(false); });
+      .then(data => { setFriends(data); setLoading(false); });
   }, [myTelegramId]);
 
   const doSearch = useCallback(async (q: string) => {
@@ -550,19 +550,18 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
     return () => clearTimeout(t);
   }, [query, doSearch]);
 
-  const invite = async (user: UserResult, role: "listener" | "speaker") => {
-    const key = `${user.telegramId}-${role}`;
-    setSending(key);
+  const invite = async (user: UserResult) => {
+    setSending(user.telegramId);
     await apiFetch(`/api/spaces/${spaceId}/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inviteeTelegramId: user.telegramId, role }),
+      body: JSON.stringify({ inviteeTelegramId: user.telegramId }),
     });
     setInvited(prev => new Set(prev).add(user.telegramId));
     setSending(null);
   };
 
-  const displayList = tab === "following" ? following : searchResults;
+  const displayList = tab === "friends" ? friends : searchResults;
 
   return (
     <motion.div className="fixed inset-0 z-50 flex items-end"
@@ -572,12 +571,15 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
       <motion.div className="w-full rounded-t-3xl flex flex-col"
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        style={{ background: "#080d1a", border: `1px solid ${BLUE}20`, borderBottom: "none", maxHeight: "80dvh" }}
+        style={{ background: "#080d1a", border: `1px solid ${GOLD}20`, borderBottom: "none", maxHeight: "80dvh" }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0" dir="rtl">
-          <p className="font-arabic text-base font-bold" style={{ color: BLUE }}>دعوة للجلسة</p>
+        <div className="flex items-center justify-between px-5 pt-5 pb-2 flex-shrink-0" dir="rtl">
+          <div>
+            <p className="font-arabic text-base font-bold" style={{ color: GOLD }}>🎙 دعوة للحديث</p>
+            <p className="font-arabic text-[10px] text-white/35 mt-0.5">سينضم المدعو كضيف متحدث مباشرةً</p>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
             <X className="w-4 h-4 text-white/50" />
           </button>
@@ -585,15 +587,15 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
 
         {/* Tabs */}
         <div className="flex gap-2 px-5 pb-3 flex-shrink-0" dir="rtl">
-          {(["following", "search"] as const).map(t => (
+          {(["friends", "search"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-arabic text-xs font-bold transition-all"
               style={{
-                background: tab === t ? `${BLUE}18` : "rgba(255,255,255,0.04)",
-                border: `1px solid ${tab === t ? BLUE + "40" : "rgba(255,255,255,0.08)"}`,
-                color: tab === t ? BLUE : "rgba(255,255,255,0.4)",
+                background: tab === t ? `${GOLD}18` : "rgba(255,255,255,0.04)",
+                border: `1px solid ${tab === t ? GOLD + "40" : "rgba(255,255,255,0.08)"}`,
+                color: tab === t ? GOLD : "rgba(255,255,255,0.4)",
               }}>
-              {t === "following" ? <><Users className="w-3 h-3" />متابَعون</> : <><Search className="w-3 h-3" />بحث</>}
+              {t === "friends" ? <><Users className="w-3 h-3" />الأصدقاء</> : <><Search className="w-3 h-3" />بحث</>}
             </button>
           ))}
         </div>
@@ -614,14 +616,14 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-2">
-          {loading && tab === "following" ? (
+          {loading && tab === "friends" ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin" style={{ color: BLUE }} />
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: GOLD }} />
             </div>
           ) : displayList.length === 0 ? (
             <div className="text-center py-10 space-y-2">
               <p className="font-arabic text-sm text-white/25">
-                {tab === "following" ? "لا تتابع أحداً بعد" : query.length < 2 ? "اكتب للبحث عن مستخدمين" : "لا نتائج"}
+                {tab === "friends" ? "لا يوجد أصدقاء بعد" : query.length < 2 ? "اكتب للبحث عن مستخدمين" : "لا نتائج"}
               </p>
             </div>
           ) : (
@@ -630,7 +632,7 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                 dir="rtl">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
-                  style={{ background: `${BLUE}18`, border: `1.5px solid ${BLUE}30`, color: BLUE }}>
+                  style={{ background: `${GOLD}18`, border: `1.5px solid ${GOLD}30`, color: GOLD }}>
                   {u.pseudonym.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -639,28 +641,20 @@ function InviteModal({ spaceId, myTelegramId, isHost, onClose }: {
                 </div>
                 <FollowButton targetTelegramId={u.telegramId} myTelegramId={myTelegramId} small />
                 {invited.has(u.telegramId) ? (
-                  <span className="font-arabic text-[10px] px-2 py-1 rounded-full flex-shrink-0"
+                  <span className="font-arabic text-[10px] px-2.5 py-1 rounded-full flex-shrink-0 flex items-center gap-1"
                     style={{ background: "rgba(74,222,128,0.1)", color: GREEN, border: `1px solid ${GREEN}25` }}>
-                    ✓ مدعو
+                    <CheckCircle className="w-2.5 h-2.5" />مدعو
                   </span>
-                ) : (
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => invite(u, "listener")}
-                      disabled={sending === `${u.telegramId}-listener`}
-                      className="font-arabic text-[9px] px-2 py-1 rounded-full active:scale-90"
-                      style={{ background: "rgba(96,165,250,0.1)", color: BLUE, border: `1px solid ${BLUE}25` }}>
-                      {sending === `${u.telegramId}-listener` ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "مستمع"}
-                    </button>
-                    {isHost && (
-                      <button onClick={() => invite(u, "speaker")}
-                        disabled={sending === `${u.telegramId}-speaker`}
-                        className="font-arabic text-[9px] px-2 py-1 rounded-full active:scale-90"
-                        style={{ background: `${GOLD}12`, color: GOLD, border: `1px solid ${GOLD}25` }}>
-                        {sending === `${u.telegramId}-speaker` ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "ضيف 🎙"}
-                      </button>
-                    )}
-                  </div>
-                )}
+                ) : canInvite ? (
+                  <button onClick={() => invite(u)}
+                    disabled={sending === u.telegramId}
+                    className="font-arabic text-[10px] px-2.5 py-1.5 rounded-full active:scale-90 flex items-center gap-1 flex-shrink-0"
+                    style={{ background: `${GOLD}15`, color: GOLD, border: `1px solid ${GOLD}30` }}>
+                    {sending === u.telegramId
+                      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                      : <><UserPlus className="w-2.5 h-2.5" />دعوة 🎙</>}
+                  </button>
+                ) : null}
               </div>
             ))
           )}
@@ -1032,20 +1026,27 @@ function SpaceInvitesBanner({ telegramId, onAccept, onDismiss }: {
       {invites.map(inv => (
         <motion.div key={inv.id} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl overflow-hidden"
-          style={{ background: inv.role === "speaker" ? `${GOLD}0a` : "rgba(96,165,250,0.06)", border: `1px solid ${inv.role === "speaker" ? GOLD + "35" : BLUE + "30"}` }}>
+          style={{ background: `${GOLD}0a`, border: `1px solid ${GOLD}35` }}>
           <div className="flex items-center gap-3 px-4 py-3" dir="rtl">
-            <Bell className="w-4 h-4 flex-shrink-0" style={{ color: inv.role === "speaker" ? GOLD : BLUE }} />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>
+              <Mic className="w-4 h-4" style={{ color: GOLD }} />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="font-arabic text-xs font-bold text-white/80">
-                دُعيت {inv.role === "speaker" ? "كضيف مميز 🎙" : "للاستماع 🎧"}
+              <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>
+                دُعيت للحديث كضيف 🎙
               </p>
-              <p className="font-arabic text-[10px] text-white/40 truncate">{inv.spaceTitle} · {inv.hostPseudonym}</p>
+              <p className="font-arabic text-[10px] text-white/50 truncate mt-0.5">
+                {inv.spaceTitle}
+                <span className="text-white/30"> · {inv.hostPseudonym}</span>
+              </p>
             </div>
             <div className="flex gap-1.5 flex-shrink-0">
-              <button onClick={() => { onAccept(inv.spaceId, inv.id); setInvites(p => p.filter(i => i.id !== inv.id)); }}
-                className="font-arabic text-[10px] px-2.5 py-1.5 rounded-xl font-bold active:scale-90"
-                style={{ background: inv.role === "speaker" ? `${GOLD}18` : "rgba(96,165,250,0.15)", color: inv.role === "speaker" ? GOLD : BLUE, border: `1px solid ${inv.role === "speaker" ? GOLD + "35" : BLUE + "30"}` }}>
-                انضمام
+              <button
+                onClick={() => { onAccept(inv.spaceId, inv.id); setInvites(p => p.filter(i => i.id !== inv.id)); }}
+                className="font-arabic text-[10px] px-3 py-1.5 rounded-xl font-bold active:scale-90 flex items-center gap-1"
+                style={{ background: `${GOLD}18`, color: GOLD, border: `1px solid ${GOLD}40` }}>
+                <Mic className="w-3 h-3" />انضم الآن
               </button>
               <button onClick={() => { onDismiss(inv.id); setInvites(p => p.filter(i => i.id !== inv.id)); }}
                 className="p-1.5 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -1600,7 +1601,7 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
           <InviteModal
             spaceId={space.id}
             myTelegramId={telegramId}
-            isHost={isHost}
+            canInvite={isHost || myRole === "speaker"}
             onClose={() => setShowInvite(false)}
           />
         )}
@@ -1656,13 +1657,36 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
     }
   }, [fetchSpaces, telegramId]);
 
-  // فتح المجلس تلقائياً عند الوصول عبر رابط إشعار
+  // فتح المجلس تلقائياً وقبول الدعوة والانضمام عند الوصول عبر رابط إشعار البوت
   const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (!initialSpaceId || autoOpenedRef.current) return;
+    if (!initialSpaceId || autoOpenedRef.current || !telegramId) return;
     autoOpenedRef.current = true;
-    fetchSpaceDetails(initialSpaceId);
-  }, [initialSpaceId, fetchSpaceDetails]);
+    const autoJoin = async () => {
+      // قبول أي دعوة معلّقة لهذه الجلسة أولاً
+      try {
+        const invRes = await apiFetch("/api/spaces/my-invites");
+        if (invRes.ok) {
+          const pendingInvites: SpaceInviteAlert[] = await invRes.json();
+          const pending = pendingInvites.find(inv => inv.spaceId === initialSpaceId);
+          if (pending) {
+            await apiFetch(`/api/spaces/invites/${pending.id}/accept`, { method: "POST" });
+          }
+        }
+      } catch { /* ignore */ }
+      // الانضمام مباشرةً كمتحدث
+      const joinRes = await apiFetch(`/api/spaces/${initialSpaceId}/join`, { method: "POST" });
+      if (joinRes.ok) {
+        const { participant, space, participants } = await joinRes.json();
+        setMyParticipant(participant);
+        setActiveSpace({ ...space, participants });
+      } else {
+        // احتياطي: عرض تفاصيل الجلسة فقط
+        fetchSpaceDetails(initialSpaceId);
+      }
+    };
+    autoJoin();
+  }, [initialSpaceId, telegramId, fetchSpaceDetails]);
 
   // ── SSE for real-time participant updates (replaces 4-second polling) ────────
   useEffect(() => {

@@ -455,11 +455,11 @@ router.post("/spaces/:id/join", async (req, res): Promise<void> => {
     if (!invite) { res.status(403).json({ error: "هذه الجلسة خاصة — تحتاج دعوة للانضمام" }); return; }
   }
 
-  // Check for a pending invite with a speaker role
+  // All invited users join as speakers (invites to private sessions always grant speaker role)
   const [pendingInvite] = await db.select().from(spaceInvitesTable).where(
     and(eq(spaceInvitesTable.spaceId, id), eq(spaceInvitesTable.inviteeTelegramId, telegramId))
   );
-  const assignedRole = pendingInvite?.role === "speaker" ? "speaker" : "listener";
+  const assignedRole = pendingInvite ? "speaker" : "listener";
 
   const [participant] = await db.insert(spaceParticipantsTable).values({
     spaceId: id, telegramId,
@@ -669,12 +669,27 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
 
   const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, id));
   if (!space) { res.status(404).json({ error: "Not found" }); return; }
-  if (space.hostTelegramId !== telegramId && !ADMIN_IDS.includes(telegramId)) {
-    res.status(403).json({ error: "Only the host can invite" }); return;
+
+  // Host, admins, and active speakers can all invite to private sessions
+  const isHostOrAdmin = space.hostTelegramId === telegramId || ADMIN_IDS.includes(telegramId);
+  if (!isHostOrAdmin) {
+    const [callerParticipant] = await db.select().from(spaceParticipantsTable).where(
+      and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
+    );
+    if (!callerParticipant || callerParticipant.role === "listener") {
+      res.status(403).json({ error: "يمكن للمضيف والمتحدثين فقط دعوة أصدقاء" }); return;
+    }
   }
 
-  const { inviteeTelegramId, role = "listener" } = req.body as { inviteeTelegramId?: string; role?: string };
+  // For private sessions all invitees always join as speakers
+  const { inviteeTelegramId } = req.body as { inviteeTelegramId?: string };
   if (!inviteeTelegramId) { res.status(400).json({ error: "inviteeTelegramId required" }); return; }
+
+  const role = "speaker";
+
+  // Look up inviter pseudonym for personalised notification
+  const inviter = await getUser(telegramId);
+  const inviterName = inviter?.pseudonym ?? space.hostPseudonym;
 
   const [invite] = await db.insert(spaceInvitesTable).values({
     spaceId: id, inviterTelegramId: telegramId, inviteeTelegramId, role,
@@ -685,8 +700,8 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
 
   sendBotNotification({
     toTelegramId: inviteeTelegramId,
-    text: `🎙 *دعوة إلى مجلس*\n\nدعاك *${space.hostPseudonym}* للانضمام إلى:\n_"${space.title}"_`,
-    buttonText: "🚀 الانضمام للمجلس",
+    text: `🎙 *دعوة للحديث في مجلس*\n\nدعاك *${inviterName}* للتحدث في:\n_"${space.title}"_\n\nاضغط الزر للانضمام فوراً كضيف متحدث`,
+    buttonText: "🚀 انضم الآن وتحدّث",
     navParam: `space_${id}`,
   });
 
