@@ -467,7 +467,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
           <ChevronRight className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="font-arabic font-bold text-primary text-lg leading-tight">اربح و ادعم</h1>
+          <h1 className="font-arabic font-bold text-primary text-lg leading-tight">ادعم واربح طريق النحل 🐝</h1>
           <p className="font-arabic text-muted-foreground text-xs">
             {gameState === "loading"  ? "جاري التحميل..." :
              gameState === "all-done" ? "أكملت جميع المراحل 🏆" :
@@ -511,7 +511,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
               <div>
                 <p className="font-arabic text-[#d4af37]/70 text-sm mb-1">المرحلة {playingLevel} من {MAX_LEVEL}</p>
-                <h2 className="font-arabic font-bold text-foreground text-2xl mb-2">اربح و ادعم</h2>
+                <h2 className="font-arabic font-bold text-foreground text-2xl mb-2">ادعم واربح طريق النحل 🐝</h2>
                 <p className="font-arabic text-muted-foreground text-sm leading-6 max-w-xs">
                   أجب على {questions.length} أسئلة عن المبادرة<br />
                   واكسب نقاط ولاء تُضاف لرصيدك فوراً

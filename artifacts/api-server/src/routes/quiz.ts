@@ -36,11 +36,6 @@ router.post("/quiz/start-level", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.level > MAX_LEVEL) {
-    res.status(400).json({ error: "Maximum level already reached" });
-    return;
-  }
-
   const token = issueQuizChallenge(telegramId, user.level);
   req.log.info({ telegramId, level: user.level, minAgeMs: MIN_QUIZ_AGE_MS }, "quiz session token issued");
   res.json({ quizToken: token, level: user.level, minAgeMs: MIN_QUIZ_AGE_MS });
@@ -84,11 +79,8 @@ router.post("/quiz/complete-level", async (req, res): Promise<void> => {
     return;
   }
 
-  // The level being completed must not exceed the server-enforced maximum.
-  if (levelCompleted > MAX_LEVEL) {
-    res.status(400).json({ error: "Maximum level already reached" });
-    return;
-  }
+  // Award points only up to MAX_LEVEL; levels beyond still advance the counter.
+  const awardPoints = levelCompleted <= MAX_LEVEL;
 
   const [user] = await db
     .select()
@@ -126,7 +118,7 @@ router.post("/quiz/complete-level", async (req, res): Promise<void> => {
     .update(usersTable)
     .set({
       level: user.level + 1,
-      loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${POINTS_PER_LEVEL}`,
+      ...(awardPoints ? { loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${POINTS_PER_LEVEL}` } : {}),
       lastQuizCompletedAt: new Date(),
     })
     .where(

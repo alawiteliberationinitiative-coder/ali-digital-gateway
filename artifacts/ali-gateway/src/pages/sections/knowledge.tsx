@@ -504,9 +504,109 @@ function BonusAdScreen({ level, onWatch, onSkip, adPhase }: {
   );
 }
 
+// ─── Honeycomb Hex Node ────────────────────────────────────────────────────────
+function HexNode({ size, done, current, locked, isStage, level }: {
+  size: number; done: boolean; current: boolean; locked: boolean;
+  isStage: boolean; level: number;
+}) {
+  const r  = size / 2 - 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  // Pointy-top hexagon: first vertex at 12 o'clock
+  const pts = Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i - Math.PI / 2;
+    return `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+  }).join(" ");
+
+  const uid = `hx${level}`;
+
+  const gColors: [string, string] | null =
+    done    ? ["#16a34a", "#22c55e"]
+    : current ? ["#8a6800", "#d4af37"]
+    : null;
+
+  const solidFill = locked ? "rgba(8,8,8,0.65)" : "rgba(0,40,20,0.65)";
+  const stroke    = done    ? "#4ade80"
+    : current ? "#f5d840"
+    : locked  ? "rgba(212,175,55,0.10)"
+    : "rgba(212,175,55,0.30)";
+  const sw = current ? 3.5 : done ? 3 : 1.5;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+
+      {/* Pulsing hex ring for current level */}
+      {current && (
+        <motion.div
+          className="absolute pointer-events-none"
+          style={{
+            width: size + 14, height: size + 14,
+            top: -7, left: -7,
+            clipPath: "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)",
+            background: "rgba(212,175,55,0.20)",
+          }}
+          animate={{ scale: [1, 1.22, 1], opacity: [0.8, 0, 0.8] }}
+          transition={{ repeat: Infinity, duration: 1.8 }}
+        />
+      )}
+
+      {/* SVG hexagon */}
+      <svg width={size} height={size} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+        <defs>
+          {gColors && (
+            <linearGradient id={`${uid}g`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={gColors[0]} />
+              <stop offset="100%" stopColor={gColors[1]} />
+            </linearGradient>
+          )}
+          {(done || current) && (
+            <filter id={`${uid}f`} x="-70%" y="-70%" width="240%" height="240%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation={current ? "7" : "4"} result="bl" />
+              <feMerge><feMergeNode in="bl" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          )}
+        </defs>
+        <polygon
+          points={pts}
+          fill={gColors ? `url(#${uid}g)` : solidFill}
+          stroke={stroke}
+          strokeWidth={sw}
+          filter={(done || current) ? `url(#${uid}f)` : undefined}
+        />
+      </svg>
+
+      {/* Icon / number overlay */}
+      <div className="relative z-10 flex items-center justify-center">
+        {done
+          ? <CheckCircle className="w-5 h-5 text-white drop-shadow" />
+          : locked
+            ? <Lock className="w-3.5 h-3.5" style={{ color: "rgba(212,175,55,0.22)" }} />
+            : (
+              <span className="font-mono font-bold select-none" style={{
+                fontSize: isStage ? "14px" : "12px",
+                color: current ? "#001a0d" : "#d4af37",
+                textShadow: current ? "none" : "0 0 8px rgba(212,175,55,0.5)",
+              }}>
+                {level}
+              </span>
+            )
+        }
+      </div>
+
+      {/* Stage bee badge */}
+      {isStage && !locked && (
+        <span className="absolute -top-1.5 -right-0.5 text-sm leading-none z-20 select-none"
+          style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))" }}>
+          🐝
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Duolingo Winding Path ─────────────────────────────────────────────────────
 const OFFSETS = [48, 20, 0, -20, -48, -20, 0, 20];
-const LEVELS_PER_PAGE = 50; // show this many at a time in the map
+const LEVELS_PER_PAGE = 50;
 
 function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
   totalLevels: number; completedLevels: Set<number>; currentLevel: number;
@@ -514,13 +614,11 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
 }) {
   const currentNodeRef = useRef<HTMLDivElement | null>(null);
 
-  // Show the page that contains the current level
   const [page, setPage] = useState(() => Math.ceil(currentLevel / LEVELS_PER_PAGE));
-  const totalPages  = Math.ceil(totalLevels / LEVELS_PER_PAGE);
-  const startLevel  = (page - 1) * LEVELS_PER_PAGE + 1;
-  const endLevel    = Math.min(page * LEVELS_PER_PAGE, totalLevels);
+  const totalPages = Math.ceil(totalLevels / LEVELS_PER_PAGE);
+  const startLevel = (page - 1) * LEVELS_PER_PAGE + 1;
+  const endLevel   = Math.min(page * LEVELS_PER_PAGE, totalLevels);
 
-  // Jump to page containing currentLevel if it changes
   useEffect(() => {
     const targetPage = Math.ceil(currentLevel / LEVELS_PER_PAGE);
     setPage(targetPage);
@@ -567,6 +665,7 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
           const isStage = lvl % 5 === 0;
           const offsetX = OFFSETS[(lvl - 1) % OFFSETS.length];
           const nearby  = Math.abs(lvl - currentLevel) < 20;
+          const nodeSize = isStage ? 72 : 58;
 
           return (
             <div key={lvl} ref={current ? currentNodeRef : undefined}
@@ -576,13 +675,13 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
               {isStage && (lvl <= currentLevel + 1) && (
                 <motion.div
                   initial={{ opacity: 0, scaleX: 0.8 }} animate={{ opacity: 1, scaleX: 1 }}
-                  className="w-full max-w-[220px] rounded-xl py-2 px-4 mb-1 mt-1 text-center"
+                  className="w-full max-w-[240px] rounded-xl py-2 px-4 mb-1 mt-1 text-center"
                   style={{
-                    background: done ? "rgba(74,222,128,0.12)" : "rgba(212,175,55,0.1)",
-                    border: `1px solid ${done ? "rgba(74,222,128,0.35)" : "rgba(212,175,55,0.25)"}`,
+                    background: done ? "rgba(74,222,128,0.10)" : "rgba(212,175,55,0.08)",
+                    border: `1px solid ${done ? "rgba(74,222,128,0.30)" : "rgba(212,175,55,0.22)"}`,
                   }}>
                   <p className="font-arabic text-xs font-bold" style={{ color: done ? "#4ade80" : "#d4af37" }}>
-                    {done ? "✅" : "⭐"} محطة {lvl / 5} — الإعلان والدعم
+                    {done ? "✅" : "🐝"} محطة {lvl / 5} — الإعلان والدعم
                   </p>
                 </motion.div>
               )}
@@ -590,44 +689,31 @@ function DuolingoMap({ totalLevels, completedLevels, currentLevel, onSelect }: {
               {/* Connector line */}
               {i > 0 && (
                 <div className="w-0.5 h-6 rounded-full"
-                  style={{ background: done || current ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)" }} />
+                  style={{
+                    background: done || current
+                      ? "linear-gradient(to bottom,rgba(212,175,55,0.5),rgba(212,175,55,0.2))"
+                      : "rgba(255,255,255,0.06)",
+                  }} />
               )}
 
-              {/* Level node */}
-              <motion.button
+              {/* Hex level node */}
+              <motion.div
                 onClick={() => !locked && onSelect(lvl)}
                 initial={nearby ? { opacity: 0, scale: 0.7 } : false}
                 animate={{ opacity: 1, scale: 1, x: offsetX }}
                 transition={nearby ? { delay: i * 0.02, type: "spring", stiffness: 300, damping: 22 } : { duration: 0 }}
-                whileTap={!locked ? { scale: 0.9 } : {}}
-                className="relative flex flex-col items-center justify-center rounded-full transition-all"
-                style={{
-                  width: isStage ? 72 : 58, height: isStage ? 72 : 58,
-                  background: done ? "linear-gradient(135deg,#16a34a,#22c55e)"
-                    : current ? "linear-gradient(135deg,#7a5c00,#d4af37)"
-                    : locked   ? "rgba(255,255,255,0.04)"
-                                : "rgba(0,60,30,0.5)",
-                  border: `3px solid ${done ? "#4ade80" : current ? "#f0d060" : locked ? "rgba(255,255,255,0.08)" : "rgba(212,175,55,0.3)"}`,
-                  boxShadow: done    ? "0 4px 0 rgba(22,163,74,0.5), 0 0 20px rgba(74,222,128,0.2)"
-                           : current ? "0 4px 0 rgba(100,75,0,0.7), 0 0 25px rgba(212,175,55,0.35)"
-                                      : "0 3px 0 rgba(0,0,0,0.4)",
-                  cursor: locked ? "not-allowed" : "pointer",
-                }}>
-
-                {current && (
-                  <motion.div className="absolute inset-0 rounded-full border-2 border-[#d4af37]"
-                    animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0, 0.7] }}
-                    transition={{ repeat: Infinity, duration: 1.8 }} />
-                )}
-
-                {done   ? <CheckCircle className="w-6 h-6 text-white" />
-                : locked ? <Lock className="w-4 h-4 text-white/20" />
-                         : <span className="font-mono font-bold text-sm" style={{ color: current ? "#002b1b" : "#d4af37" }}>{lvl}</span>}
-
-                {isStage && !locked && (
-                  <span className="absolute -top-1 -right-1 text-xs">⭐</span>
-                )}
-              </motion.button>
+                whileTap={!locked ? { scale: 0.88 } : {}}
+                style={{ cursor: locked ? "not-allowed" : "pointer" }}
+              >
+                <HexNode
+                  size={nodeSize}
+                  done={done}
+                  current={current}
+                  locked={locked}
+                  isStage={isStage}
+                  level={lvl}
+                />
+              </motion.div>
             </div>
           );
         })}
@@ -912,7 +998,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
           <ChevronRight className="w-5 h-5 text-[#d4af37]" />
         </button>
         <div className="flex-1" dir="rtl">
-          <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">اربح وادعم — محرك المعرفة</h1>
+          <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">ادعم واربح طريق النحل 🐝</h1>
           <p className="font-arabic text-white/35 text-xs">
             {totalLevels} مستوى · {kb?.totalQuestions ?? 0} سؤال · المستوى الحالي: {currentLevel}
           </p>

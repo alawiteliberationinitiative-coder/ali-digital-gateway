@@ -535,7 +535,7 @@ export default function Dashboard() {
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ repeat: Infinity, duration: 1.6 }}>🧠</motion.span>
                   <div className="text-right">
-                    <div className="font-arabic font-bold text-[#002b1b] text-xl leading-tight drop-shadow-sm">اربح وادعم</div>
+                    <div className="font-arabic font-bold text-[#002b1b] text-xl leading-tight drop-shadow-sm">ادعم واربح طريق النحل 🐝</div>
                     <div className="font-arabic text-[#002b1b]/70 text-xs">أجب واكسب نقاط الولاء · محرك المعرفة</div>
                   </div>
                 </div>
