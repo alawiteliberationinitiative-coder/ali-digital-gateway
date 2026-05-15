@@ -454,10 +454,16 @@ router.post("/spaces/:id/join", async (req, res): Promise<void> => {
     if (!invite) { res.status(403).json({ error: "هذه الجلسة خاصة — تحتاج دعوة للانضمام" }); return; }
   }
 
+  // Check for a pending invite with a speaker role
+  const [pendingInvite] = await db.select().from(spaceInvitesTable).where(
+    and(eq(spaceInvitesTable.spaceId, id), eq(spaceInvitesTable.inviteeTelegramId, telegramId))
+  );
+  const assignedRole = pendingInvite?.role === "speaker" ? "speaker" : "listener";
+
   const [participant] = await db.insert(spaceParticipantsTable).values({
     spaceId: id, telegramId,
     pseudonym: user.pseudonym, aliId: user.aliId,
-    role: "listener", isMuted: true, raisedHand: false,
+    role: assignedRole, isMuted: false, raisedHand: false,
   }).returning();
 
   const participants = await db.select().from(spaceParticipantsTable).where(eq(spaceParticipantsTable.spaceId, id));
@@ -537,11 +543,24 @@ router.patch("/spaces/:id/participants/:tgId", async (req, res): Promise<void> =
   const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, id));
   if (!space) { res.status(404).json({ error: "Not found" }); return; }
 
-  if (space.hostTelegramId !== telegramId && !ADMIN_IDS.includes(telegramId)) {
+  const { role, isMuted, raisedHand } = req.body as { role?: string; isMuted?: boolean; raisedHand?: boolean };
+
+  const isSelf = telegramId === targetId;
+  const isHost = space.hostTelegramId === telegramId;
+  const isAdmin = ADMIN_IDS.includes(telegramId);
+
+  // Participants may always update their own mute status
+  const isSelfMuteOnly = isSelf && isMuted !== undefined && role === undefined && raisedHand === undefined;
+
+  // Speakers may accept hand-raise requests (promote listener → speaker, clear raisedHand)
+  const isCallerSpeaker = !isSelf && await db.select().from(spaceParticipantsTable)
+    .where(and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId!)))
+    .then(rows => rows[0]?.role === "speaker");
+  const isSpeakerPromotion = isCallerSpeaker && role === "speaker" && isMuted === undefined;
+
+  if (!isHost && !isAdmin && !isSelfMuteOnly && !isSpeakerPromotion) {
     res.status(403).json({ error: "ليس لديك صلاحية إدارة المشاركين" }); return;
   }
-
-  const { role, isMuted, raisedHand } = req.body as { role?: string; isMuted?: boolean; raisedHand?: boolean };
   const updates: Record<string, unknown> = {};
   if (role       !== undefined) updates.role       = role;
   if (isMuted    !== undefined) updates.isMuted    = isMuted;

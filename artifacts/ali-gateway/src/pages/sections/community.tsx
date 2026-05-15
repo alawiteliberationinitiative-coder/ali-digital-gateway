@@ -315,6 +315,15 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
     };
   }, [enabled, myRole]);
 
+  // ── Clear PCs when role changes (listener→speaker needs sendrecv connections) ─
+  const prevRoleRef = useRef<ParticipantRole>(myRole);
+  useEffect(() => {
+    if (prevRoleRef.current === myRole) return;
+    prevRoleRef.current = myRole;
+    pcsRef.current.forEach(pc => { try { pc.close(); } catch {} });
+    pcsRef.current.clear();
+  }, [myRole]);
+
   // ── Peer connection management (create PCs when participants change) ─────────
   useEffect(() => {
     if (!enabled) return;
@@ -1440,8 +1449,8 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
           </div>
         )}
 
-        {/* Raised hands (host only) */}
-        {isHost && raisedHands.length > 0 && (
+        {/* Raised hands (host + speakers can grant permission) */}
+        {(isHost || myRole === "speaker") && raisedHands.length > 0 && (
           <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${GOLD}22`, background: `${GOLD}06` }}>
             <button className="w-full flex items-center justify-between px-4 py-2.5"
               onClick={() => setShowHandsMenu(p => !p)}>
@@ -1727,7 +1736,12 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
     await apiFetch(`/api/spaces/${activeSpace.id}/participants/${tgId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, raisedHand: false }),
+      body: JSON.stringify({
+        role,
+        raisedHand: false,
+        // Ensure promoted speakers start unmuted so other participants can hear them
+        ...(role === "speaker" ? { isMuted: false } : {}),
+      }),
     });
     // Server broadcasts updated participants via SSE — no manual refresh needed
   };
