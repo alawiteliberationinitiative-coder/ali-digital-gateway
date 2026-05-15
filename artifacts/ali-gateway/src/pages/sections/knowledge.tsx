@@ -926,42 +926,47 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
         )}
       </div>
 
+      {/* ── Fixed info panel — visible only on map, never scrolls away ── */}
+      {phase === "map" && (
+        <div className="px-4 pt-4 pb-3 text-center flex-shrink-0"
+          dir="rtl"
+          style={{ borderBottom: "1px solid rgba(212,175,55,0.10)" }}>
+          <motion.div className="text-4xl mb-2"
+            animate={{ rotate: [0, -6, 6, -4, 4, 0] }}
+            transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}>🧠</motion.div>
+          <p className="font-arabic text-[#d4af37] font-bold text-lg mb-0.5">خريطة الرحلة</p>
+          <p className="font-arabic text-white/40 text-xs mb-1">
+            كل مستوى = إعلان + {POINTS_PER_LEVEL} نقاط ولاء
+          </p>
+          <p className="font-arabic text-white/25 text-[11px] mb-3">
+            مكتمل: {completedLevels.size} / {totalLevels} مستوى
+          </p>
+          {/* Category legend */}
+          <div className="flex flex-wrap justify-center gap-1.5 mb-1.5">
+            {Object.values(kb?.categories ?? {}).map(c => (
+              <span key={c.label} className="font-arabic text-[11px] px-2 py-0.5 rounded-full"
+                style={{ background: `${c.color}18`, border: `1px solid ${c.color}45`, color: c.color }}>
+                {c.emoji} {c.label}
+              </span>
+            ))}
+          </div>
+          <div className="flex justify-center gap-2">
+            {[["↔","ترتيب","#d4af37"],["📝","ملء فراغ","#60a5fa"],["✅","اختيار","#34d399"]].map(([ic,lb,cl]) => (
+              <span key={String(lb)} className="font-arabic text-[10px] px-2 py-0.5 rounded-full"
+                style={{ background: `${cl}12`, border: `1px solid ${cl}30`, color: String(cl) }}>
+                {ic} {lb}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         <AnimatePresence mode="wait">
 
-          {/* ── MAP VIEW ── */}
+          {/* ── MAP VIEW — only the scrollable level nodes ── */}
           {phase === "map" && (
             <motion.div key="map" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -30 }}>
-              <div className="px-4 pt-6 pb-4 text-center" dir="rtl">
-                <motion.div className="text-5xl mb-3"
-                  animate={{ rotate: [0, -6, 6, -4, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}>🧠</motion.div>
-                <p className="font-arabic text-[#d4af37] font-bold text-xl mb-1">خريطة الرحلة</p>
-                <p className="font-arabic text-white/40 text-sm mb-1">
-                  كل مستوى = إعلان + {POINTS_PER_LEVEL} نقاط ولاء
-                </p>
-                <p className="font-arabic text-white/25 text-xs mb-4">
-                  مكتمل: {completedLevels.size} / {totalLevels} مستوى
-                </p>
-                {/* Category legend */}
-                <div className="flex flex-wrap justify-center gap-2">
-                  {Object.values(kb?.categories ?? {}).map(c => (
-                    <span key={c.label} className="font-arabic text-xs px-2.5 py-1 rounded-full"
-                      style={{ background: `${c.color}18`, border: `1px solid ${c.color}45`, color: c.color }}>
-                      {c.emoji} {c.label}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex justify-center gap-3 mt-2">
-                  {[["↔","ترتيب","#d4af37"],["📝","ملء فراغ","#60a5fa"],["✅","اختيار","#34d399"]].map(([ic,lb,cl]) => (
-                    <span key={String(lb)} className="font-arabic text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: `${cl}12`, border: `1px solid ${cl}30`, color: String(cl) }}>
-                      {ic} {lb}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               <DuolingoMap totalLevels={totalLevels} completedLevels={completedLevels}
                 currentLevel={currentLevel} onSelect={startLevel} />
             </motion.div>
