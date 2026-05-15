@@ -1574,7 +1574,7 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
 }
 
 // ─── Main Section ─────────────────────────────────────────────────────────────
-export function CommunitySection({ onBack }: { onBack: () => void }) {
+export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => void; initialSpaceId?: number }) {
   const { user } = useTelegram();
   const telegramId = user?.id?.toString() || "";
 
@@ -1619,6 +1619,14 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
         .then(u => { if (u) setUserRole(u.role ?? "member"); });
     }
   }, [fetchSpaces, telegramId]);
+
+  // فتح المجلس تلقائياً عند الوصول عبر رابط إشعار
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!initialSpaceId || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    fetchSpaceDetails(initialSpaceId);
+  }, [initialSpaceId, fetchSpaceDetails]);
 
   // ── SSE for real-time participant updates (replaces 4-second polling) ────────
   useEffect(() => {

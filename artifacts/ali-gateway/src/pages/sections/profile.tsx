@@ -717,17 +717,29 @@ function NetUserRow({ user, myTelegramId, onMessage }: { user: NetUser; myTelegr
 }
 
 // ─── Inbox View ───────────────────────────────────────────────────────────────
-function InboxView({ myTelegramId, onOpenChat }: { myTelegramId: string; onOpenChat: (p: ChatPartner) => void }) {
+function InboxView({ myTelegramId, onOpenChat, autoOpenPartnerId }: { myTelegramId: string; onOpenChat: (p: ChatPartner) => void; autoOpenPartnerId?: string }) {
   const [convs, setConvs]       = useState<Conversation[]>([]);
   const [loading, setLoading]   = useState(true);
+  const autoOpenedRef = useRef(false);
   const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
 
   useEffect(() => {
     apiFetch("/api/messages/conversations")
       .then(r => r.ok ? r.json() : [])
-      .then((data: Conversation[]) => { setConvs(data); setLoading(false); })
+      .then((data: Conversation[]) => {
+        setConvs(data);
+        setLoading(false);
+        // فتح المحادثة تلقائياً إذا وصل المستخدم عبر إشعار رسالة
+        if (autoOpenPartnerId && !autoOpenedRef.current) {
+          const match = data.find((c: Conversation) => c.partnerId === autoOpenPartnerId);
+          if (match) {
+            autoOpenedRef.current = true;
+            onOpenChat({ telegramId: match.partnerId, pseudonym: match.pseudonym, aliId: match.aliId, civicRole: match.civicRole, rank: match.rank, level: match.level });
+          }
+        }
+      })
       .catch(() => setLoading(false));
-  }, [myTelegramId]);
+  }, [myTelegramId, autoOpenPartnerId, onOpenChat]);
 
   if (loading) return (
     <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>
@@ -1068,7 +1080,7 @@ function ChatView({
 }
 
 // ─── Main Profile Section ─────────────────────────────────────────────────────
-export function ProfileSection({ onBack, userData }: { onBack: () => void; userData: UserData }) {
+export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string }) {
   const { user } = useTelegram();
   const queryClient = useQueryClient();
   const telegramId  = userData.telegramId;
@@ -1084,7 +1096,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
   const updateMutation = useUpdatePseudonym();
 
   // Tabs + chat state
-  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox">("profile");
+  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox">(initialChatPartnerId ? "inbox" : "profile");
   const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
   const [unreadCount,  setUnreadCount]  = useState(0);
 
@@ -1287,7 +1299,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
       {/* ── Inbox tab ── */}
       {profileTab === "inbox" && !chatPartner && (
         <div className="flex-1 overflow-y-auto">
-          <InboxView myTelegramId={telegramId} onOpenChat={handleOpenChat} />
+          <InboxView myTelegramId={telegramId} onOpenChat={handleOpenChat} autoOpenPartnerId={initialChatPartnerId} />
         </div>
       )}
 

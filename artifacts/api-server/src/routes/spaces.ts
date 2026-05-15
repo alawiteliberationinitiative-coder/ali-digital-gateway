@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket";
+import { sendBotNotification } from "../lib/telegram-notify";
 
 const router = Router();
 
@@ -661,6 +662,13 @@ router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
     target: [spaceInvitesTable.spaceId, spaceInvitesTable.inviteeTelegramId],
     set: { role, seen: false },
   }).returning();
+
+  sendBotNotification({
+    toTelegramId: inviteeTelegramId,
+    text: `🎙 *دعوة إلى مجلس*\n\nدعاك *${space.hostPseudonym}* للانضمام إلى:\n_"${space.title}"_`,
+    buttonText: "🚀 الانضمام للمجلس",
+    navParam: `space_${id}`,
+  });
 
   res.status(201).json(invite);
 });

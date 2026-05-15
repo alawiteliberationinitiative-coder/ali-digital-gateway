@@ -346,6 +346,8 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState<Section>(null);
   const [welcomeDone, setWelcomeDone] = useState(false);
   const [adarUnread, setAdarUnread] = useState(() => getAdarUnreadCount());
+  const [pendingNavSpaceId, setPendingNavSpaceId] = useState<number | null>(null);
+  const [pendingNavChatId,  setPendingNavChatId]  = useState<string | null>(null);
 
   // ── Timeout احتياطي: إذا لم يصل telegramId خلال 6 ثوانٍ أظهر شاشة retry ──
   const [noAuthReady, setNoAuthReady] = useState(false);
@@ -369,7 +371,26 @@ export default function Dashboard() {
     if (isError) setLocation("/");
   }, [isError, setLocation]);
 
-  const handleBack = useCallback(() => setActiveSection(null), []);
+  // ── معالجة روابط التوجيه العميق بعد اكتمال شاشة الترحيب ─────────────────
+  useEffect(() => {
+    if (!welcomeDone || !userData) return;
+    const nav = sessionStorage.getItem("ali_pending_nav");
+    if (!nav) return;
+    sessionStorage.removeItem("ali_pending_nav");
+    if (nav.startsWith("space_")) {
+      const id = parseInt(nav.slice(6), 10);
+      if (!isNaN(id)) { setPendingNavSpaceId(id); setActiveSection("community"); }
+    } else if (nav.startsWith("msg_")) {
+      const fromId = nav.slice(4);
+      if (fromId) { setPendingNavChatId(fromId); setActiveSection("profile"); }
+    }
+  }, [welcomeDone, userData]);
+
+  const handleBack = useCallback(() => {
+    setActiveSection(null);
+    setPendingNavSpaceId(null);
+    setPendingNavChatId(null);
+  }, []);
 
   // ── شاشة التحميل أو الخطأ ─────────────────────────────────────────────────
   if (isLoading || !userData) {
@@ -419,13 +440,13 @@ export default function Dashboard() {
                   {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
                   {activeSection === "guardians"   && <GuardiansSection onBack={handleBack} />}
                   {activeSection === "ambassadors" && <AmbassadorsSection onBack={handleBack} />}
-                  {activeSection === "community"   && <CommunitySection onBack={handleBack} />}
+                  {activeSection === "community"   && <CommunitySection onBack={handleBack} initialSpaceId={pendingNavSpaceId ?? undefined} />}
                   {activeSection === "mdd"         && <MddSection onBack={handleBack} />}
                   {activeSection === "leaderboard" && <LeaderboardSection onBack={handleBack} />}
                   {activeSection === "play"        && <PlaySection onBack={handleBack} />}
                   {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
                   {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
-                  {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} />}
+                  {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} initialChatPartnerId={pendingNavChatId ?? undefined} />}
                 </Suspense>
               </motion.div>
             )}

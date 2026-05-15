@@ -5,6 +5,7 @@ import {
   usersTable, messagesTable, blocksTable,
 } from "@workspace/db";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
+import { sendBotNotification } from "../lib/telegram-notify.js";
 
 const router = Router();
 
@@ -31,26 +32,14 @@ function pushSSE(telegramId: string, event: string, data: object) {
 }
 
 // ── Telegram notification helper ──────────────────────────────────────────────
-function sendTelegramNotification(toTelegramId: string, senderName: string, preview: string) {
-  const token   = process.env.TELEGRAM_BOT_TOKEN;
-  const domains = (process.env.REPLIT_DOMAINS ?? "").split(",").map(d => d.trim()).filter(Boolean);
-  const webApp  = domains[0] ? `https://${domains[0]}` : null;
-  if (!token || !webApp) return;
-
+function sendTelegramNotification(toTelegramId: string, senderName: string, preview: string, fromTelegramId: string) {
   const text = `💬 *رسالة جديدة*\n\nوصلتك رسالة من *${senderName}*\n_"${preview.slice(0, 60)}${preview.length > 60 ? "…" : ""}"_`;
-
-  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id:      toTelegramId,
-      text,
-      parse_mode:   "Markdown",
-      reply_markup: {
-        inline_keyboard: [[{ text: "📨 فتح البوابة", web_app: { url: webApp } }]],
-      },
-    }),
-  }).catch(() => {});
+  sendBotNotification({
+    toTelegramId,
+    text,
+    buttonText: "📨 فتح المحادثة",
+    navParam:   `msg_${fromTelegramId}`,
+  });
 }
 
 /* ── SSE ticket for messages ─────────────────────────────────────────────── */
@@ -235,7 +224,7 @@ router.post("/messages/send", async (req, res): Promise<void> => {
     .select({ pseudonym: usersTable.pseudonym })
     .from(usersTable)
     .where(eq(usersTable.telegramId, myId));
-  sendTelegramNotification(toTelegramId, sender?.pseudonym ?? "عضو", trimmed);
+  sendTelegramNotification(toTelegramId, sender?.pseudonym ?? "عضو", trimmed, myId);
 
   res.status(201).json(msg);
 });

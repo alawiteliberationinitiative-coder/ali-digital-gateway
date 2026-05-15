@@ -220,6 +220,12 @@ export default function Splash() {
       new URLSearchParams(window.location.search).get("startapp") ??
       null;
 
+    // حفظ روابط التوجيه العميق (المجلس / الرسائل) في sessionStorage
+    const isNavLink = startParam?.startsWith("space_") || startParam?.startsWith("msg_");
+    if (isNavLink && startParam) {
+      sessionStorage.setItem("ali_pending_nav", startParam);
+    }
+
     console.log("[ALI] Splash init — telegramId:", telegramId, "| initData:", !!initData);
 
     // بيئة التطوير أو حالة عدم توفر initData → توجيه مباشر للـ Dashboard
@@ -248,7 +254,7 @@ export default function Splash() {
               telegramUsername: telegramUser?.username   ?? null,
               firstName:        telegramUser?.first_name ?? null,
               lastName:         telegramUser?.last_name  ?? null,
-              referredBy:       startParam,
+              referredBy:       isNavLink ? null : startParam,
             }),
           },
           3,
