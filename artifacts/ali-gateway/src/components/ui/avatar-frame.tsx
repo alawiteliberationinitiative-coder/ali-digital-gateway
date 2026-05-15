@@ -5,48 +5,131 @@ const GOLD  = "#d4af37";
 const GOLD2 = "#f0d060";
 const GOLD3 = "#a07820";
 
-// ── Guardian decoration: two swords flanking the avatar ─────────────────────
+// ── Guardian decoration: two curved Arabic scimitars flanking the avatar ─────
 function Swords({ size }: { size: number }) {
-  const padX   = Math.round(size * 0.44);
+  const R      = size / 2;
+  const padX   = Math.round(size * 0.42);
   const totalW = size + padX * 2;
-  const totalH = size;
+  const cX     = padX + R;
+  const cY     = R;
 
-  const lx = padX * 0.5;
-  const rx = totalW - padX * 0.5;
-  const cy = totalH * 0.52;
+  const toRad = (d: number) => d * Math.PI / 180;
+  const n     = (v: number) => parseFloat(v.toFixed(2));
 
-  const bh  = size * 0.36;   // blade height
-  const bw  = size * 0.038;  // blade half-width at base
-  const gh  = size * 0.052;  // guard height
-  const gw  = size * 0.19;   // guard half-width
-  const hh  = size * 0.17;   // handle height
-  const hw  = size * 0.033;  // handle half-width
-  const pr  = size * 0.072;  // pommel rx
-  const tilt = 18;
+  // Point on circle at math-angle d (0°=right, 90°=top of screen in SVG y-down)
+  const circ = (d: number, rr = R) => [
+    n(cX + rr * Math.cos(toRad(d))),
+    n(cY - rr * Math.sin(toRad(d))),
+  ];
+
+  // ── Blade angles ───────────────────────────────────────────────────────────
+  // Tip at ~10:15 o'clock, widest at 9:00, guard at ~7:30
+  const [tX, tY] = circ(118, R - 0.5);  // tip (just inside circle)
+  const [mX, mY] = circ(174);           // widest point on circle
+  const [bX, bY] = circ(226);           // guard junction
+
+  const bW = R * 0.55;  // max blade width (lateral outward extension)
+  const oX = mX - bW;  // outer edge peak x (to the left of circle)
+  const oY = mY;        // outer edge peak y
+
+  // Outer bezier: tip → outer peak → guard base
+  const BEZ = [
+    `C ${n(tX - R*0.175)} ${n(tY + R*0.55)},`,
+    `  ${n(oX + R*0.25)}  ${n(oY - R*0.45)}, ${oX} ${oY}`,
+    `C ${n(oX + R*0.22)}  ${n(oY + R*0.35)},`,
+    `  ${n(bX - R*0.30)}  ${n(bY - R*0.25)}, ${bX} ${bY}`,
+  ].join(' ');
+
+  // Full blade: outer bezier edge + inner circle arc (sweep=0 = CCW on screen = up left side)
+  const BLADE  = `M ${tX} ${tY} ${BEZ} A ${R} ${R} 0 0 0 ${tX} ${tY} Z`;
+  const EDGE_L = `M ${tX} ${tY} ${BEZ}`;  // cutting-edge highlight path
+
+  // ── Crossguard ─────────────────────────────────────────────────────────────
+  // Blade tangent at 226° going down the left side of circle:
+  // d/dθ [cosθ, -sinθ] = [-sinθ, -cosθ]; at 226°: (-sin226°, -cos226°) ≈ (+0.719, +0.695)
+  const BTX = -Math.sin(toRad(226));  // ≈ +0.719 (tangent x)
+  const BTY = -Math.cos(toRad(226));  // ≈ +0.695 (tangent y)
+
+  // Outer perpendicular (away from circle):
+  // CW rotation of blade tangent in SVG y-down: (btx, bty) → (-bty, btx)
+  const GOX = -BTY;  // ≈ -0.695
+  const GOY =  BTX;  // ≈ +0.719
+
+  const gHWo = R * 0.42, gHWi = R * 0.12, gT = R * 0.09;
+  const goEx = bX + GOX * gHWo, goEy = bY + GOY * gHWo;  // outer arm tip
+  const giEx = bX - GOX * gHWi, giEy = bY - GOY * gHWi;  // inner arm tip
+
+  const GUARD = [
+    `M ${n(goEx + BTX*gT)} ${n(goEy + BTY*gT)}`,
+    `L ${n(goEx - BTX*gT)} ${n(goEy - BTY*gT)}`,
+    `L ${n(giEx - BTX*gT)} ${n(giEy - BTY*gT)}`,
+    `L ${n(giEx + BTX*gT)} ${n(giEy + BTY*gT)}`,
+    'Z',
+  ].join(' ');
+
+  // ── Handle ─────────────────────────────────────────────────────────────────
+  // Extends from guard base outward (away from circle center) at 226°:
+  // outward direction = (cos226°, -sin226°) ≈ (-0.695, +0.719)
+  const HDX = Math.cos(toRad(226));   // ≈ -0.695
+  const HDY = -Math.sin(toRad(226));  // ≈ +0.719
+  const hL  = R * 0.44, hW = R * 0.075;
+
+  const hv = (a: number, b: number) =>
+    `${n(bX + a*HDX + b*BTX)} ${n(bY + a*HDY + b*BTY)}`;
+  const HANDLE = `M ${hv(0,hW)} L ${hv(hL,hW)} L ${hv(hL,-hW)} L ${hv(0,-hW)} Z`;
+
+  // ── Pommel ─────────────────────────────────────────────────────────────────
+  const pX   = n(bX + HDX * hL);
+  const pY   = n(bY + HDY * hL);
+  const pAng = n(Math.atan2(HDY, HDX) * 180 / Math.PI);
 
   return (
     <svg
-      width={totalW} height={totalH}
-      style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}
+      width={totalW} height={size}
+      style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}
       overflow="visible"
     >
-      {[
-        { cx: lx, rot: -tilt },
-        { cx: rx, rot:  tilt },
-      ].map(({ cx, rot }, i) => (
-        <g key={i} transform={`translate(${cx},${cy}) rotate(${rot})`}>
-          {/* Blade */}
-          <path d={`M0,${-(bh+gh)} L${-bw},${-gh} L${bw},${-gh} Z`} fill={GOLD} />
-          {/* Blade highlight */}
-          <path d={`M${bw*0.12},${-(bh+gh)} L${bw*0.18},${-gh*1.6} L0,${-(bh*0.55+gh)} Z`} fill={GOLD2} opacity={0.55} />
-          {/* Guard */}
-          <rect x={-gw} y={-gh} width={gw*2} height={gh} rx={gh*0.4} fill={GOLD} />
-          {/* Handle */}
-          <rect x={-hw} y={0} width={hw*2} height={hh} rx={hw*0.7} fill={GOLD3} />
-          {/* Pommel */}
-          <ellipse cx={0} cy={hh + pr*0.65} rx={pr} ry={pr*0.62} fill={GOLD} />
-        </g>
-      ))}
+      <defs>
+        {/* Gradient: light at inner spine (near circle), dark at cutting edge */}
+        <linearGradient id="sw-blade" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0%"   stopColor="#fffcdc" stopOpacity={0.92} />
+          <stop offset="22%"  stopColor={GOLD2} />
+          <stop offset="62%"  stopColor={GOLD} />
+          <stop offset="100%" stopColor={GOLD3} />
+        </linearGradient>
+        <filter id="sw-glow" x="-40%" y="-20%" width="180%" height="140%">
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g filter="url(#sw-glow)">
+        {/* Left sword, Right sword (mirror via scale(-1,1)) */}
+        {([false, true] as const).map((right) => (
+          <g key={right ? 'r' : 'l'}
+            transform={right ? `scale(-1,1) translate(${-totalW},0)` : undefined}>
+            {/* Blade body */}
+            <path d={BLADE}  fill="url(#sw-blade)" />
+            {/* Cutting-edge shimmer */}
+            <path d={EDGE_L} fill="none"
+              stroke="#fffde8" strokeWidth={n(size * 0.007)} opacity={0.45} />
+            {/* Grip */}
+            <path d={HANDLE} fill={GOLD3} />
+            {/* Crossguard */}
+            <path d={GUARD}  fill={GOLD}
+              stroke={GOLD3} strokeWidth={0.6} strokeLinejoin="round" />
+            {/* Pommel */}
+            <ellipse
+              cx={pX} cy={pY} rx={R * 0.13} ry={R * 0.09}
+              transform={`rotate(${pAng},${pX},${pY})`}
+              fill={GOLD} stroke={GOLD3} strokeWidth={0.4}
+            />
+          </g>
+        ))}
+      </g>
     </svg>
   );
 }
@@ -205,7 +288,7 @@ export function AvatarFrame({
   const isGuardian   = civicRole === "guardian";
   const isAmbassador = civicRole === "ambassador";
 
-  const padX   = isGuardian ? Math.round(size * 0.44) : isAmbassador ? Math.round(size * 0.21) : 0;
+  const padX   = isGuardian ? Math.round(size * 0.42) : isAmbassador ? Math.round(size * 0.21) : 0;
   const padTop = isAmbassador ? Math.round(size * 0.05) : 0;
   const totalW = size + padX * 2;
   const totalH = size + padTop;
