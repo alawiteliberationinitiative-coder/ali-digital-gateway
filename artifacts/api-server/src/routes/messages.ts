@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { createHmac } from "crypto";
 import type { Response } from "express";
 import {
   db, eq, and, or, isNull, inArray, desc,
   usersTable, messagesTable, blocksTable,
 } from "@workspace/db";
+import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
 
 const router = Router();
 
@@ -30,30 +30,6 @@ function pushSSE(telegramId: string, event: string, data: object) {
   }
 }
 
-// ── Validate initData from query param (for EventSource SSE connections) ─────
-function extractTelegramIdFromQuery(initDataRaw: string): string | null {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token || !initDataRaw) return null;
-  try {
-    const params    = new URLSearchParams(decodeURIComponent(initDataRaw));
-    const hash      = params.get("hash");
-    if (!hash) return null;
-    params.delete("hash");
-    const dataCheckString = [...params.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join("\n");
-    const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
-    const computed  = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-    if (computed !== hash) return null;
-    const ageSecs = Date.now() / 1000 - Number(params.get("auth_date") ?? 0);
-    if (ageSecs > 3600) return null;
-    const userStr = params.get("user");
-    if (!userStr) return null;
-    return String((JSON.parse(userStr) as { id: number }).id);
-  } catch { return null; }
-}
-
 // ── Telegram notification helper ──────────────────────────────────────────────
 function sendTelegramNotification(toTelegramId: string, senderName: string, preview: string) {
   const token   = process.env.TELEGRAM_BOT_TOKEN;
@@ -77,16 +53,21 @@ function sendTelegramNotification(toTelegramId: string, senderName: string, prev
   }).catch(() => {});
 }
 
+/* ── SSE ticket for messages ─────────────────────────────────────────────── */
+router.post("/messages/sse-ticket", (req, res): void => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const ticket = issueTicket(telegramId, 0);
+  res.json({ ticket });
+});
+
 /* ── SSE: real-time message stream ────────────────────────────────────────── */
 router.get("/messages/events", async (req, res): Promise<void> => {
-  let telegramId = req.telegramId;
+  const ticketId = req.query.ticket as string | undefined;
+  if (!ticketId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  if (!telegramId) {
-    const q = req.query.initData as string | undefined;
-    if (q) telegramId = extractTelegramIdFromQuery(q) ?? undefined;
-  }
-
-  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const telegramId = consumeTicket(ticketId, 0);
+  if (!telegramId) { res.status(401).json({ error: "Invalid or expired ticket" }); return; }
 
   res.setHeader("Content-Type",  "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -103,7 +84,7 @@ router.get("/messages/events", async (req, res): Promise<void> => {
 
   req.on("close", () => {
     clearInterval(keepalive);
-    if (telegramId) removeSSEClient(telegramId, res);
+    removeSSEClient(telegramId, res);
   });
 });
 

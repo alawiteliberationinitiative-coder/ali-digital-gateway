@@ -851,24 +851,37 @@ function ChatView({
     load();
     apiFetch(`/api/messages/read/${partner.telegramId}`, { method: "POST" }).catch(() => {});
 
-    // SSE for real-time incoming messages
-    const initData = getInitData();
+    // SSE for real-time incoming messages (ticket-based — initData never in URL)
     let es: EventSource | null = null;
     let fallback: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
 
-    if (initData && typeof EventSource !== "undefined") {
-      es = new EventSource(`/api/messages/events?initData=${encodeURIComponent(initData)}`);
-      es.addEventListener("new_message", () => load());
-      es.onerror = () => {
-        es?.close();
-        es = null;
-        if (!fallback) fallback = setInterval(load, 5000);
-      };
+    const connectSSE = async () => {
+      try {
+        const ticketRes = await apiFetch("/api/messages/sse-ticket", { method: "POST" });
+        if (!ticketRes.ok || cancelled) { if (!fallback) fallback = setInterval(load, 5000); return; }
+        const { ticket } = await ticketRes.json() as { ticket: string };
+        if (cancelled) return;
+        es = new EventSource(`/api/messages/events?ticket=${encodeURIComponent(ticket)}`);
+        es.addEventListener("new_message", () => load());
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          if (!cancelled && !fallback) fallback = setInterval(load, 5000);
+        };
+      } catch {
+        if (!cancelled && !fallback) fallback = setInterval(load, 5000);
+      }
+    };
+
+    if (typeof EventSource !== "undefined") {
+      connectSSE();
     } else {
       fallback = setInterval(load, 5000);
     }
 
     return () => {
+      cancelled = true;
       es?.close();
       if (fallback) clearInterval(fallback);
     };
