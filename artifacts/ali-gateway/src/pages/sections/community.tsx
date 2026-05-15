@@ -7,14 +7,18 @@ import {
   Lock, Globe, Hash,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getInitData } from "../../lib/api";
 
 const GOLD  = "#d4af37";
 const BLUE  = "#60a5fa";
 const GREEN = "#4ade80";
-const ICE_SERVERS = [
+
+/** Fallback ICE servers used before fetching config from server */
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.telegram.org:443" },   // Telegram's own STUN server
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
 ];
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -136,57 +140,180 @@ function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 52 }: {
   );
 }
 
-// ─── WebRTC Audio Hook ───────────────────────────────────────────────────────
+// ─── WebRTC Audio Hook (Telegram-quality voice) ──────────────────────────────
+/**
+ * Manages WebRTC peer connections for space voice sessions.
+ * Key improvements over basic WebRTC:
+ *  • ICE servers fetched from server (includes STUN stun.telegram.org + optional TURN)
+ *  • High-quality Opus audio: 48 kHz, echo cancellation, noise suppression, AGC
+ *  • SSE-based real-time signaling (replaces 2-second polling — near-zero latency)
+ *  • VAD (Voice Activity Detection) for local speaking ring animation
+ *  • Remote speaking detection via RTCPeerConnection.getStats() audioLevel
+ *  • Connection state monitoring with automatic reconnect on failure
+ *  • Polling fallback when SSE is unavailable
+ */
 function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }: {
   spaceId: number; myTelegramId: string; myRole: ParticipantRole;
   participants: Participant[]; enabled: boolean;
 }) {
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const audioEls = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const [isMuted, setIsMuted] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
-  const processedRef = useRef<Set<number>>(new Set());
+  const localStreamRef  = useRef<MediaStream | null>(null);
+  const pcsRef          = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const audioEls        = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const iceServersRef   = useRef<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
+  const audioCtxRef     = useRef<AudioContext | null>(null);
+  const analyserRef     = useRef<AnalyserNode | null>(null);
+  const vadTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statsTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [isMuted,       setIsMuted]       = useState(false);
+  const [audioReady,    setAudioReady]    = useState(false);
+  const [isSpeaking,    setIsSpeaking]    = useState(false);    // local VAD
+  const [speakingPeers, setSpeakingPeers] = useState<Set<string>>(new Set()); // remote
+
+  // ── Fetch ICE server list from server (includes Telegram STUN + optional TURN) ──
+  useEffect(() => {
+    apiFetch("/api/spaces/ice-servers")
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { iceServers: RTCIceServer[] } | null) => {
+        if (d?.iceServers?.length) iceServersRef.current = d.iceServers;
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Post a WebRTC signal to a peer via the API ──────────────────────────────
   const postSignal = useCallback(async (toPeerId: string, type: string, payload: string) => {
     await apiFetch(`/api/spaces/${spaceId}/signals`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ toPeerId, type, payload }),
     });
-  }, [spaceId, myTelegramId]);
+  }, [spaceId]);
 
+  // ── Create or replace a RTCPeerConnection for a peer ────────────────────────
   const createPC = useCallback((peerId: string): RTCPeerConnection => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    // Close and replace any existing PC for this peer
+    const old = pcsRef.current.get(peerId);
+    if (old) { try { old.close(); } catch {} }
+
+    const pc = new RTCPeerConnection({
+      iceServers:          iceServersRef.current,
+      iceCandidatePoolSize: 10,
+      bundlePolicy:        "max-bundle",
+      rtcpMuxPolicy:       "require",
+    });
     pcsRef.current.set(peerId, pc);
+
+    // Add local audio tracks if we have a stream (speakers/host)
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+      localStreamRef.current.getTracks().forEach(t =>
+        pc.addTrack(t, localStreamRef.current!)
+      );
     }
+
+    // Handle incoming remote audio
     pc.ontrack = (e) => {
-      const [stream] = e.streams;
+      const stream = e.streams[0] ?? new MediaStream([e.track]);
       let el = audioEls.current.get(peerId);
-      if (!el) { el = new Audio(); el.autoplay = true; audioEls.current.set(peerId, el); }
+      if (!el) {
+        el = new Audio();
+        el.autoplay = true;
+        (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+        audioEls.current.set(peerId, el);
+      }
       el.srcObject = stream;
+      // Resume AudioContext if suspended (mobile browsers)
+      el.play().catch(() => {});
     };
-    pc.onicecandidate = (e) => { if (e.candidate) postSignal(peerId, "ice", JSON.stringify(e.candidate)); };
+
+    // Send ICE candidates to peer
+    pc.onicecandidate = (e) => {
+      if (e.candidate) postSignal(peerId, "ice", JSON.stringify(e.candidate));
+    };
+
+    // Monitor connection state — auto-reconnect on failure
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "failed") {
+        // Remove stale PC so peers effect recreates it
+        if (pcsRef.current.get(peerId) === pc) {
+          pcsRef.current.delete(peerId);
+        }
+      }
+    };
+
     return pc;
   }, [postSignal]);
 
+  // ── Mic capture with Telegram-quality Opus constraints ──────────────────────
   useEffect(() => {
     if (!enabled || myRole === "listener") return;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => { localStreamRef.current = stream; setAudioReady(true); })
+
+    const constraints: MediaStreamConstraints = {
+      audio: {
+        echoCancellation:  true,
+        noiseSuppression:  true,
+        autoGainControl:   true,
+        sampleRate:        48000,  // Opus preferred sample rate
+        sampleSize:        16,
+        channelCount:      1,
+      } as MediaTrackConstraints,
+      video: false,
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(stream => {
+        localStreamRef.current = stream;
+        setAudioReady(true);
+
+        // ── VAD: local speaking detection via Web Audio API ──
+        try {
+          const ctx      = new AudioContext();
+          audioCtxRef.current = ctx;
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize              = 512;
+          analyser.smoothingTimeConstant = 0.7;
+          analyserRef.current = analyser;
+
+          const source = ctx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          vadTimerRef.current = setInterval(() => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(data);
+            const rms = data.reduce((s, v) => s + v, 0) / data.length;
+            setIsSpeaking(rms > 10); // threshold (~-46 dBFS)
+          }, 80);
+        } catch {}
+      })
       .catch((err) => {
-        console.warn("Microphone access denied:", err?.message ?? err);
-        window.Telegram?.WebApp?.showAlert?.("❌ لم يتم منح إذن الميكروفون. يرجى السماح باستخدام الميكروفون من إعدادات التطبيق ثم المحاولة مجدداً.");
+        console.warn("Mic access denied:", err?.message ?? err);
+        window.Telegram?.WebApp?.showAlert?.(
+          "❌ لم يتم منح إذن الميكروفون. يرجى السماح باستخدام الميكروفون من إعدادات التطبيق ثم المحاولة مجدداً."
+        );
       });
-    return () => { localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null; };
+
+    return () => {
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      if (vadTimerRef.current) clearInterval(vadTimerRef.current);
+      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current = null;
+      analyserRef.current = null;
+      setAudioReady(false);
+      setIsSpeaking(false);
+    };
   }, [enabled, myRole]);
 
+  // ── Peer connection management (create PCs when participants change) ─────────
   useEffect(() => {
     if (!enabled) return;
-    const speakersAndHost = participants.filter(p => (p.role === "speaker" || p.role === "host") && p.telegramId !== myTelegramId);
+
+    const speakersAndHost = participants.filter(p =>
+      (p.role === "speaker" || p.role === "host") && p.telegramId !== myTelegramId
+    );
+
     if (myRole === "listener") {
+      // Listeners: receive-only transceiver to each speaker/host
       speakersAndHost.forEach(async (p) => {
         if (pcsRef.current.has(p.telegramId)) return;
         const pc = createPC(p.telegramId);
@@ -196,60 +323,161 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
         postSignal(p.telegramId, "offer", JSON.stringify(offer));
       });
     } else if (audioReady) {
+      // Speakers/hosts: bidirectional — higher telegramId is the offerer (deterministic)
       speakersAndHost.forEach(async (p) => {
         if (pcsRef.current.has(p.telegramId)) return;
-        const initiator = myTelegramId > p.telegramId;
-        if (initiator) {
+        if (myTelegramId > p.telegramId) {
           const pc = createPC(p.telegramId);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           postSignal(p.telegramId, "offer", JSON.stringify(offer));
-        } else { createPC(p.telegramId); }
+        } else {
+          createPC(p.telegramId); // wait for their offer
+        }
       });
     }
   }, [participants, enabled, audioReady, myRole, myTelegramId, createPC, postSignal]);
 
+  // ── Remote speaking detection via RTCPeerConnection.getStats() ───────────────
   useEffect(() => {
     if (!enabled) return;
-    const poll = async () => {
-      const res = await apiFetch(`/api/spaces/${spaceId}/signals`);
-      if (!res.ok) return;
-      const signals: { id: number; fromTelegramId: string; type: string; payload: string }[] = await res.json();
-      for (const sig of signals) {
-        if (processedRef.current.has(sig.id)) continue;
-        processedRef.current.add(sig.id);
-        let pc = pcsRef.current.get(sig.fromTelegramId);
-        if (sig.type === "offer") {
-          if (!pc) pc = createPC(sig.fromTelegramId);
-          await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sig.payload)));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          postSignal(sig.fromTelegramId, "answer", JSON.stringify(answer));
-        } else if (sig.type === "answer" && pc) {
-          if (pc.signalingState === "have-local-offer") await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sig.payload)));
-        } else if (sig.type === "ice" && pc) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(sig.payload))); } catch {}
+
+    statsTimerRef.current = setInterval(async () => {
+      const speaking = new Set<string>();
+      const checks = [...pcsRef.current.entries()].map(async ([peerId, pc]) => {
+        if (pc.connectionState !== "connected") return;
+        try {
+          const stats = await pc.getStats();
+          stats.forEach((report) => {
+            if (
+              report.type === "inbound-rtp" &&
+              (report as RTCInboundRtpStreamStats).kind === "audio"
+            ) {
+              const level = (report as RTCInboundRtpStreamStats & { audioLevel?: number }).audioLevel ?? 0;
+              if (level > 0.008) speaking.add(peerId);
+            }
+          });
+        } catch {}
+      });
+      await Promise.all(checks);
+      setSpeakingPeers(prev => {
+        const same = prev.size === speaking.size && [...speaking].every(id => prev.has(id));
+        return same ? prev : speaking;
+      });
+    }, 200);
+
+    return () => {
+      if (statsTimerRef.current) clearInterval(statsTimerRef.current);
+    };
+  }, [enabled]);
+
+  // ── SSE-based real-time signaling (with polling fallback) ────────────────────
+  useEffect(() => {
+    if (!enabled) return;
+
+    const processSignal = async (sig: {
+      id: number; fromTelegramId: string; type: string; payload: string;
+    }) => {
+      let pc = pcsRef.current.get(sig.fromTelegramId);
+
+      if (sig.type === "offer") {
+        if (!pc) pc = createPC(sig.fromTelegramId);
+
+        // Glare resolution: rollback if we also sent an offer
+        if (pc.signalingState !== "stable") {
+          try { await pc.setLocalDescription({ type: "rollback" }); } catch {}
+        }
+
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(JSON.parse(sig.payload) as RTCSessionDescriptionInit)
+        );
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        postSignal(sig.fromTelegramId, "answer", JSON.stringify(answer));
+
+      } else if (sig.type === "answer" && pc) {
+        if (pc.signalingState === "have-local-offer") {
+          await pc.setRemoteDescription(
+            new RTCSessionDescription(JSON.parse(sig.payload) as RTCSessionDescriptionInit)
+          );
+        }
+
+      } else if (sig.type === "ice" && pc) {
+        if (pc.remoteDescription) {
+          try {
+            await pc.addIceCandidate(
+              new RTCIceCandidate(JSON.parse(sig.payload) as RTCIceCandidateInit)
+            );
+          } catch {}
         }
       }
     };
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
-  }, [spaceId, myTelegramId, enabled, createPC, postSignal]);
 
+    let es: EventSource | null = null;
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+
+    const startPollingFallback = () => {
+      if (fallbackTimer) return;
+      const seen = new Set<number>();
+      fallbackTimer = setInterval(async () => {
+        try {
+          const res = await apiFetch(`/api/spaces/${spaceId}/signals`);
+          if (!res.ok) return;
+          const signals: { id: number; fromTelegramId: string; type: string; payload: string }[] = await res.json();
+          for (const sig of signals) {
+            if (!seen.has(sig.id)) { seen.add(sig.id); processSignal(sig); }
+          }
+        } catch {}
+      }, 2000);
+    };
+
+    const initData = getInitData();
+    if (initData && typeof EventSource !== "undefined") {
+      const url = `/api/spaces/${spaceId}/signals/sse?initData=${encodeURIComponent(initData)}`;
+      es = new EventSource(url);
+
+      es.addEventListener("signal", (e: MessageEvent) => {
+        try { processSignal(JSON.parse(e.data as string)); } catch {}
+      });
+
+      // On SSE error: close and fall back to polling
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        startPollingFallback();
+      };
+    } else {
+      startPollingFallback();
+    }
+
+    return () => {
+      es?.close();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [spaceId, enabled, createPC, postSignal]);
+
+  // ── Cleanup all PCs and audio elements on unmount ───────────────────────────
   useEffect(() => {
     return () => {
-      pcsRef.current.forEach(pc => pc.close()); pcsRef.current.clear();
-      audioEls.current.forEach(el => { el.srcObject = null; }); audioEls.current.clear();
+      pcsRef.current.forEach(pc => { try { pc.close(); } catch {} });
+      pcsRef.current.clear();
+      audioEls.current.forEach(el => {
+        el.srcObject = null;
+        el.pause();
+      });
+      audioEls.current.clear();
+      if (statsTimerRef.current) clearInterval(statsTimerRef.current);
     };
   }, []);
 
   const toggleMute = useCallback(() => {
     if (!localStreamRef.current) return;
-    localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
-    setIsMuted(p => !p);
-  }, []);
+    const next = !isMuted;
+    localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !next; });
+    setIsMuted(next);
+  }, [isMuted]);
 
-  return { isMuted, toggleMute, audioReady };
+  return { isMuted, toggleMute, audioReady, isSpeaking, speakingPeers };
 }
 
 // ─── Invite Modal (followers list + search) ───────────────────────────────────
@@ -1055,11 +1283,11 @@ function PrivacyNoticeModal({ onAck }: { onAck: () => void }) {
 
 // ─── Space View (inside a space) ─────────────────────────────────────────────
 function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onMuteToggle,
-  onPromote, onKick, onRefresh, isMuted }: {
+  onPromote, onKick, onRefresh, isMuted, isSpeaking, speakingPeers }: {
   space: SpaceDetails; telegramId: string; myParticipant: Participant | undefined;
   onLeave: () => void; onRaiseHand: () => void; onMuteToggle: () => void;
   onPromote: (tgId: string, role: ParticipantRole) => void; onKick: (tgId: string) => void;
-  onRefresh: () => void; isMuted: boolean;
+  onRefresh: () => void; isMuted: boolean; isSpeaking: boolean; speakingPeers: Set<string>;
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showHandsMenu, setShowHandsMenu] = useState(false);
@@ -1138,7 +1366,9 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
           <div>
             <p className="font-arabic text-[10px] text-white/25 mb-3">المضيف</p>
             <div className="flex flex-col items-center gap-2">
-              <Avatar pseudonym={host.pseudonym} role="host" isMuted={host.isMuted} isSpeaking={!host.isMuted} size={72} />
+              <Avatar pseudonym={host.pseudonym} role="host" isMuted={host.isMuted}
+                isSpeaking={host.telegramId === telegramId ? (isSpeaking && !isMuted) : speakingPeers.has(host.telegramId)}
+                size={72} />
               <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>{host.pseudonym}</p>
               <span className="font-mono text-[9px] px-2 py-0.5 rounded-full"
                 style={{ background: `${GOLD}12`, color: `${GOLD}80`, border: `1px solid ${GOLD}20` }}>
@@ -1157,7 +1387,9 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
               {speakers.map(p => (
                 <div key={p.id} className="flex flex-col items-center gap-1.5">
                   <div className="relative">
-                    <Avatar pseudonym={p.pseudonym} role="speaker" isMuted={p.isMuted} isSpeaking={!p.isMuted} size={56} />
+                    <Avatar pseudonym={p.pseudonym} role="speaker" isMuted={p.isMuted}
+                      isSpeaking={p.telegramId === telegramId ? (isSpeaking && !isMuted) : speakingPeers.has(p.telegramId)}
+                      size={56} />
                     {isHost && (
                       <button onClick={() => onKick(p.telegramId)}
                         className="absolute -top-1 -left-1 w-4 h-4 rounded-full flex items-center justify-center"
@@ -1329,7 +1561,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   const isAdmin = ["6213952907"].includes(telegramId);
   const canCreate = isAdmin || userRole === "staff" || userRole === "admin";
 
-  const { isMuted, toggleMute, audioReady } = useSpaceAudio({
+  const { isMuted, toggleMute, audioReady, isSpeaking, speakingPeers } = useSpaceAudio({
     spaceId: activeSpace?.id ?? 0,
     myTelegramId: telegramId,
     myRole: myParticipant?.role ?? "listener",
@@ -1361,11 +1593,49 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
     }
   }, [fetchSpaces, telegramId]);
 
+  // ── SSE for real-time participant updates (replaces 4-second polling) ────────
   useEffect(() => {
     if (!activeSpace) return;
-    const interval = setInterval(() => fetchSpaceDetails(activeSpace.id), 4000);
-    return () => clearInterval(interval);
-  }, [activeSpace?.id, fetchSpaceDetails]);
+
+    const initData = getInitData();
+    let es: EventSource | null = null;
+    // Keep a polling fallback in case SSE isn't available
+    let fallback: ReturnType<typeof setInterval> | null = null;
+
+    if (initData && typeof EventSource !== "undefined") {
+      const url = `/api/spaces/${activeSpace.id}/participants/sse?initData=${encodeURIComponent(initData)}`;
+      es = new EventSource(url);
+
+      es.addEventListener("participants", (e: MessageEvent) => {
+        try {
+          const rows = JSON.parse(e.data as string) as Participant[];
+          setActiveSpace(prev => prev ? { ...prev, participants: rows } : null);
+          setMyParticipant(rows.find(p => p.telegramId === telegramId));
+        } catch {}
+      });
+
+      es.addEventListener("ended", () => {
+        // Host ended the space — kick everyone out gracefully
+        setActiveSpace(null);
+        setMyParticipant(undefined);
+        fetchSpaces();
+      });
+
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        // Fall back to polling
+        fallback = setInterval(() => fetchSpaceDetails(activeSpace.id), 5000);
+      };
+    } else {
+      fallback = setInterval(() => fetchSpaceDetails(activeSpace.id), 5000);
+    }
+
+    return () => {
+      es?.close();
+      if (fallback) clearInterval(fallback);
+    };
+  }, [activeSpace?.id, telegramId, fetchSpaceDetails, fetchSpaces]);
 
   const handleJoin = async (id: number) => {
     const res = await apiFetch(`/api/spaces/${id}/join`, { method: "POST" });
@@ -1396,8 +1666,8 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
 
   const handleRaiseHand = async () => {
     if (!activeSpace) return;
+    // Server will broadcast participant update via SSE
     await apiFetch(`/api/spaces/${activeSpace.id}/raise-hand`, { method: "POST" });
-    await fetchSpaceDetails(activeSpace.id);
   };
 
   const handlePromote = async (tgId: string, role: ParticipantRole) => {
@@ -1407,7 +1677,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role, raisedHand: false }),
     });
-    await fetchSpaceDetails(activeSpace.id);
+    // Server broadcasts updated participants via SSE — no manual refresh needed
   };
 
   const handleKick = async (tgId: string) => {
@@ -1417,7 +1687,6 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: "listener" }),
     });
-    await fetchSpaceDetails(activeSpace.id);
   };
 
   const handleMuteToggle = async () => {
@@ -1478,6 +1747,7 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
           <SpaceView
             space={activeSpace} telegramId={telegramId}
             myParticipant={myParticipant} isMuted={isMuted}
+            isSpeaking={isSpeaking} speakingPeers={speakingPeers}
             onLeave={handleLeave} onRaiseHand={handleRaiseHand}
             onMuteToggle={handleMuteToggle} onPromote={handlePromote}
             onKick={handleKick} onRefresh={() => fetchSpaceDetails(activeSpace.id)}

@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { createHmac } from "crypto";
+import type { Response } from "express";
 import {
   db, eq, and, or, gte, usersTable,
   spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
@@ -7,6 +9,68 @@ import { ADMIN_IDS } from "../lib/admin";
 
 const router = Router();
 
+// ── SSE registries ───────────────────────────────────────────────────────────
+// signalClients: spaceId → telegramId → SSE Response
+const signalClients      = new Map<number, Map<string, Response>>();
+// participantClients: spaceId → telegramId → SSE Response
+const participantClients = new Map<number, Map<string, Response>>();
+
+/** Push a single WebRTC signal to the recipient's SSE connection (if open). */
+function pushSignalSSE(spaceId: number, toTelegramId: string, signal: object) {
+  const res = signalClients.get(spaceId)?.get(toTelegramId);
+  if (!res) return;
+  try { res.write(`event: signal\ndata: ${JSON.stringify(signal)}\n\n`); } catch {}
+}
+
+/** Fetch participants from DB and broadcast the updated list to all SSE clients in a space. */
+async function broadcastParticipants(spaceId: number) {
+  const clients = participantClients.get(spaceId);
+  if (!clients || clients.size === 0) return;
+  const rows = await db
+    .select()
+    .from(spaceParticipantsTable)
+    .where(eq(spaceParticipantsTable.spaceId, spaceId))
+    .orderBy(spaceParticipantsTable.joinedAt);
+  const payload = `event: participants\ndata: ${JSON.stringify(rows)}\n\n`;
+  for (const [, res] of clients) {
+    try { res.write(payload); } catch {}
+  }
+}
+
+/** Push a space-ended event to all participant SSE clients. */
+function broadcastSpaceEnded(spaceId: number) {
+  const clients = participantClients.get(spaceId);
+  if (!clients || clients.size === 0) return;
+  for (const [, res] of clients) {
+    try { res.write(`event: ended\ndata: {}\n\n`); } catch {}
+  }
+}
+
+/** Validate Telegram initData from a query-string parameter (for EventSource connections). */
+function extractTelegramIdFromQuery(raw: string): string | null {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !raw) return null;
+  try {
+    const params    = new URLSearchParams(decodeURIComponent(raw));
+    const hash      = params.get("hash");
+    if (!hash) return null;
+    params.delete("hash");
+    const dataCheck = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
+    const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
+    const computed  = createHmac("sha256", secretKey).update(dataCheck).digest("hex");
+    if (computed !== hash) return null;
+    const ageSecs   = Date.now() / 1000 - Number(params.get("auth_date") ?? 0);
+    if (ageSecs > 3600) return null;
+    const userStr   = params.get("user");
+    if (!userStr) return null;
+    return String((JSON.parse(userStr) as { id: number }).id);
+  } catch { return null; }
+}
+
+// ── DB helpers ───────────────────────────────────────────────────────────────
 async function getUser(telegramId: string) {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.telegramId, telegramId));
   return u;
@@ -17,7 +81,148 @@ function canHost(user: Awaited<ReturnType<typeof getUser>>, telegramId: string) 
   return ADMIN_IDS.includes(telegramId) || user.role === "staff" || user.role === "admin";
 }
 
-/* ── List spaces ─────────────────────────────────────────────────────────── */
+/* ══ ICE server configuration ═══════════════════════════════════════════════ */
+/**
+ * GET /api/spaces/ice-servers
+ * Returns STUN/TURN server list for WebRTC.
+ * Includes Telegram's STUN server for compatibility + optional TURN from env.
+ */
+router.get("/spaces/ice-servers", (_req, res): void => {
+  const servers: Array<{ urls: string; username?: string; credential?: string }> = [
+    { urls: "stun:stun.telegram.org:443" },   // Telegram's STUN — same infra as TG voice
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" }, // Cloudflare STUN
+  ];
+
+  // Optional TURN server from environment (set TURN_URL, TURN_USERNAME, TURN_CREDENTIAL)
+  const turnUrl  = process.env.TURN_URL;
+  const turnUser = process.env.TURN_USERNAME;
+  const turnCred = process.env.TURN_CREDENTIAL;
+  if (turnUrl && turnUser && turnCred) {
+    servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+    // Also add TCP variant for firewalled networks
+    const tcpUrl = turnUrl.replace(/^turn:/, "turn:").replace(/:\d+$/, ":443");
+    if (tcpUrl !== turnUrl) {
+      servers.push({ urls: `${tcpUrl}?transport=tcp`, username: turnUser, credential: turnCred });
+    }
+  }
+
+  res.json({ iceServers: servers });
+});
+
+/* ══ SSE: real-time WebRTC signal stream ════════════════════════════════════ */
+/**
+ * GET /api/spaces/:id/signals/sse
+ * Long-lived SSE connection that pushes WebRTC signals to the client in real-time.
+ * Replaces the 2-second polling loop. Keeps the DB as fallback for reconnecting clients.
+ */
+router.get("/spaces/:id/signals/sse", async (req, res): Promise<void> => {
+  let telegramId = req.telegramId;
+  const id = parseInt(req.params.id, 10);
+
+  if (!telegramId) {
+    const q = req.query.initData as string | undefined;
+    if (q) telegramId = extractTelegramIdFromQuery(q) ?? undefined;
+  }
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [participant] = await db.select().from(spaceParticipantsTable).where(
+    and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
+  );
+  if (!participant) { res.status(403).json({ error: "Not a participant" }); return; }
+
+  res.setHeader("Content-Type",      "text/event-stream");
+  res.setHeader("Cache-Control",     "no-cache, no-transform");
+  res.setHeader("Connection",        "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write(": connected\n\n");
+
+  if (!signalClients.has(id)) signalClients.set(id, new Map());
+  signalClients.get(id)!.set(telegramId, res);
+
+  // Flush any pending unprocessed signals from DB (handles reconnect after SSE drop)
+  const pending = await db
+    .select()
+    .from(spaceSignalsTable)
+    .where(and(
+      eq(spaceSignalsTable.spaceId, id),
+      eq(spaceSignalsTable.toTelegramId, telegramId),
+      eq(spaceSignalsTable.processed, false),
+    ))
+    .orderBy(spaceSignalsTable.createdAt);
+  if (pending.length > 0) {
+    for (const sig of pending) {
+      res.write(`event: signal\ndata: ${JSON.stringify(sig)}\n\n`);
+    }
+    await db.update(spaceSignalsTable)
+      .set({ processed: true })
+      .where(and(
+        eq(spaceSignalsTable.spaceId, id),
+        eq(spaceSignalsTable.toTelegramId, telegramId),
+        eq(spaceSignalsTable.processed, false),
+      ));
+  }
+
+  const ka = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch { clearInterval(ka); }
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(ka);
+    signalClients.get(id)?.delete(telegramId!);
+    if ((signalClients.get(id)?.size ?? 0) === 0) signalClients.delete(id);
+  });
+});
+
+/* ══ SSE: real-time participant updates ══════════════════════════════════════ */
+/**
+ * GET /api/spaces/:id/participants/sse
+ * Replaces the 4-second participant polling. Pushes the full participant list
+ * whenever someone joins, leaves, is promoted, muted, or raises their hand.
+ */
+router.get("/spaces/:id/participants/sse", async (req, res): Promise<void> => {
+  let telegramId = req.telegramId;
+  const id = parseInt(req.params.id, 10);
+
+  if (!telegramId) {
+    const q = req.query.initData as string | undefined;
+    if (q) telegramId = extractTelegramIdFromQuery(q) ?? undefined;
+  }
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  res.setHeader("Content-Type",      "text/event-stream");
+  res.setHeader("Cache-Control",     "no-cache, no-transform");
+  res.setHeader("Connection",        "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write(": connected\n\n");
+
+  if (!participantClients.has(id)) participantClients.set(id, new Map());
+  participantClients.get(id)!.set(telegramId, res);
+
+  // Send current participant list immediately
+  const rows = await db
+    .select()
+    .from(spaceParticipantsTable)
+    .where(eq(spaceParticipantsTable.spaceId, id))
+    .orderBy(spaceParticipantsTable.joinedAt);
+  res.write(`event: participants\ndata: ${JSON.stringify(rows)}\n\n`);
+
+  const ka = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch { clearInterval(ka); }
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(ka);
+    participantClients.get(id)?.delete(telegramId!);
+    if ((participantClients.get(id)?.size ?? 0) === 0) participantClients.delete(id);
+  });
+});
+
+/* ══ List spaces ════════════════════════════════════════════════════════════ */
 router.get("/spaces", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
@@ -34,7 +239,6 @@ router.get("/spaces", async (req, res): Promise<void> => {
     )
     .orderBy(spacesTable.createdAt);
 
-  // Determine which private spaces the caller is a member of (or has an invite for)
   let memberSpaceIds = new Set<number>();
   if (telegramId) {
     const participations = await db
@@ -70,7 +274,7 @@ router.get("/spaces", async (req, res): Promise<void> => {
   res.json(withCounts);
 });
 
-/* ── Create space ────────────────────────────────────────────────────────── */
+/* ══ Create space ════════════════════════════════════════════════════════════ */
 router.post("/spaces", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -81,10 +285,7 @@ router.post("/spaces", async (req, res): Promise<void> => {
   }
 
   const { title, description, scheduledAt, isPrivate } = req.body as {
-    title?: string;
-    description?: string;
-    scheduledAt?: string;
-    isPrivate?: boolean;
+    title?: string; description?: string; scheduledAt?: string; isPrivate?: boolean;
   };
 
   if (!title?.trim()) { res.status(400).json({ error: "العنوان مطلوب" }); return; }
@@ -97,8 +298,8 @@ router.post("/spaces", async (req, res): Promise<void> => {
   }
 
   const [space] = await db.insert(spacesTable).values({
-    title: title.trim(),
-    description: description?.trim().slice(0, 500) ?? null,
+    title:          title.trim(),
+    description:    description?.trim().slice(0, 500) ?? null,
     hostTelegramId: telegramId,
     hostPseudonym:  user!.pseudonym,
     hostAliId:      user!.aliId,
@@ -117,7 +318,7 @@ router.post("/spaces", async (req, res): Promise<void> => {
   res.status(201).json(space);
 });
 
-/* ── Get space details ───────────────────────────────────────────────────── */
+/* ══ Get space details ═══════════════════════════════════════════════════════ */
 router.get("/spaces/:id", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -149,7 +350,7 @@ router.get("/spaces/:id", async (req, res): Promise<void> => {
   res.json({ ...space, participants });
 });
 
-/* ── Start scheduled space ───────────────────────────────────────────────── */
+/* ══ Start scheduled space ═══════════════════════════════════════════════════ */
 router.post("/spaces/:id/start", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -169,7 +370,7 @@ router.post("/spaces/:id/start", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-/* ── Join space ──────────────────────────────────────────────────────────── */
+/* ══ Join space ═════════════════════════════════════════════════════════════ */
 router.post("/spaces/:id/join", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -211,10 +412,14 @@ router.post("/spaces/:id/join", async (req, res): Promise<void> => {
   }).returning();
 
   const participants = await db.select().from(spaceParticipantsTable).where(eq(spaceParticipantsTable.spaceId, id));
+
+  // Notify all SSE clients of new participant
+  broadcastParticipants(id).catch(() => {});
+
   res.json({ participant, space, participants });
 });
 
-/* ── Heartbeat ───────────────────────────────────────────────────────────── */
+/* ══ Heartbeat ══════════════════════════════════════════════════════════════ */
 router.post("/spaces/:id/heartbeat", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -227,7 +432,7 @@ router.post("/spaces/:id/heartbeat", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
-/* ── Leave space ─────────────────────────────────────────────────────────── */
+/* ══ Leave space ════════════════════════════════════════════════════════════ */
 router.post("/spaces/:id/leave", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -241,12 +446,17 @@ router.post("/spaces/:id/leave", async (req, res): Promise<void> => {
   if (space?.hostTelegramId === telegramId) {
     await db.update(spacesTable).set({ status: "ended", endedAt: new Date() }).where(eq(spacesTable.id, id));
     await db.delete(spaceParticipantsTable).where(eq(spaceParticipantsTable.spaceId, id));
+    // Notify all clients the space ended
+    broadcastSpaceEnded(id);
+  } else {
+    // Notify remaining clients of updated participant list
+    broadcastParticipants(id).catch(() => {});
   }
 
   res.json({ ok: true });
 });
 
-/* ── Raise / lower hand ──────────────────────────────────────────────────── */
+/* ══ Raise / lower hand ═════════════════════════════════════════════════════ */
 router.post("/spaces/:id/raise-hand", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -262,10 +472,13 @@ router.post("/spaces/:id/raise-hand", async (req, res): Promise<void> => {
     .where(eq(spaceParticipantsTable.id, p.id))
     .returning();
 
+  // Broadcast updated participant list
+  broadcastParticipants(id).catch(() => {});
+
   res.json(updated);
 });
 
-/* ── Update participant (host only) ──────────────────────────────────────── */
+/* ══ Update participant (host only) ═════════════════════════════════════════ */
 router.patch("/spaces/:id/participants/:tgId", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id       = parseInt(req.params.id, 10);
@@ -281,8 +494,8 @@ router.patch("/spaces/:id/participants/:tgId", async (req, res): Promise<void> =
 
   const { role, isMuted, raisedHand } = req.body as { role?: string; isMuted?: boolean; raisedHand?: boolean };
   const updates: Record<string, unknown> = {};
-  if (role      !== undefined) updates.role      = role;
-  if (isMuted   !== undefined) updates.isMuted   = isMuted;
+  if (role       !== undefined) updates.role       = role;
+  if (isMuted    !== undefined) updates.isMuted    = isMuted;
   if (raisedHand !== undefined) updates.raisedHand = raisedHand;
 
   const [updated] = await db.update(spaceParticipantsTable)
@@ -290,10 +503,13 @@ router.patch("/spaces/:id/participants/:tgId", async (req, res): Promise<void> =
     .where(and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, targetId)))
     .returning();
 
+  // Broadcast updated participant list to all SSE clients
+  broadcastParticipants(id).catch(() => {});
+
   res.json(updated);
 });
 
-/* ── End space (host) ────────────────────────────────────────────────────── */
+/* ══ End space (host) ═══════════════════════════════════════════════════════ */
 router.delete("/spaces/:id", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -307,10 +523,11 @@ router.delete("/spaces/:id", async (req, res): Promise<void> => {
   }
 
   await db.update(spacesTable).set({ status: "ended", endedAt: new Date() }).where(eq(spacesTable.id, id));
+  broadcastSpaceEnded(id);
   res.json({ ok: true });
 });
 
-/* ── WebRTC: get signals ─────────────────────────────────────────────────── */
+/* ══ WebRTC: get pending signals (fallback poll endpoint) ═══════════════════ */
 router.get("/spaces/:id/signals", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -344,7 +561,7 @@ router.get("/spaces/:id/signals", async (req, res): Promise<void> => {
   res.json(signals);
 });
 
-/* ── WebRTC: post signal ─────────────────────────────────────────────────── */
+/* ══ WebRTC: post signal ════════════════════════════════════════════════════ */
 router.post("/spaces/:id/signals", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   const id = parseInt(req.params.id, 10);
@@ -369,7 +586,88 @@ router.post("/spaces/:id/signals", async (req, res): Promise<void> => {
     toTelegramId: toPeerId, type, payload, processed: false,
   }).returning();
 
+  // Push to recipient's SSE connection immediately (near-zero latency)
+  pushSignalSSE(id, toPeerId, signal);
+
   res.status(201).json(signal);
+});
+
+/* ══ Invite management ══════════════════════════════════════════════════════ */
+router.post("/spaces/:id/invite", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  const id = parseInt(req.params.id, 10);
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, id));
+  if (!space) { res.status(404).json({ error: "Not found" }); return; }
+  if (space.hostTelegramId !== telegramId && !ADMIN_IDS.includes(telegramId)) {
+    res.status(403).json({ error: "Only the host can invite" }); return;
+  }
+
+  const { inviteeTelegramId, role = "listener" } = req.body as { inviteeTelegramId?: string; role?: string };
+  if (!inviteeTelegramId) { res.status(400).json({ error: "inviteeTelegramId required" }); return; }
+
+  const [invite] = await db.insert(spaceInvitesTable).values({
+    spaceId: id, inviterTelegramId: telegramId, inviteeTelegramId, role,
+  }).onConflictDoUpdate({
+    target: [spaceInvitesTable.spaceId, spaceInvitesTable.inviteeTelegramId],
+    set: { role, seen: false },
+  }).returning();
+
+  res.status(201).json(invite);
+});
+
+router.get("/spaces/my-invites", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const invites = await db
+    .select()
+    .from(spaceInvitesTable)
+    .where(and(eq(spaceInvitesTable.inviteeTelegramId, telegramId), eq(spaceInvitesTable.seen, false)));
+
+  if (invites.length === 0) { res.json([]); return; }
+
+  const enriched = await Promise.all(invites.map(async inv => {
+    const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, inv.spaceId));
+    if (!space || space.status === "ended") return null;
+    return {
+      id:            inv.id,
+      spaceId:       inv.spaceId,
+      role:          inv.role,
+      spaceTitle:    space.title,
+      spaceStatus:   space.status,
+      hostPseudonym: space.hostPseudonym,
+    };
+  }));
+
+  res.json(enriched.filter(Boolean));
+});
+
+router.post("/spaces/invites/:inviteId/accept", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  const inviteId   = parseInt(req.params.inviteId, 10);
+  if (!telegramId || isNaN(inviteId)) { res.status(400).json({ error: "Bad request" }); return; }
+
+  const [invite] = await db.select().from(spaceInvitesTable).where(eq(spaceInvitesTable.id, inviteId));
+  if (!invite || invite.inviteeTelegramId !== telegramId) {
+    res.status(404).json({ error: "Invite not found" }); return;
+  }
+
+  await db.update(spaceInvitesTable).set({ seen: true }).where(eq(spaceInvitesTable.id, inviteId));
+  res.json({ spaceId: invite.spaceId, role: invite.role });
+});
+
+router.post("/spaces/invites/:inviteId/dismiss", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  const inviteId   = parseInt(req.params.inviteId, 10);
+  if (!telegramId || isNaN(inviteId)) { res.status(400).json({ error: "Bad request" }); return; }
+
+  await db.update(spaceInvitesTable)
+    .set({ seen: true })
+    .where(and(eq(spaceInvitesTable.id, inviteId), eq(spaceInvitesTable.inviteeTelegramId, telegramId)));
+
+  res.json({ ok: true });
 });
 
 export default router;
