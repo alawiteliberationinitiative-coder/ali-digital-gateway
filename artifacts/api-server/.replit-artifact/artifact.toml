@@ -4,6 +4,7 @@ title = "API Server"
 version = "1.0.0"
 id = "artifacts/api-server"
 router = "path"
+deploymentTarget = "vm"
 
 [[integratedSkills]]
 name = "react-vite"
