@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { db, eq, usersTable, articlesTable } from "@workspace/db";
+import { ADMIN_IDS } from "../lib/admin.js";
 
 const router = Router();
-
-const ADMIN_IDS = ["6213952907"];
 
 async function getUser(telegramId: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.telegramId, telegramId));

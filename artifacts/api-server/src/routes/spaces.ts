@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Response } from "express";
 import {
-  db, eq, and, or, gte, usersTable,
+  db, eq, and, or, gte, count, inArray, usersTable,
   spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
 } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin";
@@ -289,15 +289,21 @@ router.get("/spaces", async (req, res): Promise<void> => {
     (telegramId && ADMIN_IDS.includes(telegramId))
   );
 
-  const withCounts = await Promise.all(
-    visible.map(async (s) => {
-      const participants = await db
-        .select()
+  // Single aggregation query — no N+1
+  const visibleIds = visible.map(s => s.id);
+  const countRows = visibleIds.length > 0
+    ? await db
+        .select({
+          spaceId:          spaceParticipantsTable.spaceId,
+          participantCount: count(spaceParticipantsTable.id),
+        })
         .from(spaceParticipantsTable)
-        .where(eq(spaceParticipantsTable.spaceId, s.id));
-      return { ...s, participantCount: participants.length };
-    })
-  );
+        .where(inArray(spaceParticipantsTable.spaceId, visibleIds))
+        .groupBy(spaceParticipantsTable.spaceId)
+    : [];
+
+  const countMap = new Map(countRows.map(r => [r.spaceId, Number(r.participantCount)]));
+  const withCounts = visible.map(s => ({ ...s, participantCount: countMap.get(s.id) ?? 0 }));
 
   res.json(withCounts);
 });

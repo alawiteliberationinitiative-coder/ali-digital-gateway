@@ -19,6 +19,14 @@ const cooldowns  = new Map();    // chatId → unblockTimestamp
 const MAX_WRONG  = 3;
 const COOLDOWN_MS = 60_000;
 
+// Periodic cleanup: prevent memory accumulation for long-running instances
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, ts] of cooldowns) { if (now > ts) cooldowns.delete(id); }
+  for (const id of pending.keys())  { if (verified.has(id)) pending.delete(id); }
+  for (const id of refCodes.keys()) { if (verified.has(id)) refCodes.delete(id); }
+}, 10 * 60 * 1000); // every 10 minutes
+
 // ── Supabase registration check (skip captcha for known members) ──────────────
 async function isUserRegistered(telegramId) {
   try {
@@ -333,8 +341,17 @@ if (process.env.REPLIT_DEPLOYMENT === '1') {
   const server = http.createServer((req, res) => {
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    let tooLarge = false;
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 1_000_000) { // 1 MB guard against oversized payloads
+        tooLarge = true;
+        res.writeHead(413).end('Payload Too Large');
+        req.destroy();
+      }
+    });
     req.on('end', () => {
+      if (tooLarge) return;
       try {
         const update = JSON.parse(body);
         bot.processUpdate(update);

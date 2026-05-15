@@ -5,6 +5,7 @@
  */
 import { Router } from "express";
 import { createHash } from "crypto";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -27,8 +28,9 @@ router.post("/telegram/webhook", async (req, res): Promise<void> => {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(req.body),
     });
-  } catch {
+  } catch (err) {
     // Bot process may be starting up — Telegram will retry; still return 200
+    logger.warn({ err }, "webhook: failed to forward update to bot process");
   }
 
   res.sendStatus(200);

@@ -43,6 +43,7 @@ router.post("/users/follow-check", async (req, res): Promise<void> => {
 
   const { telegramIds } = req.body as { telegramIds?: string[] };
   if (!Array.isArray(telegramIds) || telegramIds.length === 0) { res.json({}); return; }
+  if (telegramIds.length > 50) { res.status(400).json({ error: "Too many ids (max 50)" }); return; }
 
   const follows = await db
     .select({ followingTelegramId: followsTable.followingTelegramId })

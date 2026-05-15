@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Response } from "express";
 import {
-  db, eq, and, or, isNull, inArray, desc,
+  db, eq, and, or, isNull, inArray, desc, sql,
   usersTable, messagesTable, blocksTable,
 } from "@workspace/db";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
@@ -93,12 +93,12 @@ router.get("/messages/unread-count", async (req, res): Promise<void> => {
   const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const rows = await db
-    .select({ id: messagesTable.id })
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(messagesTable)
     .where(and(eq(messagesTable.toTelegramId, myId), isNull(messagesTable.readAt)));
 
-  res.json({ count: rows.length });
+  res.json({ count: result?.count ?? 0 });
 });
 
 /* ── Conversation list ───────────────────────────────────────────────────── */
@@ -167,6 +167,9 @@ router.get("/messages/thread/:partnerId", async (req, res): Promise<void> => {
   const partnerId = req.params.partnerId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
+  const limit  = Math.min(parseInt((req.query.limit  as string) || "100", 10), 200);
+  const offset = Math.max(parseInt((req.query.offset as string) || "0",   10), 0);
+
   const msgs = await db
     .select()
     .from(messagesTable)
@@ -176,7 +179,9 @@ router.get("/messages/thread/:partnerId", async (req, res): Promise<void> => {
         and(eq(messagesTable.fromTelegramId, partnerId), eq(messagesTable.toTelegramId, myId))
       )
     )
-    .orderBy(messagesTable.createdAt);
+    .orderBy(messagesTable.createdAt)
+    .limit(limit)
+    .offset(offset);
 
   res.json(msgs);
 });
