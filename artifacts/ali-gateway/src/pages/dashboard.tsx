@@ -520,14 +520,35 @@ export default function Dashboard() {
                   <div className="font-mono text-[10px] tracking-wide mt-0.5" style={{ color: "rgba(212,175,55,0.6)" }}>
                     Alawite Digital Archive & Research
                   </div>
-                  <div className="flex gap-2 mt-2">
-                    <div className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl font-arabic text-[10px] font-bold"
-                      style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.38)", color: "rgba(212,175,55,0.9)", boxShadow: "0 0 10px rgba(212,175,55,0.1), inset 0 1px 0 rgba(212,175,55,0.12)" }}>
-                      📡 بيانات رسمية
+                  {/* Quranic verse — Kufic calligraphy */}
+                  <div className="mt-2.5 relative" dir="rtl">
+                    <div className="absolute inset-0 pointer-events-none rounded-xl"
+                      style={{ background: "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(212,175,55,0.18) 0%, transparent 72%)" }} />
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="h-px flex-1" style={{ background: "linear-gradient(to left, rgba(212,175,55,0.6), transparent)" }} />
+                      <span style={{ color: "rgba(212,175,55,0.65)", fontSize: 9 }}>✦</span>
+                      <div className="h-px flex-1" style={{ background: "linear-gradient(to right, rgba(212,175,55,0.6), transparent)" }} />
                     </div>
-                    <div className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl font-arabic text-[10px] font-bold"
-                      style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.38)", color: "rgba(212,175,55,0.9)", boxShadow: "0 0 10px rgba(212,175,55,0.1), inset 0 1px 0 rgba(212,175,55,0.12)" }}>
-                      🗂 أرشيف رقمي
+                    <div style={{
+                      fontFamily: "'Reem Kufi', 'Amiri', serif",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "#f5d76e",
+                      lineHeight: 2,
+                      textAlign: "center",
+                      direction: "rtl",
+                      letterSpacing: "0.06em",
+                      textShadow: "0 0 10px rgba(212,175,55,1), 0 0 22px rgba(212,175,55,0.7), 0 0 44px rgba(212,175,55,0.35), 0 0 70px rgba(212,175,55,0.18)",
+                    }}>
+                      ﴿ فَنَقَّبُوا فِي الْبِلَادِ هَلْ مِنْ مَحِيصٍ ﴾
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="h-px flex-1" style={{ background: "linear-gradient(to left, rgba(212,175,55,0.6), transparent)" }} />
+                      <span className="font-arabic text-center"
+                        style={{ color: "rgba(212,175,55,0.45)", fontSize: 8, whiteSpace: "nowrap" }}>
+                        سورة ق — آية ٣٦
+                      </span>
+                      <div className="h-px flex-1" style={{ background: "linear-gradient(to right, rgba(212,175,55,0.6), transparent)" }} />
                     </div>
                   </div>
                 </div>
