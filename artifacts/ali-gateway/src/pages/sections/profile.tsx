@@ -1389,7 +1389,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             <ChevronRight className="w-5 h-5 text-[#d4af37]" />
           </button>
           <div className="flex-1" dir="rtl">
-            <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">ملف العضو</h1>
+            <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">الملف الشخصي</h1>
             <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
           </div>
           <div className="flex items-center gap-2">

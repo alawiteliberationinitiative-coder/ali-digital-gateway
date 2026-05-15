@@ -178,7 +178,7 @@ const ProgressHeader = memo(function ProgressHeader({
         {/* Avatar / Profile */}
         <button onClick={onOpenProfile}
           className="relative flex-shrink-0 active:scale-95 transition-transform"
-          aria-label="ملف العضو">
+          aria-label="الملف الشخصي">
           <AliEmblem className="w-9 h-9" animate={false} />
           <span className="absolute -bottom-1 -left-1 font-mono text-[8px] font-black px-1 rounded-full"
             style={{ background: "#d4af37", color: "#001a10", lineHeight: "14px" }}>
