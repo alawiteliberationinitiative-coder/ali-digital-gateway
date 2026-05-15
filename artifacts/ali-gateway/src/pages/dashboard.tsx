@@ -118,7 +118,9 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
 // ─── Telegram-style notification tone via Web Audio API ───────────────────────
 function playNotifSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioCtx = window.AudioContext || ((window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
     const notes = [{ freq: 523.25, t: 0 }, { freq: 659.25, t: 0.12 }]; // C5, E5
     notes.forEach(({ freq, t }) => {
       const osc = ctx.createOscillator();
