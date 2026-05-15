@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Wifi, Pin, BookOpen, Calendar, Radio,
   Send, CheckCircle, FileText, Scale,
-  Loader2, Camera, X,
+  Loader2, Camera, X, ChevronRight,
 } from "lucide-react";
 import { markRead } from "./adar-utils";
 import { useTelegram } from "../../lib/telegram";
@@ -862,17 +862,26 @@ export function AdarSection({
       {/* ── Sticky Header ── */}
       <div className="sticky top-0 z-20" style={{ background: "rgba(0,16,4,0.97)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${GOLD}22` }}>
         {/* Brand row */}
-        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2.5 flex-1" dir="rtl">
-            <AdarEmblem size={68} />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono font-black text-base tracking-[0.12em]" style={{ color: GOLD }}>ADAR</span>
-                <span className="w-px h-3.5 bg-[#d4af37]/30" />
-                <span className="font-arabic text-xs font-bold text-white/70">مركز الرصد الإعلامي</span>
-              </div>
-              {/* Vertical acrostic: first letters of each word spell A-D-A-R */}
-              <div className="font-mono text-[9px] tracking-wider leading-[1.55] mt-0.5" dir="ltr">
+        <div className="flex items-start gap-2 px-4 pt-3 pb-2">
+
+          {/* ── Back button ── */}
+          <button onClick={onBack}
+            className="flex-shrink-0 p-1.5 rounded-xl active:scale-90 transition-all mt-0.5"
+            style={{ background: "rgba(212,175,55,0.08)", border: `1px solid ${GOLD}28` }}>
+            <ChevronRight className="w-4 h-4" style={{ color: GOLD }} />
+          </button>
+
+          {/* ── Center: title + (acrostic | logo) ── */}
+          <div className="flex-1 min-w-0" dir="ltr">
+            {/* Row 1: ADAR | مركز الرصد الإعلامي */}
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono font-black text-base tracking-[0.12em]" style={{ color: GOLD }}>ADAR</span>
+              <span className="w-px h-3.5" style={{ background: `${GOLD}30` }} />
+              <span className="font-arabic text-xs font-bold text-white/70">مركز الرصد الإعلامي</span>
+            </div>
+            {/* Row 2: acrostic directly under the A of ADAR + logo to its right */}
+            <div className="flex items-center gap-3 mt-0.5">
+              <div className="font-mono text-[9px] tracking-wider leading-[1.55]" dir="ltr">
                 {[["A","lawite"],["D","igital"],["A","rchive &"],["R","esearch"]].map(([first, rest]) => (
                   <div key={first + rest} className="flex">
                     <span style={{ color: GOLD, fontWeight: 900 }}>{first}</span>
@@ -880,13 +889,18 @@ export function AdarSection({
                   </div>
                 ))}
               </div>
+              <AdarEmblem size={68} />
             </div>
           </div>
-          <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1 flex-shrink-0"
+
+          {/* ── LIVE badge ── */}
+          <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1 flex-shrink-0 mt-0.5"
             style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)" }}>
-            <motion.div className="w-1.5 h-1.5 rounded-full bg-red-500" animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} />
+            <motion.div className="w-1.5 h-1.5 rounded-full bg-red-500"
+              animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} />
             <span className="font-mono text-[9px] text-red-400 font-bold">LIVE</span>
           </div>
+
         </div>
 
         {/* Scrolling ticker — docs tab only */}
