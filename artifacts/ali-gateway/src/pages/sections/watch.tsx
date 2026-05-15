@@ -96,17 +96,13 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
 
         {/* Emblem */}
         <div className="relative flex items-center justify-center">
-          <motion.div
-            className="absolute rounded-full"
+          <div
+            className="absolute rounded-full ali-pulse-ring"
             style={{ width: 188, height: 188, background: "transparent", border: "2px solid rgba(212,175,55,0.25)" }}
-            animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.9, 0.4] }}
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           />
-          <motion.div
-            className="absolute rounded-full"
+          <div
+            className="absolute rounded-full ali-pulse-ring-sm"
             style={{ width: 164, height: 164, background: "transparent", border: "1.5px solid rgba(212,175,55,0.15)" }}
-            animate={{ scale: [1, 1.05, 1], opacity: [0.2, 0.6, 0.2] }}
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.4 }}
           />
           <div
             className="relative z-10 rounded-full overflow-hidden"
@@ -197,10 +193,8 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
 
           <div className="flex items-center gap-2 mb-1">
             <motion.div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0 ali-pulse-dot"
               style={{ backgroundColor: "#d4af37" }}
-              animate={{ opacity: [1, 0.15, 1] }}
-              transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
             />
             <span className="font-arabic font-black text-[#d4af37] text-sm tracking-wide">
               تنبيه هام قبل المشاهدة

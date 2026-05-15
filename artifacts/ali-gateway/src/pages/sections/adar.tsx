@@ -417,7 +417,7 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
         </div>
 
         {/* Per-category panel */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <StatCategoryPanel key={activeStatCat} catId={activeStatCat} telegramId={telegramId} />
         </AnimatePresence>
       </div>
@@ -922,8 +922,7 @@ export function AdarSection({
           {/* ── LIVE badge ── */}
           <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1 flex-shrink-0 mt-0.5"
             style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)" }}>
-            <motion.div className="w-1.5 h-1.5 rounded-full bg-red-500"
-              animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} />
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500 ali-pulse-dot" />
             <span className="font-mono text-[9px] text-red-400 font-bold">LIVE</span>
           </div>
 
@@ -948,11 +947,9 @@ export function AdarSection({
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
                 {showDot && (
-                  <motion.span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                  <span
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ali-pulse-badge"
                     style={{ background: "#ef4444", boxShadow: "0 0 6px rgba(239,68,68,0.8)" }}
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.55, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.6 }}
                   />
                 )}
               </button>
@@ -963,7 +960,7 @@ export function AdarSection({
 
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24" dir="rtl">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <motion.div key={activeTab}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.28 }}>

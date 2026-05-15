@@ -145,7 +145,7 @@ function StageAdScreen({ score, levelNum, onDone }: {
         transition={{ repeat: Infinity, duration: 1.6 }}
         className="w-28 h-28 rounded-full flex items-center justify-center relative"
         style={{ background: "linear-gradient(135deg,#002b1b,#004a2a)", border: "3px solid #d4af37", boxShadow: "0 0 50px rgba(212,175,55,0.4)" }}>
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {phase === "countdown" && (
             <motion.span key="secs"
               initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
@@ -484,7 +484,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
 
       {/* ── الشاشات ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
 
           {/* تحميل */}
           {gameState === "loading" && (

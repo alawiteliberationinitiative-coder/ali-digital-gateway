@@ -99,7 +99,7 @@ export function GuideSection({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-20">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <motion.div key={activeTab}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}>

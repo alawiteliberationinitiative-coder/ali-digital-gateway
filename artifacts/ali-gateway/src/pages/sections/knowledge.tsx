@@ -1043,7 +1043,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
       )}
 
       <div className="flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
 
           {/* ── MAP VIEW — only the scrollable level nodes ── */}
           {phase === "map" && (

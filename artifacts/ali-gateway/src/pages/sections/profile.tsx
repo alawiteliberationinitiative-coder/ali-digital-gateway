@@ -1601,7 +1601,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               </div>
               {/* Pseudonym with inline pencil edit button */}
               <div className="px-3 py-2.5">
-                <AnimatePresence mode="wait">
+                <AnimatePresence>
                   {isEditing ? (
                     <motion.div key="id-edit"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
