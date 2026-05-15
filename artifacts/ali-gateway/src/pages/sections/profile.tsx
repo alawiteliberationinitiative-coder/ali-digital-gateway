@@ -1217,7 +1217,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const [unreadCount,  setUnreadCount]  = useState(0);
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
   const [invitingFriend, setInvitingFriend] = useState(false);
-  const [showNetwork,    setShowNetwork]    = useState(false);
   const [openFinanceTab, setOpenFinanceTab] = useState<"mdd" | "points" | null>(null);
   const [openInfoTab,    setOpenInfoTab]    = useState<"keys" | "log" | null>(null);
 
@@ -1682,44 +1681,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               {civicRole && <CivicRoleShield role={civicRole} size="sm" />}
             </div>
 
-            {/* شبكتي الاجتماعية toggle button */}
-            <button
-              onClick={() => setShowNetwork(p => !p)}
-              className="mt-3 w-full flex items-center justify-between px-4 py-2.5 rounded-2xl font-arabic text-sm font-bold transition-all active:scale-[0.98]"
-              style={{
-                background: showNetwork ? "rgba(96,165,250,0.15)" : "rgba(96,165,250,0.07)",
-                border: `1.5px solid ${showNetwork ? "rgba(96,165,250,0.5)" : "rgba(96,165,250,0.2)"}`,
-                color: "#60a5fa",
-                boxShadow: showNetwork ? "0 0 16px rgba(96,165,250,0.15)" : "none",
-              }}>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span>شبكتي الاجتماعية</span>
-              </div>
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showNetwork ? "rotate-180" : ""}`} />
-            </button>
-
-            {/* Network + Referral panel */}
-            <AnimatePresence>
-              {showNetwork && (
-                <motion.div
-                  key="network-panel"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25 }}
-                  style={{ overflow: "hidden" }}>
-                  <div className="pt-3">
-                    <NetworkSection
-                      myTelegramId={telegramId}
-                      onMessage={handleOpenChat}
-                      onViewFriend={(u) => setFriendProfile(u)}
-                      autoExpand
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
 
