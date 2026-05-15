@@ -1345,7 +1345,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const lastName  = userData.lastName  || user?.last_name  || "";
   const username  = userData.telegramUsername || user?.username;
   const displayName = [firstName, lastName].filter(Boolean).join(" ") || pseudonym;
-  const initials  = displayName.slice(0, 2).toUpperCase();
+  const initials  = pseudonym.slice(0, 2).toUpperCase();
 
   const rankInfo      = getRankInfo(userData.loyaltyPoints);
   const referralCode  = userData.aliId;
@@ -1565,10 +1565,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </div>
 
           {/* Name */}
-          <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{displayName}</h2>
-
-          {/* Copyable @username */}
-          {username && <CopyableUsername username={username} />}
+          <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{pseudonym}</h2>
 
           {/* Rank badge */}
           <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-3"
