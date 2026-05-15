@@ -128,7 +128,8 @@ router.post("/calls/initiate", async (req, res): Promise<void> => {
       });
     }
 
-    res.json({ callId, calleePresence });
+    // Only expose whether callee is reachable (not their exact context)
+    res.json({ callId, reachable: calleePresence !== "offline" });
   } catch {
     res.status(500).json({ error: "Failed to initiate call" });
   }

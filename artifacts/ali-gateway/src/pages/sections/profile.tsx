@@ -1317,7 +1317,14 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
       });
       localStreamRef.current = stream;
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.telegram.org:443" },
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun.cloudflare.com:3478" },
+        ],
+      });
       pcRef.current = pc;
       stream.getTracks().forEach(t => pc.addTrack(t, stream));
       pc.ontrack = (e) => {

@@ -712,27 +712,26 @@ router.get("/spaces/my-invites", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const invites = await db
-    .select()
+  // Single JOIN query instead of N+1 individual space lookups
+  const rows = await db
+    .select({
+      id:            spaceInvitesTable.id,
+      spaceId:       spaceInvitesTable.spaceId,
+      role:          spaceInvitesTable.role,
+      spaceTitle:    spacesTable.title,
+      spaceStatus:   spacesTable.status,
+      hostPseudonym: spacesTable.hostPseudonym,
+    })
     .from(spaceInvitesTable)
-    .where(and(eq(spaceInvitesTable.inviteeTelegramId, telegramId), eq(spaceInvitesTable.seen, false)));
+    .innerJoin(spacesTable, eq(spaceInvitesTable.spaceId, spacesTable.id))
+    .where(and(
+      eq(spaceInvitesTable.inviteeTelegramId, telegramId),
+      eq(spaceInvitesTable.seen, false),
+    ))
+    .orderBy(spaceInvitesTable.id);
 
-  if (invites.length === 0) { res.json([]); return; }
-
-  const enriched = await Promise.all(invites.map(async inv => {
-    const [space] = await db.select().from(spacesTable).where(eq(spacesTable.id, inv.spaceId));
-    if (!space || space.status === "ended") return null;
-    return {
-      id:            inv.id,
-      spaceId:       inv.spaceId,
-      role:          inv.role,
-      spaceTitle:    space.title,
-      spaceStatus:   space.status,
-      hostPseudonym: space.hostPseudonym,
-    };
-  }));
-
-  res.json(enriched.filter(Boolean));
+  // Return only live or scheduled spaces (not ended ones)
+  res.json(rows.filter(r => r.spaceStatus === "live" || r.spaceStatus === "scheduled"));
 });
 
 router.post("/spaces/invites/:inviteId/accept", async (req, res): Promise<void> => {

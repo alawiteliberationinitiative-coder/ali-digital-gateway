@@ -503,8 +503,12 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
       pcsRef.current.forEach(pc => { try { pc.close(); } catch {} });
       pcsRef.current.clear();
       audioEls.current.forEach(el => {
-        el.srcObject = null;
-        el.pause();
+        try {
+          el.pause();
+          el.srcObject = null;
+          el.load();
+          el.remove();
+        } catch {}
       });
       audioEls.current.clear();
       if (statsTimerRef.current) clearInterval(statsTimerRef.current);
