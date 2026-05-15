@@ -1511,16 +1511,102 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
           {/* Name */}
           <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{displayName}</h2>
-          {username && <p className="font-mono text-white/40 text-sm mb-1">@{username}</p>}
-          <p className="font-arabic text-white/50 text-sm mb-1">{pseudonym}</p>
+
+          {/* Copyable @username */}
+          {username && (
+            <button
+              onClick={() => navigator.clipboard.writeText(`@${username}`)}
+              className="inline-flex items-center gap-1 mb-2 rounded-lg px-2 py-0.5 active:scale-95 transition-all group"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <span className="font-mono text-white/40 text-sm">@{username}</span>
+              <Copy className="w-3 h-3 text-white/20 group-active:text-white/55 transition-colors" />
+            </button>
+          )}
 
           {/* Rank badge */}
-          <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-4"
+          <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-3"
             style={{ background: `${rankInfo.current.color}18`, border: `1.5px solid ${rankInfo.current.color}50`, boxShadow: `0 0 16px ${rankInfo.current.color}25` }}>
             <Shield className="w-3.5 h-3.5" style={{ color: rankInfo.current.color }} />
             <span className="font-mono font-bold text-xs" style={{ color: rankInfo.current.color }}>
               {rankInfo.current.name}
             </span>
+          </div>
+
+          {/* ── Identity mini-card (embedded in hero) ── */}
+          <div className="w-full mb-3" dir="rtl">
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: "rgba(0,0,0,0.22)", border: `1.5px solid ${GOLD}22` }}>
+              {/* Header */}
+              <div className="flex items-center gap-2 px-3 py-2"
+                style={{ background: "rgba(212,175,55,0.06)", borderBottom: `1px solid ${GOLD}15` }}>
+                <Shield className="w-3.5 h-3.5" style={{ color: GOLD }} />
+                <span className="font-arabic text-xs font-bold" style={{ color: GOLD }}>هوية العضو</span>
+              </div>
+              {/* رقم الهوية | الرتبة */}
+              <div className="grid grid-cols-2">
+                <div className="px-3 py-2.5"
+                  style={{ borderBottom: `1px solid ${GOLD}10`, borderLeft: "1px solid rgba(212,175,55,0.08)" }}>
+                  <p className="font-arabic text-[9px] text-white/35 mb-0.5">رقم الهوية</p>
+                  <p className="font-mono text-[#d4af37] text-xs font-bold tracking-widest">{userData.aliId}</p>
+                </div>
+                <div className="px-3 py-2.5"
+                  style={{ borderBottom: `1px solid ${GOLD}10` }}>
+                  <p className="font-arabic text-[9px] text-white/35 mb-0.5">الرتبة</p>
+                  <p className="font-mono text-xs font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</p>
+                </div>
+              </div>
+              {/* Pseudonym with inline pencil edit button */}
+              <div className="px-3 py-2.5">
+                <AnimatePresence mode="wait">
+                  {isEditing ? (
+                    <motion.div key="id-edit"
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.15 }} className="space-y-2">
+                      <input
+                        dir="auto" value={editValue}
+                        onChange={e => { setEditValue(e.target.value); setEditError(""); }}
+                        onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
+                        maxLength={30} autoFocus
+                        placeholder="أدخل الاسم المستعار الجديد"
+                        className="w-full rounded-lg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-white/25"
+                        style={{
+                          background: "rgba(255,255,255,0.07)",
+                          border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`,
+                          caretColor: "#d4af37",
+                        }}
+                      />
+                      {editError && <p className="font-arabic text-[11px] text-red-400">{editError}</p>}
+                      <div className="flex gap-2">
+                        <button onClick={handleSave} disabled={updateMutation.isPending}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
+                          style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
+                          {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+                        </button>
+                        <button onClick={cancelEdit} disabled={updateMutation.isPending}
+                          className="px-4 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
+                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="id-display" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className="flex items-center justify-between gap-2">
+                      <div className="text-right">
+                        <p className="font-arabic text-[9px] text-white/35 mb-0.5">الاسم المستعار</p>
+                        <p className="font-mono text-white/80 text-sm font-bold">{pseudonym}</p>
+                      </div>
+                      <button onClick={startEdit}
+                        className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-90 transition-transform"
+                        style={{ width: 30, height: 30, background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.28)" }}>
+                        <Pencil className="w-3.5 h-3.5" style={{ color: GOLD }} />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
 
           {/* ── Civic Role Selector + Shield inline ── */}
@@ -1612,77 +1698,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             </AnimatePresence>
           </div>
         </div>
-
-        {/* ── IDENTITY CARD ── */}
-        <GlassCard accent={GOLD}>
-          <SectionLabel icon={<Shield className="w-4 h-4" />} label="هوية العضو" />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
-              <p className="font-arabic text-[10px] text-white/35 mb-1">رقم الهوية</p>
-              <p className="font-mono text-[#d4af37] text-xs font-bold tracking-widest">{userData.aliId}</p>
-            </div>
-            <div className="rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
-              <p className="font-arabic text-[10px] text-white/35 mb-1">الرتبة</p>
-              <p className="font-mono text-xs font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</p>
-            </div>
-            <div className="col-span-2 rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="font-arabic text-[10px] text-white/35">الاسم المستعار</p>
-                {!isEditing && (
-                  <button onClick={startEdit}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg active:scale-95 transition-transform"
-                    style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)" }}>
-                    <Pencil className="w-3 h-3 text-[#d4af37]" />
-                    <span className="font-arabic text-[10px] text-[#d4af37]">تعديل</span>
-                  </button>
-                )}
-              </div>
-              <AnimatePresence mode="wait">
-                {isEditing ? (
-                  <motion.div key="edit"
-                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="space-y-2">
-                    <input
-                      dir="auto"
-                      value={editValue}
-                      onChange={e => { setEditValue(e.target.value); setEditError(""); }}
-                      onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
-                      maxLength={30}
-                      autoFocus
-                      placeholder="أدخل الاسم المستعار الجديد"
-                      className="w-full rounded-lg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-white/25"
-                      style={{
-                        background: "rgba(255,255,255,0.07)",
-                        border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`,
-                        caretColor: "#d4af37",
-                      }}
-                    />
-                    {editError && <p className="font-arabic text-[11px] text-red-400">{editError}</p>}
-                    <div className="flex gap-2">
-                      <button onClick={handleSave} disabled={updateMutation.isPending}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
-                        style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
-                        {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
-                      </button>
-                      <button onClick={cancelEdit} disabled={updateMutation.isPending}
-                        className="px-4 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
-                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.p key="display" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="font-mono text-white/80 text-sm font-bold">
-                    {pseudonym}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </GlassCard>
 
         {/* ── FINANCE PAIR: عملاتي + نقاط الولاء ── */}
         <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(212,175,55,0.25)", background: "rgba(0,0,0,0.25)" }}>
