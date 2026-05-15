@@ -1168,6 +1168,33 @@ function ChatView({
   );
 }
 
+// ─── Copyable Telegram Username ───────────────────────────────────────────────
+function CopyableUsername({ username }: { username: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(`@${username}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  return (
+    <button
+      onClick={copy}
+      className="inline-flex items-center gap-1.5 mb-2 rounded-xl px-3 py-1 active:scale-95 transition-all"
+      style={{
+        background: copied ? "rgba(74,222,128,0.12)" : "rgba(96,165,250,0.10)",
+        border: `1px solid ${copied ? "rgba(74,222,128,0.40)" : "rgba(96,165,250,0.30)"}`,
+      }}>
+      <span className="font-mono text-sm transition-colors"
+        style={{ color: copied ? "#4ade80" : "#60a5fa" }}>
+        @{username}
+      </span>
+      {copied
+        ? <Check className="w-3.5 h-3.5 text-green-400" />
+        : <Copy className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />}
+    </button>
+  );
+}
+
 // ─── Main Profile Section ─────────────────────────────────────────────────────
 export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string; initialTab?: "profile" | "inbox" | "friends"; onOpenCommunity?: (spaceId: number) => void }) {
   const { user } = useTelegram();
@@ -1518,7 +1545,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               disabled={uploadingPhoto}
               className="absolute flex items-center justify-center rounded-full active:scale-90 transition-all"
               style={{
-                bottom: 2, right: civicRole ? Math.round(120 * 0.44) + 2 : 2,
+                bottom: 2, right: civicRole === "guardian" ? Math.round(120 * 0.44) + 2 : civicRole === "ambassador" ? Math.round(120 * 0.21) + 2 : 2,
                 width: 30, height: 30,
                 background: "rgba(0,20,12,0.88)",
                 border: `1.5px solid ${GOLD}55`,
@@ -1531,7 +1558,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             </button>
             {user?.is_premium && (
               <div className="absolute -top-1 flex items-center justify-center"
-                style={{ left: civicRole ? Math.round(120 * 0.44) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
+                style={{ left: civicRole === "guardian" ? Math.round(120 * 0.44) - 8 : civicRole === "ambassador" ? Math.round(120 * 0.21) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
                 <Star className="w-2.5 h-2.5 text-white" fill="white" />
               </div>
             )}
@@ -1541,15 +1568,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{displayName}</h2>
 
           {/* Copyable @username */}
-          {username && (
-            <button
-              onClick={() => navigator.clipboard.writeText(`@${username}`)}
-              className="inline-flex items-center gap-1 mb-2 rounded-lg px-2 py-0.5 active:scale-95 transition-all group"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <span className="font-mono text-white/40 text-sm">@{username}</span>
-              <Copy className="w-3 h-3 text-white/20 group-active:text-white/55 transition-colors" />
-            </button>
-          )}
+          {username && <CopyableUsername username={username} />}
 
           {/* Rank badge */}
           <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-3"
