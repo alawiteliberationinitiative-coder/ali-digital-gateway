@@ -533,21 +533,21 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
       .then(data => { if (data) setStats(data); });
   }, [myTelegramId]);
 
-  const loadList = useCallback(async (t: "followers" | "following") => {
+  const loadBoth = useCallback(async () => {
     setLoadingList(true);
-    const url = t === "followers" ? "/api/users/me/followers" : "/api/users/me/following";
-    const res = await apiFetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (t === "followers") setFollowers(data); else setFollowing(data);
-    }
+    const [rF, rFing] = await Promise.all([
+      apiFetch("/api/users/me/followers"),
+      apiFetch("/api/users/me/following"),
+    ]);
+    if (rF.ok) setFollowers(await rF.json());
+    if (rFing.ok) setFollowing(await rFing.json());
     setLoadingList(false);
   }, [myTelegramId]);
 
   useEffect(() => {
     if (!expanded) return;
-    loadList(tab);
-  }, [expanded, tab, loadList]);
+    loadBoth();
+  }, [expanded, loadBoth]);
 
   useEffect(() => {
     if (!showSearch || query.length < 2) { setSearchRes([]); return; }
@@ -559,6 +559,8 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
   }, [query, showSearch, myTelegramId]);
 
   const displayList = tab === "followers" ? followers : following;
+  const followingIds = new Set(following.map(u => u.telegramId));
+  const followerIds  = new Set(followers.map(u => u.telegramId));
 
   return (
     <div className="rounded-2xl overflow-hidden"
@@ -566,7 +568,6 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
 
       {/* Stats Row */}
       <div className="flex items-center gap-0 divide-x divide-white/5" dir="rtl">
-        {/* Followers */}
         <button onClick={() => { setTab("followers"); setExpanded(true); setShowSearch(false); }}
           className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
           <p className="font-mono font-black text-2xl" style={{ color: "#60a5fa", textShadow: "0 0 12px rgba(96,165,250,0.4)" }}>
@@ -577,7 +578,6 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
 
         <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
 
-        {/* Following */}
         <button onClick={() => { setTab("following"); setExpanded(true); setShowSearch(false); }}
           className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
           <p className="font-mono font-black text-2xl" style={{ color: "#4ade80", textShadow: "0 0 12px rgba(74,222,128,0.4)" }}>
@@ -588,14 +588,12 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
 
         <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
 
-        {/* Search */}
         <button onClick={() => { setShowSearch(p => !p); setExpanded(true); }}
           className="px-4 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
           <Search className="w-5 h-5 text-white/30" />
           <p className="font-arabic text-[10px] text-white/30 mt-0.5">بحث</p>
         </button>
 
-        {/* Expand toggle */}
         <button onClick={() => setExpanded(p => !p)}
           className="px-3 self-stretch flex items-center active:bg-white/5 transition-colors">
           <ChevronDown className={`w-4 h-4 text-white/25 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -610,7 +608,6 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
             style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
 
-            {/* Tab bar + search (when not in search mode) */}
             {!showSearch && (
               <div className="flex gap-2 px-4 pt-3 pb-2" dir="rtl">
                 {(["followers", "following"] as const).map(t => (
@@ -627,7 +624,6 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
               </div>
             )}
 
-            {/* Search mode */}
             {showSearch && (
               <div className="px-4 pt-3 pb-2 space-y-2">
                 <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
@@ -642,7 +638,6 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
               </div>
             )}
 
-            {/* List */}
             <div className="px-4 pb-4 space-y-2 max-h-64 overflow-y-auto">
               {loadingList && !showSearch ? (
                 <div className="flex justify-center py-6">
@@ -655,7 +650,9 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
                   </p>
                 ) : (
                   searchRes.map(u => (
-                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} onViewProfile={onViewFriend} />
+                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
+                      isMutual={followingIds.has(u.telegramId) && followerIds.has(u.telegramId)}
+                      onMessage={onMessage} onViewProfile={onViewFriend} />
                   ))
                 )
               ) : displayList.length === 0 ? (
@@ -664,7 +661,9 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
                 </p>
               ) : (
                 displayList.map(u => (
-                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} onViewProfile={onViewFriend} />
+                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
+                    isMutual={tab === "followers" ? followingIds.has(u.telegramId) : followerIds.has(u.telegramId)}
+                    onMessage={onMessage} onViewProfile={onViewFriend} />
                 ))
               )}
             </div>
@@ -675,7 +674,7 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: {
   );
 }
 
-function NetUserRow({ user, myTelegramId, onMessage, onViewProfile }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void }) {
+function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void; isMutual?: boolean }) {
   const RANKS: Record<string, string> = {
     Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
@@ -701,6 +700,12 @@ function NetUserRow({ user, myTelegramId, onMessage, onViewProfile }: { user: Ne
           <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
         </button>
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {isMutual && (
+            <span className="font-arabic text-[10px] font-bold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5"
+              style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.28)", color: "#4ade80" }}>
+              🤝 صديق
+            </span>
+          )}
           {onMessage && myTelegramId !== user.telegramId && (
             <button onClick={() => onMessage(user)}
               className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
@@ -1451,7 +1456,27 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
       {/* ── Friends tab ── */}
       {profileTab === "friends" && !chatPartner && !friendProfile && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {/* Compact invite row */}
+          <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
+            style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
+            <div className="flex-1 min-w-0">
+              <p className="font-arabic text-[9px] text-white/30 mb-0.5">كود الدعوة</p>
+              <button
+                onClick={() => navigator.clipboard.writeText(botDeepLink)}
+                className="flex items-center gap-1 active:opacity-60 transition-opacity">
+                <span className="font-mono text-xs font-bold" style={{ color: GREEN }}>{referralCode}</span>
+                <Copy className="w-3 h-3 opacity-40" style={{ color: GREEN }} />
+              </button>
+            </div>
+            <button onClick={openInviteLink}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-arabic text-xs font-bold active:scale-95 transition-all flex-shrink-0"
+              style={{ background: "rgba(34,197,94,0.18)", border: `1.5px solid ${GREEN}45`, color: GREEN }}>
+              <Gift className="w-3.5 h-3.5" />
+              دعوة صديق
+            </button>
+          </div>
+          <ReferralCount telegramId={telegramId} />
           <NetworkSection
             myTelegramId={telegramId}
             onMessage={(u) => handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole, rank: u.rank, level: u.level })}
@@ -1662,36 +1687,13 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.25 }}
                   style={{ overflow: "hidden" }}>
-                  <div className="pt-3 space-y-3">
+                  <div className="pt-3">
                     <NetworkSection
                       myTelegramId={telegramId}
                       onMessage={handleOpenChat}
                       onViewFriend={(u) => setFriendProfile(u)}
                       autoExpand
                     />
-                    {/* Referral */}
-                    <div className="rounded-2xl p-4 space-y-3"
-                      style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                      <p className="font-arabic text-xs font-bold" style={{ color: GREEN }}>أصدقائي المدعوون</p>
-                      <div className="rounded-xl p-3" style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(34,197,94,0.15)" }}>
-                        <p className="font-arabic text-white/40 text-[10px] mb-1">كود الدعوة الخاص بك</p>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-mono text-sm font-bold" style={{ color: GREEN }}>{referralCode}</p>
-                          <CopyButton text={referralCode} label="نسخ" />
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                          <p className="font-mono text-[10px] text-white/30 truncate">t.me/ALI_MDD_BOT/app?startapp={referralCode}</p>
-                          <CopyButton text={botDeepLink} label="نسخ" />
-                        </div>
-                      </div>
-                      <button onClick={openInviteLink}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-arabic font-bold text-sm active:scale-95 transition-all"
-                        style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.2),rgba(22,163,74,0.25))", border: `1.5px solid ${GREEN}45`, color: GREEN }}>
-                        <Gift className="w-4 h-4" />
-                        دعوة صديق عبر تيليغرام
-                      </button>
-                      <ReferralCount telegramId={telegramId} />
-                    </div>
                   </div>
                 </motion.div>
               )}
