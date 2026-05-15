@@ -4,7 +4,7 @@ import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
-  Trash2, Ban, Camera,
+  Trash2, Ban, Camera, Wallet,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
@@ -1217,8 +1217,9 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const [unreadCount,  setUnreadCount]  = useState(0);
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
   const [invitingFriend, setInvitingFriend] = useState(false);
-  const [openFinanceTab, setOpenFinanceTab] = useState<"mdd" | "points" | null>(null);
-  const [openInfoTab,    setOpenInfoTab]    = useState<"keys" | "log" | null>(null);
+  const [walletOpen,  setWalletOpen]  = useState(false);
+  const [pointsOpen,  setPointsOpen]  = useState(false);
+  const [logOpen,     setLogOpen]     = useState(false);
 
   // Civic role
   const handleInviteToPrivateSession = async (friend: NetUser) => {
@@ -1684,76 +1685,125 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </div>
         </div>
 
-        {/* ── FINANCE PAIR: عملاتي + نقاط الولاء ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(212,175,55,0.25)", background: "rgba(0,0,0,0.25)" }}>
-          {/* Tab headers */}
-          <div className="flex">
-            <button
-              onClick={() => setOpenFinanceTab(p => p === "mdd" ? null : "mdd")}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 font-arabic text-sm font-bold transition-all active:scale-[0.97]"
-              style={{
-                background: openFinanceTab === "mdd" ? "rgba(212,175,55,0.14)" : "transparent",
-                borderBottom: `2px solid ${openFinanceTab === "mdd" ? GOLD : "transparent"}`,
-                color: openFinanceTab === "mdd" ? GOLD : "rgba(212,175,55,0.35)",
-                borderRight: "1px solid rgba(212,175,55,0.12)",
-              }}>
-              <span className="text-lg">🔒</span>
-              <div className="text-right">
-                <p className="text-xs leading-none">عملاتي</p>
-                <p className="font-mono text-[10px] opacity-60 mt-0.5">$MDD</p>
-              </div>
-            </button>
-            <button
-              onClick={() => setOpenFinanceTab(p => p === "points" ? null : "points")}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 font-arabic text-sm font-bold transition-all active:scale-[0.97]"
-              style={{
-                background: openFinanceTab === "points" ? "rgba(34,197,94,0.1)" : "transparent",
-                borderBottom: `2px solid ${openFinanceTab === "points" ? GREEN : "transparent"}`,
-                color: openFinanceTab === "points" ? GREEN : "rgba(74,222,128,0.35)",
-              }}>
-              <Star className="w-4 h-4" />
-              نقاط الولاء
-            </button>
-          </div>
+        {/* ── Card 1: محفظتي (Wallet) ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(212,175,55,0.28)", background: "rgba(0,0,0,0.25)" }}>
+          <button
+            onClick={() => setWalletOpen(p => !p)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
+            style={{
+              background: walletOpen ? "rgba(212,175,55,0.12)" : "transparent",
+              borderBottom: walletOpen ? `1px solid rgba(212,175,55,0.2)` : "none",
+              color: walletOpen ? GOLD : "rgba(212,175,55,0.5)",
+            }}>
+            <Wallet className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-right">
+              <p className="text-sm leading-none">محفظتي</p>
+              <p className="font-mono text-[10px] opacity-55 mt-0.5">$MDD · مفاتيح الحساب</p>
+            </div>
+            <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+              style={{ transform: walletOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
 
-          {/* MDD content */}
           <AnimatePresence>
-            {openFinanceTab === "mdd" && (
-              <motion.div key="mdd-content"
+            {walletOpen && (
+              <motion.div key="wallet-content"
                 initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
                 style={{ overflow: "hidden" }}>
-                <div className="px-4 py-6 text-center relative overflow-hidden"
-                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.06),rgba(212,175,55,0.02))", borderTop: `1px solid ${GOLD}20` }}>
-                  <motion.div className="absolute inset-0 pointer-events-none"
-                    style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.05) 50%,transparent 65%)" }}
-                    animate={{ x: ["-100%", "100%"] }}
-                    transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
-                  <div className="relative z-10 flex flex-col items-center gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">🔒</span>
-                      <div>
-                        <p className="font-mono font-black text-2xl tracking-[0.4em]"
-                          style={{ color: GOLD, textShadow: `0 0 18px ${GOLD}55` }}>
-                          ••••••
-                        </p>
-                        <p className="font-mono font-bold text-sm mt-0.5" style={{ color: `${GOLD}90` }}>$MDD</p>
+                <div className="space-y-4 px-4 py-4"
+                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.04),rgba(212,175,55,0.01))" }}>
+
+                  {/* MDD locked balance */}
+                  <div className="text-center relative overflow-hidden rounded-2xl px-4 py-5"
+                    style={{ background: "rgba(212,175,55,0.06)", border: `1px solid ${GOLD}25` }}>
+                    <motion.div className="absolute inset-0 pointer-events-none"
+                      style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.05) 50%,transparent 65%)" }}
+                      animate={{ x: ["-100%", "100%"] }}
+                      transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
+                    <div className="relative z-10 flex flex-col items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">🔒</span>
+                        <div>
+                          <p className="font-mono font-black text-2xl tracking-[0.4em]"
+                            style={{ color: GOLD, textShadow: `0 0 18px ${GOLD}55` }}>••••••</p>
+                          <p className="font-mono font-bold text-sm mt-0.5" style={{ color: `${GOLD}90` }}>$MDD</p>
+                        </div>
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-xl px-4 py-2"
+                        style={{ background: "rgba(212,175,55,0.1)", border: `1px solid ${GOLD}30` }}>
+                        <Lock className="w-3.5 h-3.5" style={{ color: `${GOLD}70` }} />
+                        <span className="font-arabic text-xs font-bold" style={{ color: `${GOLD}80` }}>تفتح قريبا بعد الايردروب</span>
                       </div>
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-xl px-4 py-2"
-                      style={{ background: "rgba(212,175,55,0.1)", border: `1px solid ${GOLD}30` }}>
-                      <Lock className="w-3.5 h-3.5" style={{ color: `${GOLD}70` }} />
-                      <span className="font-arabic text-xs font-bold" style={{ color: `${GOLD}80` }}>تفتح قريبا بعد الايردروب</span>
-                    </div>
                   </div>
+
+                  {/* Digital wallet placeholder */}
+                  <div className="rounded-2xl px-4 py-4"
+                    style={{ background: "rgba(212,175,55,0.03)", border: `1px dashed rgba(212,175,55,0.22)` }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Wallet className="w-3.5 h-3.5" style={{ color: `${GOLD}55` }} />
+                      <p className="font-arabic text-[11px] font-bold" style={{ color: `${GOLD}65` }}>محفظة العملات الرقمية</p>
+                      <span className="font-mono text-[9px] px-2 py-0.5 rounded-full mr-auto"
+                        style={{ background: "rgba(212,175,55,0.1)", color: `${GOLD}55`, border: `1px solid rgba(212,175,55,0.2)` }}>
+                        قريباً
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {[{ label: "عنوان الإيداع", icon: "📥" }, { label: "عنوان السحب", icon: "📤" }].map(item => (
+                        <div key={item.label} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                          style={{ background: "rgba(0,0,0,0.2)", border: `1px solid rgba(212,175,55,0.1)` }}>
+                          <span className="text-sm">{item.icon}</span>
+                          <p className="font-arabic text-[11px] text-white/30 flex-1">{item.label}</p>
+                          <span className="font-mono text-[10px] text-white/12 tracking-widest">••••••••••</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="font-arabic text-[10px] text-white/20 text-center mt-3">تُفعَّل بعد الإيردروب الرسمي</p>
+                  </div>
+
+                  {/* Account keys – moved here */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
+                      <p className="font-arabic text-[11px] font-bold text-blue-300/70">مفاتيح الحساب</p>
+                    </div>
+                    <div className="rounded-xl p-3"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                      <p className="font-arabic text-red-300/80 text-[11px] leading-5 text-center">
+                        ⚠️ لا تشارك هذه المفاتيح مع أي أحد — إنها كلمات سرك الخاصة
+                      </p>
+                    </div>
+                    <KeyRow label="🔐 مفتاح الخزينة — Vault Key"    value={userData.vaultKey}    accent="#60a5fa" />
+                    <KeyRow label="🪪 مفتاح الهوية — Identity Key"  value={userData.identityKey} accent="#a78bfa" />
+                    <KeyRow label="👑 المفتاح الرئيسي — Master Key"  value={userData.masterKey}   accent={GOLD}    />
+                  </div>
+
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
 
-          {/* Points content */}
+        {/* ── Card 2: نقاط الولاء ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(34,197,94,0.25)", background: "rgba(0,0,0,0.25)" }}>
+          <button
+            onClick={() => setPointsOpen(p => !p)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
+            style={{
+              background: pointsOpen ? "rgba(34,197,94,0.1)" : "transparent",
+              borderBottom: pointsOpen ? "1px solid rgba(34,197,94,0.18)" : "none",
+              color: pointsOpen ? GREEN : "rgba(74,222,128,0.4)",
+            }}>
+            <Star className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-right">
+              <p className="text-sm">نقاط الولاء</p>
+            </div>
+            <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+              style={{ transform: pointsOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
+
           <AnimatePresence>
-            {openFinanceTab === "points" && (
+            {pointsOpen && (
               <motion.div key="points-content"
                 initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
@@ -1829,61 +1879,26 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </AnimatePresence>
         </div>
 
-        {/* ── INFO PAIR: مفاتيح الحساب + سجل المساهمات ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(96,165,250,0.2)", background: "rgba(0,0,0,0.25)" }}>
-          {/* Tab headers */}
-          <div className="flex">
-            <button
-              onClick={() => setOpenInfoTab(p => p === "keys" ? null : "keys")}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 font-arabic text-sm font-bold transition-all active:scale-[0.97]"
-              style={{
-                background: openInfoTab === "keys" ? "rgba(96,165,250,0.12)" : "transparent",
-                borderBottom: `2px solid ${openInfoTab === "keys" ? "#60a5fa" : "transparent"}`,
-                color: openInfoTab === "keys" ? "#60a5fa" : "rgba(96,165,250,0.35)",
-                borderRight: "1px solid rgba(96,165,250,0.1)",
-              }}>
-              <Lock className="w-4 h-4" />
-              مفاتيح الحساب
-            </button>
-            <button
-              onClick={() => setOpenInfoTab(p => p === "log" ? null : "log")}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 font-arabic text-sm font-bold transition-all active:scale-[0.97]"
-              style={{
-                background: openInfoTab === "log" ? "rgba(167,139,250,0.1)" : "transparent",
-                borderBottom: `2px solid ${openInfoTab === "log" ? "#a78bfa" : "transparent"}`,
-                color: openInfoTab === "log" ? "#a78bfa" : "rgba(167,139,250,0.35)",
-              }}>
-              <span className="text-sm">📋</span>
-              سجل المساهمات
-            </button>
-          </div>
+        {/* ── Card 3: سجل المساهمات ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(167,139,250,0.22)", background: "rgba(0,0,0,0.25)" }}>
+          <button
+            onClick={() => setLogOpen(p => !p)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
+            style={{
+              background: logOpen ? "rgba(167,139,250,0.1)" : "transparent",
+              borderBottom: logOpen ? "1px solid rgba(167,139,250,0.18)" : "none",
+              color: logOpen ? "#a78bfa" : "rgba(167,139,250,0.4)",
+            }}>
+            <span className="text-base">📋</span>
+            <div className="flex-1 text-right">
+              <p className="text-sm">سجل المساهمات</p>
+            </div>
+            <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+              style={{ transform: logOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
 
-          {/* Keys content */}
           <AnimatePresence>
-            {openInfoTab === "keys" && (
-              <motion.div key="keys-content"
-                initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-                style={{ overflow: "hidden" }}>
-                <div className="p-4 space-y-3"
-                  style={{ borderTop: "1px solid rgba(96,165,250,0.12)" }}>
-                  <div className="rounded-xl p-3"
-                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-                    <p className="font-arabic text-red-300/80 text-[11px] leading-5 text-center">
-                      ⚠️ لا تشارك هذه المفاتيح مع أي أحد — إنها كلمات سرك الخاصة
-                    </p>
-                  </div>
-                  <KeyRow label="🔐 مفتاح الخزينة — Vault Key"    value={userData.vaultKey}    accent="#60a5fa" />
-                  <KeyRow label="🪪 مفتاح الهوية — Identity Key"  value={userData.identityKey} accent="#a78bfa" />
-                  <KeyRow label="👑 المفتاح الرئيسي — Master Key"  value={userData.masterKey}   accent={GOLD}    />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Log content */}
-          <AnimatePresence>
-            {openInfoTab === "log" && (
+            {logOpen && (
               <motion.div key="log-content"
                 initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
