@@ -64,15 +64,22 @@ const GREEN  = "#22c55e";
 const GLASS  = "rgba(255,255,255,0.04)";
 
 // ─── Golden Shield with Glassy Green Level ────────────────────────────────────
-function GoldenShield({ level }: { level: number }) {
+function GoldenShield({ level, size = "lg" }: { level: number; size?: "lg" | "sm" }) {
+  const w = size === "sm" ? 52 : 120;
+  const h = size === "sm" ? 60 : 138;
+  const fontSize = size === "sm"
+    ? (level >= 100 ? 12 : level >= 10 ? 15 : 18)
+    : (level >= 100 ? 28 : level >= 10 ? 34 : 40);
+  const labelSize = size === "sm" ? "6px" : "9px";
+  const glowSpread = size === "sm" ? "0 4px 14px" : "0 8px 24px";
+  const mt = size === "sm" ? 4 : 8;
+
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 120, height: 138 }}>
-      {/* Ambient glow */}
+    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: w, height: h }}>
       <div className="absolute inset-0 rounded-full pointer-events-none"
         style={{ background: "radial-gradient(ellipse 80% 60% at 50% 60%, rgba(212,175,55,0.22) 0%, transparent 70%)" }} />
-
-      {/* Shield SVG */}
-      <svg viewBox="0 0 100 115" className="absolute inset-0 w-full h-full" style={{ filter: "drop-shadow(0 8px 24px rgba(212,175,55,0.45))" }}>
+      <svg viewBox="0 0 100 115" className="absolute inset-0 w-full h-full"
+        style={{ filter: `drop-shadow(${glowSpread} rgba(212,175,55,0.45))` }}>
         <defs>
           <linearGradient id="gShield" x1="0" y1="0" x2="0.3" y2="1">
             <stop offset="0%"   stopColor="#f5e070" />
@@ -81,36 +88,28 @@ function GoldenShield({ level }: { level: number }) {
             <stop offset="100%" stopColor="#5c460a" />
           </linearGradient>
           <linearGradient id="gShieldInner" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="rgba(255,255,255,0.18)" />
+            <stop offset="0%"   stopColor="rgba(255,255,255,0.18)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0.03)" />
           </linearGradient>
         </defs>
-        {/* Main shield */}
-        <path d="M50 4 L92 20 L92 58 C92 80 74 96 50 106 C26 96 8 80 8 58 L8 20 Z"
-          fill="url(#gShield)" />
-        {/* Highlight bevel */}
-        <path d="M50 10 L86 24 L86 58 C86 77 69 92 50 101 C31 92 14 77 14 58 L14 24 Z"
-          fill="url(#gShieldInner)" opacity="0.6" />
-        {/* Rim */}
-        <path d="M50 4 L92 20 L92 58 C92 80 74 96 50 106 C26 96 8 80 8 58 L8 20 Z"
-          fill="none" stroke="#f5e070" strokeWidth="1.5" opacity="0.7" />
+        <path d="M50 4 L92 20 L92 58 C92 80 74 96 50 106 C26 96 8 80 8 58 L8 20 Z" fill="url(#gShield)" />
+        <path d="M50 10 L86 24 L86 58 C86 77 69 92 50 101 C31 92 14 77 14 58 L14 24 Z" fill="url(#gShieldInner)" opacity="0.6" />
+        <path d="M50 4 L92 20 L92 58 C92 80 74 96 50 106 C26 96 8 80 8 58 L8 20 Z" fill="none" stroke="#f5e070" strokeWidth="1.5" opacity="0.7" />
       </svg>
-
-      {/* Level number — glassy royal green */}
-      <div className="relative z-10 flex flex-col items-center" style={{ marginTop: 8 }}>
+      <div className="relative z-10 flex flex-col items-center" style={{ marginTop: mt }}>
         <motion.span
           className="font-mono font-black leading-none select-none"
           style={{
-            fontSize: level >= 100 ? 28 : level >= 10 ? 34 : 40,
+            fontSize,
             color: "#00ff88",
-            textShadow: "0 0 18px rgba(0,255,136,0.9), 0 0 36px rgba(0,255,136,0.5), 0 2px 0 rgba(0,80,40,0.8)",
-            filter: "drop-shadow(0 0 6px rgba(0,255,136,0.7))",
+            textShadow: "0 0 12px rgba(0,255,136,0.9), 0 0 24px rgba(0,255,136,0.5), 0 1px 0 rgba(0,80,40,0.8)",
+            filter: "drop-shadow(0 0 4px rgba(0,255,136,0.7))",
           }}
-          animate={{ textShadow: ["0 0 18px rgba(0,255,136,0.9), 0 0 36px rgba(0,255,136,0.5), 0 2px 0 rgba(0,80,40,0.8)", "0 0 28px rgba(0,255,136,1), 0 0 56px rgba(0,255,136,0.6), 0 2px 0 rgba(0,80,40,0.8)", "0 0 18px rgba(0,255,136,0.9), 0 0 36px rgba(0,255,136,0.5), 0 2px 0 rgba(0,80,40,0.8)"] }}
+          animate={{ textShadow: ["0 0 12px rgba(0,255,136,0.9), 0 0 24px rgba(0,255,136,0.5)", "0 0 20px rgba(0,255,136,1), 0 0 40px rgba(0,255,136,0.6)", "0 0 12px rgba(0,255,136,0.9), 0 0 24px rgba(0,255,136,0.5)"] }}
           transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}>
           {level}
         </motion.span>
-        <span className="font-arabic text-[9px] font-bold mt-0.5" style={{ color: "rgba(240,208,80,0.85)", letterSpacing: "0.08em" }}>
+        <span className="font-arabic font-bold mt-0.5" style={{ fontSize: labelSize, color: "rgba(240,208,80,0.85)", letterSpacing: "0.06em" }}>
           المستوى
         </span>
       </div>
@@ -1777,18 +1776,23 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 style={{ overflow: "hidden" }}>
                 <div className="px-4 py-5 space-y-4"
                   style={{ background: "rgba(34,197,94,0.03)", borderTop: "1px solid rgba(34,197,94,0.15)" }}>
-                  {/* GoldenShield (moved here from hero) */}
-                  <div className="flex justify-center">
-                    <GoldenShield level={userData.level} />
-                  </div>
-                  {/* Points */}
-                  <div className="text-center">
-                    <motion.p className="font-mono font-black text-4xl leading-none"
-                      style={{ color: GREEN, textShadow: `0 0 20px ${GREEN}60` }}
-                      initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
-                      {userData.loyaltyPoints.toLocaleString()}
-                    </motion.p>
-                    <p className="font-arabic text-white/40 text-xs mt-1">مجموع النقاط المكتسبة</p>
+                  {/* Hero row: shield + points */}
+                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3"
+                    style={{ background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.18)" }}>
+                    <GoldenShield level={userData.level} size="sm" />
+                    <div className="w-px self-stretch mx-1" style={{ background: "linear-gradient(to bottom, transparent, rgba(212,175,55,0.3), transparent)" }} />
+                    <div className="flex-1 min-w-0" dir="rtl">
+                      <motion.p className="font-mono font-black text-3xl leading-none"
+                        style={{ color: GREEN, textShadow: `0 0 18px ${GREEN}70` }}
+                        initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 280 }}>
+                        {userData.loyaltyPoints.toLocaleString()}
+                      </motion.p>
+                      <p className="font-arabic text-white/40 text-[11px] mt-1">مجموع النقاط المكتسبة</p>
+                      <span className="inline-block mt-2 font-arabic text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                        style={{ background: `${rankInfo.current.color}18`, border: `1px solid ${rankInfo.current.color}40`, color: rankInfo.current.color }}>
+                        {rankInfo.current.name}
+                      </span>
+                    </div>
                   </div>
                   {/* Statement */}
                   <div className="rounded-xl px-3 py-2.5 text-center"
