@@ -880,15 +880,41 @@ export function AdarSection({
               <span className="font-arabic text-xs font-bold text-white/70">مركز الرصد الإعلامي</span>
             </div>
             {/* Row 2: acrostic directly under the A of ADAR + logo to its right */}
-            <div className="flex items-center gap-3 mt-0.5">
-              <div className="font-mono text-[9px] tracking-wider leading-[1.55]" dir="ltr">
-                {[["A","lawite"],["D","igital"],["A","rchive &"],["R","esearch"]].map(([first, rest]) => (
-                  <div key={first + rest} className="flex">
-                    <span style={{ color: GOLD, fontWeight: 900 }}>{first}</span>
-                    <span className="text-white/30">{rest}</span>
+            <div className="flex items-center gap-4 mt-1">
+
+              {/* Kashida acrostic — fixed-width block, each line same visual width */}
+              <div className="font-mono leading-[1.85]" dir="ltr" style={{ width: "6.2em" }}>
+                {[
+                  ["A","LAWITE"],
+                  ["D","IGITAL"],
+                  ["A","RCHIVE"],
+                  ["R","ESEARCH"],
+                ].map(([first, rest]) => (
+                  <div key={first} className="flex items-center">
+                    {/* Bold gold initial letter — forms vertical ADAR */}
+                    <span style={{
+                      color: GOLD,
+                      fontWeight: 900,
+                      fontSize: "12px",
+                      textShadow: `0 0 7px ${GOLD}99, 0 0 14px ${GOLD}44`,
+                      minWidth: "0.85em",
+                      display: "inline-block",
+                      lineHeight: 1.5,
+                    }}>{first}</span>
+                    {/* Rest of word — spread evenly to fill remaining width */}
+                    <div className="flex justify-between flex-1">
+                      {rest.split("").map((ch, i) => (
+                        <span key={i} style={{
+                          color: "rgba(255,255,255,0.22)",
+                          fontWeight: 300,
+                          fontSize: "8px",
+                        }}>{ch}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
+
               <AdarEmblem size={68} />
             </div>
           </div>
