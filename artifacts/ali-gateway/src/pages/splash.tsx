@@ -231,14 +231,14 @@ export default function Splash() {
     // بيئة التطوير أو حالة عدم توفر initData → توجيه مباشر للـ Dashboard
     if (!initData && !telegramId) {
       console.log("[ALI] No Telegram context → /dashboard (dev mode)");
-      setTimeout(() => go("/dashboard"), 1_500);
+      setTimeout(() => go("/dashboard"), 500);
       return;
     }
 
     // ── بدء تسجيل المستخدم مع شريط تحميل ───────────────────────────────────
     (async () => {
-      // نتيح للـ splash animation وقتاً قصيراً للظهور
-      await new Promise<void>((r) => setTimeout(r, 1_500));
+      // نتيح للـ splash animation وقتاً كافياً للظهور واستحضار البيانات
+      await new Promise<void>((r) => setTimeout(r, 4_500));
       setLoadingMsg("جاري الاتصال بالبوابة...");
 
       try {
@@ -341,7 +341,7 @@ export default function Splash() {
               <motion.div
                 className="h-full bg-[#d4af37]"
                 initial={{ width: "0%" }} animate={{ width: "100%" }}
-                transition={{ delay: 1.8, duration: 2.4, ease: "easeInOut" }} />
+                transition={{ delay: 1.8, duration: 5.4, ease: "easeInOut" }} />
             </motion.div>
 
             <motion.p
