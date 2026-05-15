@@ -111,10 +111,11 @@ function FollowButton({ targetTelegramId, myTelegramId, small = false }: {
 }
 
 // ─── Avatar (voice session) ───────────────────────────────────────────────────
-function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 64, photoUrl, civicRole }: {
+function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 64, photoUrl, civicRole, raisedHand }: {
   pseudonym: string; role: ParticipantRole; isMuted: boolean;
   isSpeaking?: boolean; size?: number;
   photoUrl?: string | null; civicRole?: string | null;
+  raisedHand?: boolean;
 }) {
   const initials = pseudonym.slice(0, 2).toUpperCase();
   const accent   = role === "host" ? GOLD : role === "speaker" ? BLUE : "rgba(255,255,255,0.28)";
@@ -125,6 +126,13 @@ function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 64, photoUrl, civ
         <div className="w-5 h-5 rounded-full flex items-center justify-center"
           style={{ background: "#1a1200", border: `1.5px solid ${GOLD}60` }}>
           <Crown style={{ width: 10, height: 10, color: GOLD }} />
+        </div>
+      )}
+      {/* Raised hand badge for listeners */}
+      {role === "listener" && raisedHand && (
+        <div className="w-5 h-5 rounded-full flex items-center justify-center ml-auto"
+          style={{ background: `${GOLD}22`, border: `1.5px solid ${GOLD}70` }}>
+          <span style={{ fontSize: 8, lineHeight: 1 }}>✋</span>
         </div>
       )}
       {(role === "speaker" || role === "host") && (
@@ -324,28 +332,27 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
     pcsRef.current.clear();
   }, [myRole]);
 
-  // ── Peer connection management (create PCs when participants change) ─────────
+  // ── Peer connection management — push model ───────────────────────────────
+  // Speakers/hosts are ALWAYS responsible for pushing audio to every participant.
+  // Listeners never initiate — they simply respond to incoming offers.
+  // This is more reliable: speakers are already active with stable SSE connections.
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || myRole === "listener" || !audioReady) return;
 
-    const speakersAndHost = participants.filter(p =>
-      (p.role === "speaker" || p.role === "host") && p.telegramId !== myTelegramId
-    );
+    const others = participants.filter(p => p.telegramId !== myTelegramId);
 
-    if (myRole === "listener") {
-      // Listeners: receive-only transceiver to each speaker/host
-      speakersAndHost.forEach(async (p) => {
-        if (pcsRef.current.has(p.telegramId)) return;
+    others.forEach(async (p) => {
+      if (pcsRef.current.has(p.telegramId)) return;
+
+      if (p.role === "listener") {
+        // Speaker → listener: speaker always initiates with sendonly offer
         const pc = createPC(p.telegramId);
-        pc.addTransceiver("audio", { direction: "recvonly" });
+        pc.addTransceiver("audio", { direction: "sendonly" });
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         postSignal(p.telegramId, "offer", JSON.stringify(offer));
-      });
-    } else if (audioReady) {
-      // Speakers/hosts: bidirectional — higher telegramId is the offerer (deterministic)
-      speakersAndHost.forEach(async (p) => {
-        if (pcsRef.current.has(p.telegramId)) return;
+      } else {
+        // Speaker/host ↔ speaker/host: bidirectional, higher ID is the offerer
         if (myTelegramId > p.telegramId) {
           const pc = createPC(p.telegramId);
           const offer = await pc.createOffer();
@@ -354,8 +361,8 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
         } else {
           createPC(p.telegramId); // wait for their offer
         }
-      });
-    }
+      }
+    });
   }, [participants, enabled, audioReady, myRole, myTelegramId, createPC, postSignal]);
 
   // ── Remote speaking detection via RTCPeerConnection.getStats() ───────────────
@@ -1487,25 +1494,48 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
           </div>
         )}
 
-        {/* Listeners */}
+        {/* Listeners — avatars with raised-hand badge */}
         {listeners.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="font-arabic text-[10px] text-white/25">المستمعون</p>
               <span className="font-arabic text-[10px] text-white/20">{listeners.length}</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               {listeners.slice(0, 24).map(p => (
-                <div key={p.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
-                  style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  {p.raisedHand && <span className="text-[10px]">✋</span>}
-                  <p className="font-arabic text-[10px] text-white/40">{p.pseudonym}</p>
-                  <FollowButton targetTelegramId={p.telegramId} myTelegramId={telegramId} small />
+                <div key={p.id} className="flex flex-col items-center gap-1">
+                  <div className="relative">
+                    <Avatar
+                      pseudonym={p.pseudonym}
+                      role="listener"
+                      isMuted={false}
+                      photoUrl={p.photoUrl}
+                      civicRole={p.civicRole}
+                      raisedHand={p.raisedHand}
+                      size={44}
+                    />
+                    {/* Quick-approve button for host/speakers when hand is raised */}
+                    {(isHost || myRole === "speaker") && p.raisedHand && (
+                      <button
+                        onClick={() => onPromote(p.telegramId, "speaker")}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center active:scale-90"
+                        style={{ background: `${GOLD}dd`, boxShadow: `0 0 5px ${GOLD}55` }}>
+                        <CheckCircle style={{ width: 9, height: 9, color: "#000" }} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="font-arabic text-[9px] text-white/35 text-center truncate"
+                    style={{ maxWidth: 44 }}>
+                    {p.pseudonym}
+                  </p>
                 </div>
               ))}
               {listeners.length > 24 && (
-                <div className="px-2.5 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.025)" }}>
-                  <p className="font-arabic text-[10px] text-white/20">+{listeners.length - 24}</p>
+                <div className="flex flex-col items-center justify-center gap-1">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="font-arabic text-[10px] text-white/25">+{listeners.length - 24}</p>
+                  </div>
                 </div>
               )}
             </div>
