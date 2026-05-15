@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
+import { AvatarFrame } from "../../components/ui/avatar-frame";
 
 const GOLD  = "#d4af37";
 const BLUE  = "#60a5fa";
@@ -29,6 +30,8 @@ interface Participant {
   id: number; spaceId: number; telegramId: string; pseudonym: string;
   aliId: string; role: ParticipantRole; isMuted: boolean; raisedHand: boolean;
   joinedAt: string; lastSeenAt: string;
+  photoUrl?:  string | null;
+  civicRole?: string | null;
 }
 interface SpaceDetails {
   id: number; title: string; description: string | null;
@@ -107,36 +110,44 @@ function FollowButton({ targetTelegramId, myTelegramId, small = false }: {
   );
 }
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────
-function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 52 }: {
+// ─── Avatar (voice session) ───────────────────────────────────────────────────
+function Avatar({ pseudonym, role, isMuted, isSpeaking, size = 64, photoUrl, civicRole }: {
   pseudonym: string; role: ParticipantRole; isMuted: boolean;
   isSpeaking?: boolean; size?: number;
+  photoUrl?: string | null; civicRole?: string | null;
 }) {
   const initials = pseudonym.slice(0, 2).toUpperCase();
-  const accent = role === "host" ? GOLD : role === "speaker" ? BLUE : "rgba(255,255,255,0.18)";
-  return (
-    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      <motion.div className="w-full h-full rounded-full flex items-center justify-center font-mono font-black"
-        animate={isSpeaking ? { boxShadow: [`0 0 0 0 ${accent}60`, `0 0 0 8px ${accent}00`] } : {}}
-        transition={{ repeat: Infinity, duration: 1.2 }}
-        style={{ background: `linear-gradient(135deg,${accent}30,${accent}12)`, border: `2px solid ${accent}55`, fontSize: size * 0.3, color: accent }}>
-        {initials}
-      </motion.div>
+  const accent   = role === "host" ? GOLD : role === "speaker" ? BLUE : "rgba(255,255,255,0.28)";
+
+  const badge = (
+    <div className="flex justify-between px-0.5">
       {role === "host" && (
-        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-          style={{ background: "#1a1200", border: `1px solid ${GOLD}50` }}>
-          <Crown style={{ width: 9, height: 9, color: GOLD }} />
+        <div className="w-5 h-5 rounded-full flex items-center justify-center"
+          style={{ background: "#1a1200", border: `1.5px solid ${GOLD}60` }}>
+          <Crown style={{ width: 10, height: 10, color: GOLD }} />
         </div>
       )}
       {(role === "speaker" || role === "host") && (
-        <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-          style={{ background: "#0d0d1a", border: `1px solid ${isMuted ? "rgba(239,68,68,0.45)" : BLUE + "50"}` }}>
+        <div className="w-5 h-5 rounded-full flex items-center justify-center ml-auto"
+          style={{ background: "#0d0d1a", border: `1.5px solid ${isMuted ? "rgba(239,68,68,0.5)" : BLUE + "55"}` }}>
           {isMuted
-            ? <MicOff style={{ width: 8, height: 8, color: "#ef4444" }} />
-            : <Mic style={{ width: 8, height: 8, color: BLUE }} />}
+            ? <MicOff style={{ width: 9, height: 9, color: "#ef4444" }} />
+            : <Mic    style={{ width: 9, height: 9, color: BLUE }} />}
         </div>
       )}
     </div>
+  );
+
+  return (
+    <AvatarFrame
+      photoUrl={photoUrl}
+      initials={initials}
+      civicRole={civicRole}
+      size={size}
+      accent={accent}
+      isSpeaking={isSpeaking}
+      badge={badge}
+    />
   );
 }
 
@@ -1382,7 +1393,8 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
             <div className="flex flex-col items-center gap-2">
               <Avatar pseudonym={host.pseudonym} role="host" isMuted={host.isMuted}
                 isSpeaking={host.telegramId === telegramId ? (isSpeaking && !isMuted) : speakingPeers.has(host.telegramId)}
-                size={72} />
+                photoUrl={host.photoUrl} civicRole={host.civicRole}
+                size={76} />
               <p className="font-arabic text-xs font-bold" style={{ color: GOLD }}>{host.pseudonym}</p>
               <span className="font-mono text-[9px] px-2 py-0.5 rounded-full"
                 style={{ background: `${GOLD}12`, color: `${GOLD}80`, border: `1px solid ${GOLD}20` }}>
@@ -1403,7 +1415,8 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
                   <div className="relative">
                     <Avatar pseudonym={p.pseudonym} role="speaker" isMuted={p.isMuted}
                       isSpeaking={p.telegramId === telegramId ? (isSpeaking && !isMuted) : speakingPeers.has(p.telegramId)}
-                      size={56} />
+                      photoUrl={p.photoUrl} civicRole={p.civicRole}
+                      size={60} />
                     {isHost && (
                       <button onClick={() => onKick(p.telegramId)}
                         className="absolute -top-1 -left-1 w-4 h-4 rounded-full flex items-center justify-center"

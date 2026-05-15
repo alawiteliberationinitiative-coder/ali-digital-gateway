@@ -4,10 +4,11 @@ import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
-  Trash2, Ban,
+  Trash2, Ban, Camera,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
+import { AvatarFrame } from "../../components/ui/avatar-frame";
 import { useUpdatePseudonym, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -29,6 +30,7 @@ interface UserData {
   loyaltyPoints: number;
   createdAt: string;
   civicRole?: string | null;
+  photoUrl?:  string | null;
 }
 
 interface ChatPartner {
@@ -1090,6 +1092,44 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
   const [civicRole,    setCivicRole]    = useState<string | null>(userData.civicRole ?? null);
   const [savingRole,   setSavingRole]   = useState(false);
 
+  // Custom profile photo (DB-stored, overrides Telegram photo)
+  const [customPhoto,  setCustomPhoto]  = useState<string | null>(userData.photoUrl ?? null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const compressed = await new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const maxSide = 200;
+          const scale   = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const w = Math.round(img.width  * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+      const res = await apiFetch("/api/users/me/photo", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoUrl: compressed }),
+      });
+      if (res.ok) setCustomPhoto(compressed);
+    } catch {}
+    setUploadingPhoto(false);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
   useEffect(() => {
     apiFetch("/api/messages/unread-count")
       .then(r => r.ok ? r.json() : { count: 0 })
@@ -1141,7 +1181,7 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
     );
   }
 
-  const photoUrl  = user?.photo_url;
+  const photoUrl  = customPhoto || user?.photo_url || null;
   const firstName = userData.firstName || user?.first_name || "";
   const lastName  = userData.lastName  || user?.last_name  || "";
   const username  = userData.telegramUsername || user?.username;
@@ -1257,23 +1297,47 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
 
         {/* ── HERO ── */}
         <div className="flex flex-col items-center pt-6 pb-2 text-center" dir="rtl">
-          {/* Avatar */}
-          <div className="relative mb-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-              style={{ border: `2.5px solid ${GOLD}`, boxShadow: `0 0 28px rgba(212,175,55,0.4), 0 0 60px rgba(212,175,55,0.15)` }}>
-              {photoUrl
-                ? <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center font-mono font-black text-2xl"
-                    style={{ background: "linear-gradient(135deg,#001a10,#004020)", color: GOLD }}>
-                    {initials}
-                  </div>
-              }
-            </div>
+          {/* Hidden file input for photo upload */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoSelect}
+          />
+
+          {/* Avatar with golden frame + civic role decoration */}
+          <div className="relative mb-3" style={{ filter: "drop-shadow(0 0 22px rgba(212,175,55,0.38))" }}>
+            <AvatarFrame
+              photoUrl={photoUrl}
+              initials={initials}
+              civicRole={civicRole}
+              size={96}
+              accent={GOLD}
+              onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+            />
+            {/* Camera overlay */}
+            <button
+              onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="absolute flex items-center justify-center rounded-full active:scale-90 transition-all"
+              style={{
+                bottom: 2, right: civicRole ? Math.round(96 * 0.44) + 2 : 2,
+                width: 28, height: 28,
+                background: "rgba(0,20,12,0.88)",
+                border: `1.5px solid ${GOLD}55`,
+                zIndex: 10,
+              }}
+            >
+              {uploadingPhoto
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: GOLD }} />
+                : <Camera className="w-3.5 h-3.5" style={{ color: GOLD }} />}
+            </button>
             {/* Premium badge */}
             {user?.is_premium && (
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10" }}>
-                <Star className="w-3 h-3 text-white" fill="white" />
+              <div className="absolute -top-1 flex items-center justify-center"
+                style={{ left: civicRole ? Math.round(96 * 0.44) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
+                <Star className="w-2.5 h-2.5 text-white" fill="white" />
               </div>
             )}
           </div>

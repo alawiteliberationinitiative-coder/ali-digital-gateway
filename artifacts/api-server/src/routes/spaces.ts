@@ -26,13 +26,27 @@ function pushSignalSSE(spaceId: number, toTelegramId: string, signal: object) {
   try { res.write(`event: signal\ndata: ${JSON.stringify(signal)}\n\n`); } catch {}
 }
 
-/** Fetch participants from DB and broadcast the updated list to all SSE clients in a space. */
+/** Fetch participants (enriched with photoUrl + civicRole from users) and broadcast. */
 async function broadcastParticipants(spaceId: number) {
   const clients = participantClients.get(spaceId);
   if (!clients || clients.size === 0) return;
   const rows = await db
-    .select()
+    .select({
+      id:          spaceParticipantsTable.id,
+      spaceId:     spaceParticipantsTable.spaceId,
+      telegramId:  spaceParticipantsTable.telegramId,
+      pseudonym:   spaceParticipantsTable.pseudonym,
+      aliId:       spaceParticipantsTable.aliId,
+      role:        spaceParticipantsTable.role,
+      isMuted:     spaceParticipantsTable.isMuted,
+      raisedHand:  spaceParticipantsTable.raisedHand,
+      joinedAt:    spaceParticipantsTable.joinedAt,
+      lastSeenAt:  spaceParticipantsTable.lastSeenAt,
+      photoUrl:    usersTable.photoUrl,
+      civicRole:   usersTable.civicRole,
+    })
     .from(spaceParticipantsTable)
+    .leftJoin(usersTable, eq(spaceParticipantsTable.telegramId, usersTable.telegramId))
     .where(eq(spaceParticipantsTable.spaceId, spaceId))
     .orderBy(spaceParticipantsTable.joinedAt);
   const payload = `event: participants\ndata: ${JSON.stringify(rows)}\n\n`;
@@ -203,10 +217,24 @@ router.get("/spaces/:id/participants/sse", async (req, res): Promise<void> => {
   if (!participantClients.has(id)) participantClients.set(id, new Map());
   participantClients.get(id)!.set(telegramId, res);
 
-  // Send current participant list immediately
+  // Send current participant list immediately (enriched with photoUrl + civicRole)
   const rows = await db
-    .select()
+    .select({
+      id:         spaceParticipantsTable.id,
+      spaceId:    spaceParticipantsTable.spaceId,
+      telegramId: spaceParticipantsTable.telegramId,
+      pseudonym:  spaceParticipantsTable.pseudonym,
+      aliId:      spaceParticipantsTable.aliId,
+      role:       spaceParticipantsTable.role,
+      isMuted:    spaceParticipantsTable.isMuted,
+      raisedHand: spaceParticipantsTable.raisedHand,
+      joinedAt:   spaceParticipantsTable.joinedAt,
+      lastSeenAt: spaceParticipantsTable.lastSeenAt,
+      photoUrl:   usersTable.photoUrl,
+      civicRole:  usersTable.civicRole,
+    })
     .from(spaceParticipantsTable)
+    .leftJoin(usersTable, eq(spaceParticipantsTable.telegramId, usersTable.telegramId))
     .where(eq(spaceParticipantsTable.spaceId, id))
     .orderBy(spaceParticipantsTable.joinedAt);
   res.write(`event: participants\ndata: ${JSON.stringify(rows)}\n\n`);
@@ -342,8 +370,22 @@ router.get("/spaces/:id", async (req, res): Promise<void> => {
   }
 
   const participants = await db
-    .select()
+    .select({
+      id:         spaceParticipantsTable.id,
+      spaceId:    spaceParticipantsTable.spaceId,
+      telegramId: spaceParticipantsTable.telegramId,
+      pseudonym:  spaceParticipantsTable.pseudonym,
+      aliId:      spaceParticipantsTable.aliId,
+      role:       spaceParticipantsTable.role,
+      isMuted:    spaceParticipantsTable.isMuted,
+      raisedHand: spaceParticipantsTable.raisedHand,
+      joinedAt:   spaceParticipantsTable.joinedAt,
+      lastSeenAt: spaceParticipantsTable.lastSeenAt,
+      photoUrl:   usersTable.photoUrl,
+      civicRole:  usersTable.civicRole,
+    })
     .from(spaceParticipantsTable)
+    .leftJoin(usersTable, eq(spaceParticipantsTable.telegramId, usersTable.telegramId))
     .where(eq(spaceParticipantsTable.spaceId, id))
     .orderBy(spaceParticipantsTable.joinedAt);
 

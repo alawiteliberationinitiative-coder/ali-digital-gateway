@@ -256,6 +256,36 @@ router.post("/users/ping", async (req, res): Promise<void> => {
   res.json({ ok: true, lastSeen: now.toISOString() });
 });
 
+/* ── Update profile photo ────────────────────────────────────────────────── */
+router.patch("/users/me/photo", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { photoUrl } = req.body as { photoUrl?: string | null };
+
+  if (photoUrl !== null && photoUrl !== undefined) {
+    if (typeof photoUrl !== "string") {
+      res.status(400).json({ error: "photoUrl must be a string or null" }); return;
+    }
+    if (!photoUrl.startsWith("data:image/")) {
+      res.status(400).json({ error: "photoUrl must be a data URL" }); return;
+    }
+    // Limit base64 payload to ~150 KB (≈ 112 KB raw after JPEG compression)
+    if (photoUrl.length > 200_000) {
+      res.status(400).json({ error: "الصورة كبيرة جداً، يرجى اختيار صورة أصغر" }); return;
+    }
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set({ photoUrl: photoUrl ?? null })
+    .where(eq(usersTable.telegramId, telegramId))
+    .returning({ photoUrl: usersTable.photoUrl });
+
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ photoUrl: updated.photoUrl });
+});
+
 /* ── Update civic role ───────────────────────────────────────────────────── */
 router.patch("/users/me/civic-role", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
