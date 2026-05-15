@@ -9,7 +9,7 @@ const POINTS_PER_LEVEL = 10;
 // Caps total quiz points at MAX_LEVEL * POINTS_PER_LEVEL = 50.
 const MAX_LEVEL        = 5;
 // Minimum time between consecutive level completions (DB-backed, atomic).
-const QUIZ_COOLDOWN_MS = 60_000; // 60 seconds
+const QUIZ_COOLDOWN_MS = 3_000; // 3 seconds — prevents double-submission only; token age enforces real quiz duration
 
 /**
  * POST /api/quiz/start-level

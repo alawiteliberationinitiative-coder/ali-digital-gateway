@@ -753,6 +753,33 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
     if (qIdx + 1 >= qs.length) {
       const lvl = selectedLevel!;
       const isStage = lvl % 5 === 0;
+
+      // Non-stage levels: persist completion immediately when the last question
+      // is answered (before the bonus ad screen). Stage levels are persisted
+      // after the mandatory ad in handleStageAdWatch.
+      if (!isStage && telegramId && lvl <= MAX_QUIZ_LEVEL) {
+        const quizToken = quizChallengeRef.current;
+        quizChallengeRef.current = "";
+        if (quizToken) {
+          apiFetch("/api/quiz/complete-level", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ levelCompleted: lvl, quizToken }),
+          })
+            .then(r => r.ok ? r.json() : null)
+            .then((data: { level: number; loyaltyPoints: number } | null) => {
+              if (data) {
+                setCurrentLevel(data.level);
+                setTotalPoints(data.loyaltyPoints);
+              } else {
+                // API rejected (token age / cooldown) — still advance locally
+                setCurrentLevel(c => Math.max(c, lvl + 1));
+              }
+            })
+            .catch(() => setCurrentLevel(c => Math.max(c, lvl + 1)));
+        }
+      }
+
       setTimeout(() => setPhase(isStage ? "stage" : "bonus"), 600);
     } else {
       setTimeout(() => setQIdx(i => i + 1), 900);
