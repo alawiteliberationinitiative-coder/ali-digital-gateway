@@ -246,17 +246,103 @@ function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefine
   if (!role) return null;
   const isGuardian = role === "guardian";
   const label = isGuardian ? "حارس الأرض" : "سفير القضية";
-  const color = isGuardian ? "#22c55e" : "#60a5fa";
+  const w = size === "xs" ? 14 : 18;
+  const h = size === "xs" ? 16 : 20;
+  // dark-on-gold ink colour for inner symbols
+  const INK = "#2d1200";
+
   return (
     <div className="inline-flex items-center gap-1 rounded-full"
-      style={{ background: `${color}14`, border: `1px solid ${color}35`, padding: size === "xs" ? "1px 6px" : "2px 8px" }}>
-      <svg viewBox="0 0 20 22" style={{ width: size === "xs" ? 10 : 12, height: size === "xs" ? 11 : 13 }} fill="none">
-        <path d="M10 1.5 L18.5 5 L18.5 11 C18.5 15.5 14.5 19 10 21 C5.5 19 1.5 15.5 1.5 11 L1.5 5 Z"
-          fill={color} opacity="0.75" />
-        <path d="M10 1.5 L18.5 5 L18.5 11 C18.5 15.5 14.5 19 10 21 C5.5 19 1.5 15.5 1.5 11 L1.5 5 Z"
-          fill="none" stroke={color} strokeWidth="1.2" opacity="0.8" />
+      style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.45)",
+               padding: size === "xs" ? "1px 6px" : "2px 8px" }}>
+
+      <svg viewBox="0 0 32 36" width={w} height={h} fill="none" xmlns="http://www.w3.org/2000/svg">
+
+        {/* ── Golden shield body ── */}
+        {/* Shadow layer */}
+        <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
+          fill="#7a4e00" opacity="0.35" transform="translate(0.5,0.8)" />
+        {/* Main fill — warm gold */}
+        <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
+          fill="#d4af37" />
+        {/* Highlight sheen top-left */}
+        <path d="M16 2 L29 6 C29 10 26 14 21 18 C16 14 8 10 3 6 Z"
+          fill="#f5d76e" opacity="0.45" />
+        {/* Border */}
+        <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
+          fill="none" stroke="#f0c030" strokeWidth="0.9" opacity="0.9" />
+        {/* Inner border line */}
+        <path d="M16 4 L27.5 7.5 C27.5 16.5 23 26 16 32.5 C9 26 4.5 16.5 4.5 7.5 Z"
+          fill="none" stroke="#7a4e00" strokeWidth="0.5" opacity="0.4" />
+
+        {isGuardian ? (
+          /* ── Crossed Zulfiqar swords (ذو الفقار) ── */
+          <g strokeLinecap="round" strokeLinejoin="round">
+            {/* Sword 1 — hilt bottom-left → forked tip top-right */}
+            {/* Pommel */}
+            <ellipse cx="6.5" cy="29.5" rx="1.8" ry="1.4"
+              transform="rotate(-45 6.5 29.5)" fill={INK} />
+            {/* Grip */}
+            <line x1="7.8" y1="28.2" x2="10.2" y2="25.8"
+              stroke={INK} strokeWidth="1.4" />
+            {/* Guard — perpendicular to blade */}
+            <line x1="8.2" y1="24.8" x2="12.5" y2="27.5"
+              stroke={INK} strokeWidth="1.5" strokeLinecap="round" />
+            {/* Blade */}
+            <line x1="11" y1="25" x2="23.5" y2="11"
+              stroke={INK} strokeWidth="1.2" />
+            {/* Zulfiqar forked tip — two prongs */}
+            <line x1="23.5" y1="11" x2="20.5" y2="7.5"
+              stroke={INK} strokeWidth="1.1" />
+            <line x1="23.5" y1="11" x2="26.5" y2="8"
+              stroke={INK} strokeWidth="1.1" />
+
+            {/* Sword 2 — hilt bottom-right → forked tip top-left (mirror) */}
+            {/* Pommel */}
+            <ellipse cx="25.5" cy="29.5" rx="1.8" ry="1.4"
+              transform="rotate(45 25.5 29.5)" fill={INK} />
+            {/* Grip */}
+            <line x1="24.2" y1="28.2" x2="21.8" y2="25.8"
+              stroke={INK} strokeWidth="1.4" />
+            {/* Guard */}
+            <line x1="23.8" y1="24.8" x2="19.5" y2="27.5"
+              stroke={INK} strokeWidth="1.5" strokeLinecap="round" />
+            {/* Blade */}
+            <line x1="21" y1="25" x2="8.5" y2="11"
+              stroke={INK} strokeWidth="1.2" />
+            {/* Forked tip */}
+            <line x1="8.5" y1="11" x2="5.5" y2="8"
+              stroke={INK} strokeWidth="1.1" />
+            <line x1="8.5" y1="11" x2="11.5" y2="7.5"
+              stroke={INK} strokeWidth="1.1" />
+          </g>
+        ) : (
+          /* ── Golden wings (سفير القضية) ── */
+          <g fill={INK} opacity="0.88">
+            {/* Left wing — 3 feather arcs fanning leftward */}
+            <path d="M14.5 19 C13 16 7 15 5.5 12.5 L13.5 17 Z" />
+            <path d="M14.5 19 C11 17.5 5 19.5 4 22.5 L14.5 20.5 Z" />
+            <path d="M14.5 19 C11 21 5 23 5.5 26 L14.5 22 Z" />
+            {/* Left wing quill base */}
+            <path d="M14.5 19 C13.5 18 12.5 17 12 16 L14 18 Z" opacity="0.6" />
+
+            {/* Right wing — mirror */}
+            <path d="M17.5 19 C19 16 25 15 26.5 12.5 L18.5 17 Z" />
+            <path d="M17.5 19 C21 17.5 27 19.5 28 22.5 L17.5 20.5 Z" />
+            <path d="M17.5 19 C21 21 27 23 26.5 26 L17.5 22 Z" />
+            <path d="M17.5 19 C18.5 18 19.5 17 20 16 L18 18 Z" opacity="0.6" />
+
+            {/* Center medallion connecting the wings */}
+            <circle cx="16" cy="20" r="2" fill={INK} />
+            <circle cx="16" cy="20" r="1" fill="#d4af37" />
+          </g>
+        )}
       </svg>
-      <span className="font-arabic font-bold" style={{ fontSize: size === "xs" ? 9 : 10, color, lineHeight: 1 }}>{label}</span>
+
+      <span className="font-arabic font-bold"
+        style={{ fontSize: size === "xs" ? 9 : 10, color: "#d4af37", lineHeight: 1 }}>
+        {label}
+      </span>
     </div>
   );
 }
