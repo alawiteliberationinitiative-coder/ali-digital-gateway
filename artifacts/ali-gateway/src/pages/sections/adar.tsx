@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronRight, Wifi, Pin, BookOpen, Calendar, Radio,
+  Wifi, Pin, BookOpen, Calendar, Radio,
   Send, CheckCircle, FileText, Scale,
   Loader2, Camera, X,
 } from "lucide-react";
@@ -863,10 +863,6 @@ export function AdarSection({
       <div className="sticky top-0 z-20" style={{ background: "rgba(0,16,4,0.97)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${GOLD}22` }}>
         {/* Brand row */}
         <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-          <button onClick={onBack} className="p-2 rounded-xl active:scale-95 transition-transform flex-shrink-0"
-            style={{ background: "rgba(212,175,55,0.1)", border: `1px solid ${GOLD}35` }}>
-            <ChevronRight className="w-5 h-5" style={{ color: GOLD }} />
-          </button>
           <div className="flex items-center gap-2.5 flex-1" dir="rtl">
             <AdarEmblem size={68} />
             <div>
@@ -875,7 +871,15 @@ export function AdarSection({
                 <span className="w-px h-3.5 bg-[#d4af37]/30" />
                 <span className="font-arabic text-xs font-bold text-white/70">مركز الرصد الإعلامي</span>
               </div>
-              <p className="font-mono text-[9px] text-white/30 tracking-wider">Alawite Digital Archive & Research</p>
+              {/* Vertical acrostic: first letters of each word spell A-D-A-R */}
+              <div className="font-mono text-[9px] tracking-wider leading-[1.55] mt-0.5" dir="ltr">
+                {[["A","lawite"],["D","igital"],["A","rchive &"],["R","esearch"]].map(([first, rest]) => (
+                  <div key={first + rest} className="flex">
+                    <span style={{ color: GOLD, fontWeight: 900 }}>{first}</span>
+                    <span className="text-white/30">{rest}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1 flex-shrink-0"
