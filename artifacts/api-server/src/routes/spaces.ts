@@ -1,19 +1,23 @@
 import { Router } from "express";
-import { createHmac } from "crypto";
 import type { Response } from "express";
 import {
   db, eq, and, or, gte, usersTable,
   spacesTable, spaceParticipantsTable, spaceSignalsTable, spaceInvitesTable,
 } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin";
+import { issueTicket, consumeTicket } from "../lib/sse-ticket";
 
 const router = Router();
 
-// ── SSE registries ───────────────────────────────────────────────────────────
+// ── SSE registries ──────────────────────────────────────────────────────────
 // signalClients: spaceId → telegramId → SSE Response
 const signalClients      = new Map<number, Map<string, Response>>();
 // participantClients: spaceId → telegramId → SSE Response
 const participantClients = new Map<number, Map<string, Response>>();
+
+// Note: SSE authentication uses short-lived single-use tickets issued via
+// POST /api/spaces/:id/sse-ticket (validated through the normal auth header).
+// This avoids exposing Telegram initData in URLs, logs, and proxy access logs.
 
 /** Push a single WebRTC signal to the recipient's SSE connection (if open). */
 function pushSignalSSE(spaceId: number, toTelegramId: string, signal: object) {
@@ -44,30 +48,6 @@ function broadcastSpaceEnded(spaceId: number) {
   for (const [, res] of clients) {
     try { res.write(`event: ended\ndata: {}\n\n`); } catch {}
   }
-}
-
-/** Validate Telegram initData from a query-string parameter (for EventSource connections). */
-function extractTelegramIdFromQuery(raw: string): string | null {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token || !raw) return null;
-  try {
-    const params    = new URLSearchParams(decodeURIComponent(raw));
-    const hash      = params.get("hash");
-    if (!hash) return null;
-    params.delete("hash");
-    const dataCheck = [...params.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join("\n");
-    const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
-    const computed  = createHmac("sha256", secretKey).update(dataCheck).digest("hex");
-    if (computed !== hash) return null;
-    const ageSecs   = Date.now() / 1000 - Number(params.get("auth_date") ?? 0);
-    if (ageSecs > 3600) return null;
-    const userStr   = params.get("user");
-    if (!userStr) return null;
-    return String((JSON.parse(userStr) as { id: number }).id);
-  } catch { return null; }
 }
 
 // ── DB helpers ───────────────────────────────────────────────────────────────
@@ -112,21 +92,42 @@ router.get("/spaces/ice-servers", (_req, res): void => {
   res.json({ iceServers: servers });
 });
 
+/* ══ SSE ticket issuance ════════════════════════════════════════════════════ */
+/**
+ * POST /api/spaces/:id/sse-ticket
+ * Issues a short-lived (30 s), single-use UUID ticket authenticated via the
+ * standard x-telegram-init-data header.  The client presents this ticket as
+ * ?ticket=<uuid> in the EventSource URL so that sensitive initData is never
+ * written into URLs, logs, browser history, or proxy access logs.
+ */
+router.post("/spaces/:id/sse-ticket", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  const id = parseInt(req.params.id, 10);
+  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [participant] = await db.select().from(spaceParticipantsTable).where(
+    and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
+  );
+  if (!participant) { res.status(403).json({ error: "Not a participant" }); return; }
+
+  const ticket = issueTicket(telegramId, id);
+  res.json({ ticket });
+});
+
 /* ══ SSE: real-time WebRTC signal stream ════════════════════════════════════ */
 /**
- * GET /api/spaces/:id/signals/sse
- * Long-lived SSE connection that pushes WebRTC signals to the client in real-time.
- * Replaces the 2-second polling loop. Keeps the DB as fallback for reconnecting clients.
+ * GET /api/spaces/:id/signals/sse?ticket=<uuid>
+ * Long-lived SSE connection that pushes WebRTC signals in real-time.
+ * Auth: short-lived ticket from POST /api/spaces/:id/sse-ticket (single-use, 30 s TTL).
+ * Flushes any pending DB signals on connect for reconnect resilience.
  */
 router.get("/spaces/:id/signals/sse", async (req, res): Promise<void> => {
-  let telegramId = req.telegramId;
-  const id = parseInt(req.params.id, 10);
+  const id     = parseInt(req.params.id, 10);
+  const ticketId = req.query.ticket as string | undefined;
+  if (!ticketId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  if (!telegramId) {
-    const q = req.query.initData as string | undefined;
-    if (q) telegramId = extractTelegramIdFromQuery(q) ?? undefined;
-  }
-  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const telegramId = consumeTicket(ticketId, id);
+  if (!telegramId) { res.status(401).json({ error: "Invalid or expired ticket" }); return; }
 
   const [participant] = await db.select().from(spaceParticipantsTable).where(
     and(eq(spaceParticipantsTable.spaceId, id), eq(spaceParticipantsTable.telegramId, telegramId))
@@ -172,26 +173,25 @@ router.get("/spaces/:id/signals/sse", async (req, res): Promise<void> => {
 
   req.on("close", () => {
     clearInterval(ka);
-    signalClients.get(id)?.delete(telegramId!);
+    signalClients.get(id)?.delete(telegramId);
     if ((signalClients.get(id)?.size ?? 0) === 0) signalClients.delete(id);
   });
 });
 
 /* ══ SSE: real-time participant updates ══════════════════════════════════════ */
 /**
- * GET /api/spaces/:id/participants/sse
+ * GET /api/spaces/:id/participants/sse?ticket=<uuid>
  * Replaces the 4-second participant polling. Pushes the full participant list
- * whenever someone joins, leaves, is promoted, muted, or raises their hand.
+ * on join, leave, promote, mute, and raise-hand.
+ * Auth: short-lived ticket from POST /api/spaces/:id/sse-ticket.
  */
 router.get("/spaces/:id/participants/sse", async (req, res): Promise<void> => {
-  let telegramId = req.telegramId;
-  const id = parseInt(req.params.id, 10);
+  const id       = parseInt(req.params.id, 10);
+  const ticketId = req.query.ticket as string | undefined;
+  if (!ticketId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  if (!telegramId) {
-    const q = req.query.initData as string | undefined;
-    if (q) telegramId = extractTelegramIdFromQuery(q) ?? undefined;
-  }
-  if (!telegramId || isNaN(id)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const telegramId = consumeTicket(ticketId, id);
+  if (!telegramId) { res.status(401).json({ error: "Invalid or expired ticket" }); return; }
 
   res.setHeader("Content-Type",      "text/event-stream");
   res.setHeader("Cache-Control",     "no-cache, no-transform");

@@ -415,6 +415,7 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
 
     let es: EventSource | null = null;
     let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
 
     const startPollingFallback = () => {
       if (fallbackTimer) return;
@@ -431,26 +432,39 @@ function useSpaceAudio({ spaceId, myTelegramId, myRole, participants, enabled }:
       }, 2000);
     };
 
-    const initData = getInitData();
-    if (initData && typeof EventSource !== "undefined") {
-      const url = `/api/spaces/${spaceId}/signals/sse?initData=${encodeURIComponent(initData)}`;
-      es = new EventSource(url);
+    const connectSSE = async () => {
+      try {
+        // Obtain a 30-second single-use ticket via authenticated POST (header auth)
+        const ticketRes = await apiFetch(`/api/spaces/${spaceId}/sse-ticket`, { method: "POST" });
+        if (!ticketRes.ok || cancelled) { startPollingFallback(); return; }
+        const { ticket } = await ticketRes.json() as { ticket: string };
+        if (cancelled) return;
 
-      es.addEventListener("signal", (e: MessageEvent) => {
-        try { processSignal(JSON.parse(e.data as string)); } catch {}
-      });
+        // Ticket is a random UUID — safe to use in URL (not raw initData)
+        es = new EventSource(`/api/spaces/${spaceId}/signals/sse?ticket=${encodeURIComponent(ticket)}`);
 
-      // On SSE error: close and fall back to polling
-      es.onerror = () => {
-        es?.close();
-        es = null;
-        startPollingFallback();
-      };
+        es.addEventListener("signal", (e: MessageEvent) => {
+          try { processSignal(JSON.parse(e.data as string)); } catch {}
+        });
+
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          if (!cancelled) startPollingFallback();
+        };
+      } catch {
+        if (!cancelled) startPollingFallback();
+      }
+    };
+
+    if (typeof EventSource !== "undefined") {
+      connectSSE();
     } else {
       startPollingFallback();
     }
 
     return () => {
+      cancelled = true;
       es?.close();
       if (fallbackTimer) clearInterval(fallbackTimer);
     };
@@ -1597,41 +1611,58 @@ export function CommunitySection({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (!activeSpace) return;
 
-    const initData = getInitData();
     let es: EventSource | null = null;
-    // Keep a polling fallback in case SSE isn't available
     let fallback: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
+    const spaceId = activeSpace.id;
 
-    if (initData && typeof EventSource !== "undefined") {
-      const url = `/api/spaces/${activeSpace.id}/participants/sse?initData=${encodeURIComponent(initData)}`;
-      es = new EventSource(url);
+    const startFallback = () => {
+      if (fallback) return;
+      fallback = setInterval(() => fetchSpaceDetails(spaceId), 5000);
+    };
 
-      es.addEventListener("participants", (e: MessageEvent) => {
-        try {
-          const rows = JSON.parse(e.data as string) as Participant[];
-          setActiveSpace(prev => prev ? { ...prev, participants: rows } : null);
-          setMyParticipant(rows.find(p => p.telegramId === telegramId));
-        } catch {}
-      });
+    const connectParticipantSSE = async () => {
+      try {
+        // Get a short-lived ticket (safe for URL use — not raw initData)
+        const ticketRes = await apiFetch(`/api/spaces/${spaceId}/sse-ticket`, { method: "POST" });
+        if (!ticketRes.ok || cancelled) { startFallback(); return; }
+        const { ticket } = await ticketRes.json() as { ticket: string };
+        if (cancelled) return;
 
-      es.addEventListener("ended", () => {
-        // Host ended the space — kick everyone out gracefully
-        setActiveSpace(null);
-        setMyParticipant(undefined);
-        fetchSpaces();
-      });
+        es = new EventSource(`/api/spaces/${spaceId}/participants/sse?ticket=${encodeURIComponent(ticket)}`);
 
-      es.onerror = () => {
-        es?.close();
-        es = null;
-        // Fall back to polling
-        fallback = setInterval(() => fetchSpaceDetails(activeSpace.id), 5000);
-      };
+        es.addEventListener("participants", (e: MessageEvent) => {
+          try {
+            const rows = JSON.parse(e.data as string) as Participant[];
+            setActiveSpace(prev => prev ? { ...prev, participants: rows } : null);
+            setMyParticipant(rows.find(p => p.telegramId === telegramId));
+          } catch {}
+        });
+
+        es.addEventListener("ended", () => {
+          setActiveSpace(null);
+          setMyParticipant(undefined);
+          fetchSpaces();
+        });
+
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          if (!cancelled) startFallback();
+        };
+      } catch {
+        if (!cancelled) startFallback();
+      }
+    };
+
+    if (typeof EventSource !== "undefined") {
+      connectParticipantSSE();
     } else {
-      fallback = setInterval(() => fetchSpaceDetails(activeSpace.id), 5000);
+      startFallback();
     }
 
     return () => {
+      cancelled = true;
       es?.close();
       if (fallback) clearInterval(fallback);
     };
