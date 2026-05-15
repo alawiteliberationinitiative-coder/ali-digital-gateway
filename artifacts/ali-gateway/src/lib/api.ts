@@ -12,6 +12,8 @@ export function configureApi(telegramId: string, initData: string) {
   _initData = initData;
 }
 
+export function getInitData(): string { return _initData; }
+
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
   retries?: number;

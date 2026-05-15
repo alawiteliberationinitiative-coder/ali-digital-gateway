@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, sql, desc, count, usersTable, articlesTable, usersActivityTable } from "@workspace/db";
+import { db, eq, and, sql, desc, count, usersTable, articlesTable, usersActivityTable, blocksTable } from "@workspace/db";
 import { consumeUploadToken } from "../lib/upload-tokens.js";
 
 const router = Router();
@@ -290,6 +290,52 @@ router.post("/users/confirm-keys", async (req, res): Promise<void> => {
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json({ ...user, mddBalance: Number(user.mddBalance) });
+});
+
+/* ── Block a user ────────────────────────────────────────────────────────── */
+router.post("/users/block/:targetId", async (req, res): Promise<void> => {
+  const myId     = req.telegramId;
+  const targetId = req.params.targetId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (myId === targetId) { res.status(400).json({ error: "لا يمكنك حظر نفسك" }); return; }
+
+  await db
+    .insert(blocksTable)
+    .values({ blockerTelegramId: myId, blockedTelegramId: targetId })
+    .onConflictDoNothing();
+
+  res.json({ ok: true });
+});
+
+/* ── Unblock a user ──────────────────────────────────────────────────────── */
+router.delete("/users/block/:targetId", async (req, res): Promise<void> => {
+  const myId     = req.telegramId;
+  const targetId = req.params.targetId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  await db
+    .delete(blocksTable)
+    .where(
+      and(
+        eq(blocksTable.blockerTelegramId, myId),
+        eq(blocksTable.blockedTelegramId, targetId),
+      )
+    );
+
+  res.json({ ok: true });
+});
+
+/* ── Get my blocked users ────────────────────────────────────────────────── */
+router.get("/users/blocks", async (req, res): Promise<void> => {
+  const myId = req.telegramId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const rows = await db
+    .select({ blockedTelegramId: blocksTable.blockedTelegramId, createdAt: blocksTable.createdAt })
+    .from(blocksTable)
+    .where(eq(blocksTable.blockerTelegramId, myId));
+
+  res.json(rows);
 });
 
 export default router;

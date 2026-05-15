@@ -4,9 +4,10 @@ import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
+  Trash2, Ban,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getInitData } from "../../lib/api";
 import { useUpdatePseudonym, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -692,10 +693,21 @@ function InboxView({ myTelegramId, onOpenChat }: { myTelegramId: string; onOpenC
 }
 
 // ─── Chat View ────────────────────────────────────────────────────────────────
-function ChatView({ myTelegramId, partner, onBack }: { myTelegramId: string; partner: ChatPartner; onBack: () => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput]       = useState("");
-  const [sending, setSending]   = useState(false);
+function ChatView({
+  myTelegramId, partner, onBack, onDeleted, onBlocked,
+}: {
+  myTelegramId: string;
+  partner: ChatPartner;
+  onBack: () => void;
+  onDeleted?: () => void;
+  onBlocked?: () => void;
+}) {
+  const [messages, setMessages]           = useState<ChatMessage[]>([]);
+  const [input, setInput]                 = useState("");
+  const [sending, setSending]             = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmBlock, setConfirmBlock]   = useState(false);
+  const [actioning, setActioning]         = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
   const rc = RANK_COLORS[partner.rank] ?? "#94a3b8";
@@ -708,8 +720,28 @@ function ChatView({ myTelegramId, partner, onBack }: { myTelegramId: string; par
   useEffect(() => {
     load();
     apiFetch(`/api/messages/read/${partner.telegramId}`, { method: "POST" }).catch(() => {});
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
+
+    // SSE for real-time incoming messages
+    const initData = getInitData();
+    let es: EventSource | null = null;
+    let fallback: ReturnType<typeof setInterval> | null = null;
+
+    if (initData && typeof EventSource !== "undefined") {
+      es = new EventSource(`/api/messages/events?initData=${encodeURIComponent(initData)}`);
+      es.addEventListener("new_message", () => load());
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (!fallback) fallback = setInterval(load, 5000);
+      };
+    } else {
+      fallback = setInterval(load, 5000);
+    }
+
+    return () => {
+      es?.close();
+      if (fallback) clearInterval(fallback);
+    };
   }, [load, partner.telegramId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -725,6 +757,24 @@ function ChatView({ myTelegramId, partner, onBack }: { myTelegramId: string; par
     setInput("");
     await load();
     setSending(false);
+  };
+
+  const handleDelete = async () => {
+    setActioning(true);
+    await apiFetch(`/api/messages/thread/${partner.telegramId}`, { method: "DELETE" }).catch(() => {});
+    setActioning(false);
+    setConfirmDelete(false);
+    onDeleted?.();
+    onBack();
+  };
+
+  const handleBlock = async () => {
+    setActioning(true);
+    await apiFetch(`/api/users/block/${partner.telegramId}`, { method: "POST" }).catch(() => {});
+    setActioning(false);
+    setConfirmBlock(false);
+    onBlocked?.();
+    onBack();
   };
 
   return (
@@ -752,7 +802,80 @@ function ChatView({ myTelegramId, partner, onBack }: { myTelegramId: string; par
             {partner.civicRole && <CivicRoleShield role={partner.civicRole} size="xs" />}
           </div>
         </div>
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button onClick={() => setConfirmDelete(true)}
+            className="p-2 rounded-xl active:scale-90 transition-all"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+            title="حذف المحادثة">
+            <Trash2 className="w-4 h-4 text-red-400/70" />
+          </button>
+          <button onClick={() => setConfirmBlock(true)}
+            className="p-2 rounded-xl active:scale-90 transition-all"
+            style={{ background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.2)" }}
+            title="حظر المستخدم">
+            <Ban className="w-4 h-4 text-orange-400/70" />
+          </button>
+        </div>
       </div>
+
+      {/* Delete confirmation overlay */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div className="absolute inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="w-full max-w-xs rounded-2xl p-5 text-center"
+              style={{ background: "rgba(15,15,15,0.98)", border: "1px solid rgba(239,68,68,0.35)" }}>
+              <div className="text-3xl mb-3">🗑️</div>
+              <p className="font-arabic font-bold text-white/90 text-sm mb-1">حذف المحادثة</p>
+              <p className="font-arabic text-white/40 text-xs mb-5" dir="rtl">سيتم حذف كل رسائل هذه المحادثة نهائياً لكلا الطرفين.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2.5 rounded-xl font-arabic text-sm font-bold text-white/50"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  إلغاء
+                </button>
+                <button onClick={handleDelete} disabled={actioning}
+                  className="flex-1 py-2.5 rounded-xl font-arabic text-sm font-bold text-white flex items-center justify-center gap-1.5"
+                  style={{ background: "rgba(239,68,68,0.25)", border: "1px solid rgba(239,68,68,0.45)" }}>
+                  {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  حذف
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Block confirmation overlay */}
+      <AnimatePresence>
+        {confirmBlock && (
+          <motion.div className="absolute inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="w-full max-w-xs rounded-2xl p-5 text-center"
+              style={{ background: "rgba(15,15,15,0.98)", border: "1px solid rgba(251,146,60,0.35)" }}>
+              <div className="text-3xl mb-3">🚫</div>
+              <p className="font-arabic font-bold text-white/90 text-sm mb-1">حظر المستخدم</p>
+              <p className="font-arabic text-white/40 text-xs mb-5" dir="rtl">
+                لن يتمكن <span className="text-white/60 font-bold">{partner.pseudonym}</span> من إرسال رسائل إليك بعد الآن.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmBlock(false)} className="flex-1 py-2.5 rounded-xl font-arabic text-sm font-bold text-white/50"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  إلغاء
+                </button>
+                <button onClick={handleBlock} disabled={actioning}
+                  className="flex-1 py-2.5 rounded-xl font-arabic text-sm font-bold text-white flex items-center justify-center gap-1.5"
+                  style={{ background: "rgba(251,146,60,0.2)", border: "1px solid rgba(251,146,60,0.4)" }}>
+                  {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                  حظر
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3" dir="rtl">
@@ -977,7 +1100,14 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
       {/* ── Chat overlay (full-screen within profile) ── */}
       <AnimatePresence>
         {chatPartner && (
-          <ChatView key={chatPartner.telegramId} myTelegramId={telegramId} partner={chatPartner} onBack={handleCloseChat} />
+          <ChatView
+            key={chatPartner.telegramId}
+            myTelegramId={telegramId}
+            partner={chatPartner}
+            onBack={handleCloseChat}
+            onDeleted={handleCloseChat}
+            onBlocked={handleCloseChat}
+          />
         )}
       </AnimatePresence>
 
