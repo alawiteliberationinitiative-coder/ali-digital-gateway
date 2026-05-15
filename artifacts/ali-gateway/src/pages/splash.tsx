@@ -184,8 +184,14 @@ async function fetchWithRetry(
 export default function Splash() {
   const [, setLocation] = useLocation();
 
+  // مفتاح التحقق مرتبط بـ Telegram ID — يُحفظ في localStorage ليبقى بين الجلسات
+  const humanCheckKey = (() => {
+    const id = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    return id ? `ali_human_check_${id}` : "ali_human_check";
+  })();
+
   const [verified, setVerified] = useState<boolean>(
-    () => sessionStorage.getItem("ali_human_check") === "1"
+    () => localStorage.getItem(humanCheckKey) === "1"
   );
   const [loadingMsg, setLoadingMsg] = useState("جاري تهيئة البوابة الآمنة...");
 
@@ -273,7 +279,7 @@ export default function Splash() {
   }, [verified]);
 
   function handleVerified() {
-    sessionStorage.setItem("ali_human_check", "1");
+    localStorage.setItem(humanCheckKey, "1");
     setVerified(true);
   }
 
