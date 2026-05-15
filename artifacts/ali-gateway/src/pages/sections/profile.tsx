@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Copy, Check, Eye, EyeOff,
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
-  UserPlus, UserCheck, Search, ChevronDown,
+  UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch } from "../../lib/api";
@@ -27,6 +27,32 @@ interface UserData {
   keysConfirmed: boolean;
   loyaltyPoints: number;
   createdAt: string;
+  civicRole?: string | null;
+}
+
+interface ChatPartner {
+  telegramId: string; pseudonym: string; aliId: string;
+  civicRole: string | null; rank: string; level: number;
+}
+
+interface ChatMessage {
+  id: number; fromTelegramId: string; toTelegramId: string;
+  content: string; createdAt: string; readAt: string | null;
+}
+
+interface Conversation {
+  partnerId: string; pseudonym: string; aliId: string;
+  civicRole: string | null; rank: string; level: number;
+  lastMessage: string; lastAt: string; unread: number; isMine: boolean;
+}
+
+function formatMsgTime(iso: string): string {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000)   return "الآن";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} د`;
+  if (diff < 86_400_000) return d.toLocaleTimeString("ar-SY", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("ar-SY", { month: "short", day: "numeric" });
 }
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -215,9 +241,30 @@ function getRankInfo(pts: number) {
   return { current: RANKS[0], next: RANKS[1], progress: 0 };
 }
 
+// ─── Civic Role Mini Shield ────────────────────────────────────────────────────
+function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefined; size?: "sm" | "xs" }) {
+  if (!role) return null;
+  const isGuardian = role === "guardian";
+  const label = isGuardian ? "حارس الأرض" : "سفير القضية";
+  const color = isGuardian ? "#22c55e" : "#60a5fa";
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full"
+      style={{ background: `${color}14`, border: `1px solid ${color}35`, padding: size === "xs" ? "1px 6px" : "2px 8px" }}>
+      <svg viewBox="0 0 20 22" style={{ width: size === "xs" ? 10 : 12, height: size === "xs" ? 11 : 13 }} fill="none">
+        <path d="M10 1.5 L18.5 5 L18.5 11 C18.5 15.5 14.5 19 10 21 C5.5 19 1.5 15.5 1.5 11 L1.5 5 Z"
+          fill={color} opacity="0.75" />
+        <path d="M10 1.5 L18.5 5 L18.5 11 C18.5 15.5 14.5 19 10 21 C5.5 19 1.5 15.5 1.5 11 L1.5 5 Z"
+          fill="none" stroke={color} strokeWidth="1.2" opacity="0.8" />
+      </svg>
+      <span className="font-arabic font-bold" style={{ fontSize: size === "xs" ? 9 : 10, color, lineHeight: 1 }}>{label}</span>
+    </div>
+  );
+}
+
 // ─── Network Types ─────────────────────────────────────────────────────────────
 interface NetUser {
   telegramId: string; aliId: string; pseudonym: string; rank: string; level: number;
+  civicRole?: string | null;
 }
 
 // ─── Follow Button (profile context) ──────────────────────────────────────────
@@ -290,7 +337,7 @@ function ReferralCount({ telegramId }: { telegramId: string }) {
   );
 }
 
-function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
+function NetworkSection({ myTelegramId, onMessage }: { myTelegramId: string; onMessage?: (u: NetUser) => void }) {
   const [tab, setTab] = useState<"followers" | "following">("followers");
   const [expanded, setExpanded] = useState(false);
   const [followers, setFollowers] = useState<NetUser[]>([]);
@@ -429,7 +476,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
                   </p>
                 ) : (
                   searchRes.map(u => (
-                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} />
+                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} />
                   ))
                 )
               ) : displayList.length === 0 ? (
@@ -438,7 +485,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
                 </p>
               ) : (
                 displayList.map(u => (
-                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} />
+                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} />
                 ))
               )}
             </div>
@@ -449,7 +496,7 @@ function NetworkSection({ myTelegramId }: { myTelegramId: string }) {
   );
 }
 
-function NetUserRow({ user, myTelegramId }: { user: NetUser; myTelegramId: string }) {
+function NetUserRow({ user, myTelegramId, onMessage }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void }) {
   const RANKS: Record<string, string> = {
     Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
@@ -457,19 +504,222 @@ function NetUserRow({ user, myTelegramId }: { user: NetUser; myTelegramId: strin
   const rankColor = RANKS[user.rank] ?? "#94a3b8";
 
   return (
-    <div className="flex items-center gap-3 py-2 rounded-xl px-2.5"
+    <div className="rounded-xl px-2.5 py-2"
       style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}
       dir="rtl">
-      <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
-        style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor }}>
-        {user.pseudonym.slice(0, 2).toUpperCase()}
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
+          style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor }}>
+          {user.pseudonym.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
+          <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {onMessage && myTelegramId !== user.telegramId && (
+            <button onClick={() => onMessage(user)}
+              className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
+              style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: GOLD }}>
+              <MessageSquare className="w-3 h-3" />
+              مراسلة
+            </button>
+          )}
+          <ProfileFollowButton targetTelegramId={user.telegramId} myTelegramId={myTelegramId} />
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
-        <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
-      </div>
-      <ProfileFollowButton targetTelegramId={user.telegramId} myTelegramId={myTelegramId} />
+      {user.civicRole && (
+        <div className="mt-1.5 mr-12">
+          <CivicRoleShield role={user.civicRole} size="xs" />
+        </div>
+      )}
     </div>
+  );
+}
+
+// ─── Inbox View ───────────────────────────────────────────────────────────────
+function InboxView({ myTelegramId, onOpenChat }: { myTelegramId: string; onOpenChat: (p: ChatPartner) => void }) {
+  const [convs, setConvs]       = useState<Conversation[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
+
+  useEffect(() => {
+    apiFetch("/api/messages/conversations")
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Conversation[]) => { setConvs(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [myTelegramId]);
+
+  if (loading) return (
+    <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>
+  );
+
+  return (
+    <div dir="rtl" className="px-4 py-3">
+      {convs.length === 0 ? (
+        <div className="flex flex-col items-center py-16 gap-3 text-center">
+          <div className="text-5xl mb-2">✉️</div>
+          <p className="font-arabic text-white/50 text-sm">صندوق البريد فارغ</p>
+          <p className="font-arabic text-white/25 text-xs">افتح بطاقة متابع واضغط «مراسلة» لبدء محادثة</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {convs.map(conv => {
+            const rc = RANK_COLORS[conv.rank] ?? "#94a3b8";
+            return (
+              <button key={conv.partnerId}
+                onClick={() => onOpenChat({ telegramId: conv.partnerId, pseudonym: conv.pseudonym, aliId: conv.aliId, civicRole: conv.civicRole, rank: conv.rank, level: conv.level })}
+                className="w-full flex items-center gap-3 rounded-xl px-3 py-3 active:bg-white/5 transition-colors"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                {/* Avatar with unread dot */}
+                <div className="relative flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-mono font-black text-sm"
+                    style={{ background: `${rc}18`, border: `1.5px solid ${rc}30`, color: rc }}>
+                    {conv.pseudonym.slice(0, 2).toUpperCase()}
+                  </div>
+                  {conv.unread > 0 && (
+                    <div className="absolute -top-1 -left-1 rounded-full flex items-center justify-center font-mono font-black text-[9px] text-white"
+                      style={{ background: "#ef4444", minWidth: 16, minHeight: 16, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.6)" }}>
+                      {conv.unread}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 text-right">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-arabic text-xs font-bold text-white/80 truncate">{conv.pseudonym}</span>
+                      {conv.civicRole && <CivicRoleShield role={conv.civicRole} size="xs" />}
+                    </div>
+                    <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{formatMsgTime(conv.lastAt)}</span>
+                  </div>
+                  <p className="font-arabic text-[11px] text-white/40 truncate text-right">
+                    {conv.isMine ? "أنت: " : ""}{conv.lastMessage}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Chat View ────────────────────────────────────────────────────────────────
+function ChatView({ myTelegramId, partner, onBack }: { myTelegramId: string; partner: ChatPartner; onBack: () => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput]       = useState("");
+  const [sending, setSending]   = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+  const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
+  const rc = RANK_COLORS[partner.rank] ?? "#94a3b8";
+
+  const load = useCallback(async () => {
+    const res = await apiFetch(`/api/messages/thread/${partner.telegramId}`);
+    if (res.ok) setMessages(await res.json());
+  }, [partner.telegramId]);
+
+  useEffect(() => {
+    load();
+    apiFetch(`/api/messages/read/${partner.telegramId}`, { method: "POST" }).catch(() => {});
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, [load, partner.telegramId]);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const send = async () => {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    await apiFetch("/api/messages/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toTelegramId: partner.telegramId, content: input.trim() }),
+    });
+    setInput("");
+    await load();
+    setSending(false);
+  };
+
+  return (
+    <motion.div className="absolute inset-0 z-40 flex flex-col"
+      style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
+      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}>
+
+      {/* Header */}
+      <div className="flex-shrink-0 px-4 py-3 flex items-center gap-3"
+        style={{ background: "rgba(0,22,13,0.96)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(212,175,55,0.18)" }}>
+        <button onClick={onBack}
+          className="p-2 rounded-xl active:scale-95 transition-transform flex-shrink-0"
+          style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
+          <ChevronRight className="w-5 h-5 text-[#d4af37]" />
+        </button>
+        <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
+          style={{ background: `${rc}18`, border: `1.5px solid ${rc}30`, color: rc }}>
+          {partner.pseudonym.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0" dir="rtl">
+          <p className="font-arabic font-bold text-white/90 text-sm truncate">{partner.pseudonym}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-mono text-[9px] text-white/30">{partner.aliId}</p>
+            {partner.civicRole && <CivicRoleShield role={partner.civicRole} size="xs" />}
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-3" dir="rtl">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-3 opacity-50">
+            <div className="text-4xl">💬</div>
+            <p className="font-arabic text-white/40 text-sm">ابدأ المحادثة</p>
+          </div>
+        )}
+        <div className="space-y-2">
+          {messages.map(msg => {
+            const isMine = msg.fromTelegramId === myTelegramId;
+            return (
+              <div key={msg.id} className={`flex ${isMine ? "justify-start" : "justify-end"}`}>
+                <div className="max-w-[75%] rounded-2xl px-3 py-2"
+                  style={{
+                    background: isMine ? "rgba(212,175,55,0.1)" : "rgba(96,165,250,0.1)",
+                    border: `1px solid ${isMine ? "rgba(212,175,55,0.2)" : "rgba(96,165,250,0.2)"}`,
+                  }}>
+                  <p className="font-arabic text-sm text-white/90 leading-relaxed" dir="auto">{msg.content}</p>
+                  <p className="font-mono text-[9px] text-white/30 mt-0.5" style={{ direction: "ltr", textAlign: "right" }}>{formatMsgTime(msg.createdAt)}</p>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={endRef} />
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="flex-shrink-0 px-3 pb-4 pt-2"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,15,8,0.5)" }}>
+        <div className="flex items-end gap-2" dir="rtl">
+          <div className="flex-1 rounded-2xl px-3 py-2.5 flex items-end"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+            <textarea value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="اكتب رسالتك..."
+              rows={1}
+              dir="rtl"
+              className="w-full bg-transparent font-arabic text-sm text-white/85 outline-none resize-none placeholder:text-white/25"
+              style={{ maxHeight: 100, overflowY: "auto" }}
+            />
+          </div>
+          <button onClick={send} disabled={!input.trim() || sending}
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-all disabled:opacity-40"
+            style={{ background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.4)" }}>
+            {sending ? <Loader2 className="w-4 h-4 text-[#d4af37] animate-spin" /> : <Send className="w-4 h-4 text-[#d4af37]" />}
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -488,6 +738,36 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
   const [editError,  setEditError]  = useState("");
 
   const updateMutation = useUpdatePseudonym();
+
+  // Tabs + chat state
+  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox">("profile");
+  const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
+  const [unreadCount,  setUnreadCount]  = useState(0);
+
+  // Civic role
+  const [civicRole,    setCivicRole]    = useState<string | null>(userData.civicRole ?? null);
+  const [savingRole,   setSavingRole]   = useState(false);
+
+  useEffect(() => {
+    apiFetch("/api/messages/unread-count")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setUnreadCount(d.count))
+      .catch(() => {});
+  }, [profileTab]);
+
+  const saveCivicRole = async (role: string | null) => {
+    setSavingRole(true);
+    setCivicRole(role);
+    await apiFetch("/api/users/me/civic-role", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ civicRole: role }),
+    }).catch(() => {});
+    setSavingRole(false);
+  };
+
+  const handleOpenChat = (partner: ChatPartner) => setChatPartner(partner);
+  const handleCloseChat = () => setChatPartner(null);
 
   function startEdit() {
     setEditValue(pseudonym);
@@ -553,29 +833,77 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
 
   return (
     <motion.div
-      className="flex flex-col h-full"
+      className="flex flex-col h-full relative overflow-hidden"
       style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
       initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}>
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-20 px-4 py-3 flex items-center gap-3"
+      <div className="sticky top-0 z-20 flex-shrink-0"
         style={{ background: "rgba(0,22,13,0.96)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(212,175,55,0.18)" }}>
-        <button onClick={onBack}
-          className="p-2 rounded-xl active:scale-95 transition-transform"
-          style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
-          <ChevronRight className="w-5 h-5 text-[#d4af37]" />
-        </button>
-        <div className="flex-1" dir="rtl">
-          <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">ملف العضو</h1>
-          <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
+        <div className="px-4 py-3 flex items-center gap-3">
+          <button onClick={onBack}
+            className="p-2 rounded-xl active:scale-95 transition-transform"
+            style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
+            <ChevronRight className="w-5 h-5 text-[#d4af37]" />
+          </button>
+          <div className="flex-1" dir="rtl">
+            <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">ملف العضو</h1>
+            <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
+          </div>
+          <div className="flex items-center gap-1 rounded-full px-3 py-1"
+            style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+            <span className="font-mono text-xs font-bold text-green-400">LVL {userData.level}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 rounded-full px-3 py-1"
-          style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
-          <span className="font-mono text-xs font-bold text-green-400">LVL {userData.level}</span>
+
+        {/* ── Tab bar ── */}
+        <div className="flex px-4 pb-2 gap-2" dir="rtl">
+          <button onClick={() => setProfileTab("profile")}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+            style={{
+              background: profileTab === "profile" ? "rgba(212,175,55,0.12)" : "transparent",
+              border: `1px solid ${profileTab === "profile" ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)"}`,
+              color: profileTab === "profile" ? GOLD : "rgba(255,255,255,0.35)",
+            }}>
+            <Shield className="w-3.5 h-3.5" />
+            ملفي
+          </button>
+          <button onClick={() => setProfileTab("inbox")}
+            className="relative flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+            style={{
+              background: profileTab === "inbox" ? "rgba(96,165,250,0.12)" : "transparent",
+              border: `1px solid ${profileTab === "inbox" ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.08)"}`,
+              color: profileTab === "inbox" ? "#60a5fa" : "rgba(255,255,255,0.35)",
+            }}>
+            <Mail className="w-3.5 h-3.5" />
+            البريد الخاص
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
+                style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
+      {/* ── Chat overlay (full-screen within profile) ── */}
+      <AnimatePresence>
+        {chatPartner && (
+          <ChatView key={chatPartner.telegramId} myTelegramId={telegramId} partner={chatPartner} onBack={handleCloseChat} />
+        )}
+      </AnimatePresence>
+
+      {/* ── Inbox tab ── */}
+      {profileTab === "inbox" && !chatPartner && (
+        <div className="flex-1 overflow-y-auto">
+          <InboxView myTelegramId={telegramId} onOpenChat={handleOpenChat} />
+        </div>
+      )}
+
+      {/* ── Profile tab ── */}
+      {profileTab === "profile" && (
       <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-4">
 
         {/* ── HERO ── */}
@@ -617,6 +945,35 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
 
           {/* Golden Shield */}
           <GoldenShield level={userData.level} />
+
+          {/* ── Civic Role Selector ── */}
+          <div className="mt-4 w-full" dir="rtl">
+            <p className="font-arabic text-[11px] text-white/40 mb-2 text-center">الدور المدني (اختياري)</p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              {[
+                { key: "guardian", label: "حارس الأرض", color: "#22c55e", desc: "🌿" },
+                { key: "ambassador", label: "سفير القضية", color: "#60a5fa", desc: "🕊️" },
+              ].map(opt => (
+                <button key={opt.key}
+                  onClick={() => saveCivicRole(civicRole === opt.key ? null : opt.key)}
+                  disabled={savingRole}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all active:scale-95 disabled:opacity-60"
+                  style={{
+                    background: civicRole === opt.key ? `${opt.color}18` : "rgba(0,0,0,0.2)",
+                    border: `1.5px solid ${civicRole === opt.key ? opt.color + "60" : "rgba(255,255,255,0.1)"}`,
+                    color: civicRole === opt.key ? opt.color : "rgba(255,255,255,0.35)",
+                  }}>
+                  {opt.desc} {opt.label}
+                  {civicRole === opt.key && <Check className="w-3 h-3 mr-0.5" />}
+                </button>
+              ))}
+            </div>
+            {civicRole && (
+              <div className="flex justify-center mt-2">
+                <CivicRoleShield role={civicRole} size="sm" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── IDENTITY CARD ── */}
@@ -875,12 +1232,13 @@ export function ProfileSection({ onBack, userData }: { onBack: () => void; userD
             <span className="font-arabic font-bold text-sm" style={{ color: "#60a5fa" }}>شبكتي الاجتماعية</span>
             <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(96,165,250,0.4),transparent)" }} />
           </div>
-          <NetworkSection myTelegramId={telegramId} />
+          <NetworkSection myTelegramId={telegramId} onMessage={handleOpenChat} />
         </div>
 
         {/* Bottom motto */}
         <p className="font-arabic text-center text-white/20 text-sm italic pt-2">حقٌّ لا يموت</p>
       </div>
+      )}
     </motion.div>
   );
 }

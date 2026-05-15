@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/pg-proxy";
 import * as schema from "./schema/index.js";
 
-export { eq, and, or, gte, lt, isNull, sql, desc, count } from "drizzle-orm";
+export { eq, and, or, gte, lt, isNull, inArray, sql, desc, count } from "drizzle-orm";
 
 const supabaseUrl = (process.env.SUPABASE_URL ?? "")
   .replace(/\/rest\/v1\/?$/, "")

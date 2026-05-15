@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
@@ -115,6 +115,25 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ─── Telegram-style notification tone via Web Audio API ───────────────────────
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const notes = [{ freq: 523.25, t: 0 }, { freq: 659.25, t: 0.12 }]; // C5, E5
+    notes.forEach(({ freq, t }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.09);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.1);
+    });
+  } catch { /* ignore AudioContext errors */ }
+}
+
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 function ProgressHeader({
   userData,
@@ -127,6 +146,27 @@ function ProgressHeader({
   const pts = userData.loyaltyPoints;
   const currentXp = pts % xpPerLevel;
   const pct = Math.min((currentXp / xpPerLevel) * 100, 100);
+
+  const [unread, setUnread] = useState(0);
+  const prevUnread = useRef(0);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const { apiFetch } = await import("@/lib/api");
+        const res = await apiFetch("/api/messages/unread-count");
+        if (res.ok) {
+          const { count } = await res.json() as { count: number };
+          if (count > prevUnread.current) playNotifSound();
+          prevUnread.current = count;
+          setUnread(count);
+        }
+      } catch { /* ignore */ }
+    };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   function handleClose() {
     window.Telegram?.WebApp?.close();
@@ -145,6 +185,12 @@ function ProgressHeader({
             style={{ background: "#d4af37", color: "#001a10", lineHeight: "14px" }}>
             {userData.level}
           </span>
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
+              style={{ background: "#ef4444", minWidth: 15, minHeight: 15, fontSize: 8, padding: "0 2px", boxShadow: "0 0 8px rgba(239,68,68,0.7)", lineHeight: "15px" }}>
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
         </button>
 
         <div className="flex-1 min-w-0">

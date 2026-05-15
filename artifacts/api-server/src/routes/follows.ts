@@ -67,6 +67,7 @@ router.get("/users/me/following", async (req, res): Promise<void> => {
       pseudonym: usersTable.pseudonym,
       rank: usersTable.rank,
       level: usersTable.level,
+      civicRole: usersTable.civicRole,
       followedAt: followsTable.createdAt,
     })
     .from(followsTable)
@@ -89,6 +90,7 @@ router.get("/users/me/followers", async (req, res): Promise<void> => {
       pseudonym: usersTable.pseudonym,
       rank: usersTable.rank,
       level: usersTable.level,
+      civicRole: usersTable.civicRole,
       followedAt: followsTable.createdAt,
     })
     .from(followsTable)
@@ -134,6 +136,7 @@ router.get("/users/search", async (req, res): Promise<void> => {
       pseudonym: usersTable.pseudonym,
       rank: usersTable.rank,
       level: usersTable.level,
+      civicRole: usersTable.civicRole,
     })
     .from(usersTable)
     .where(

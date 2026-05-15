@@ -8,6 +8,7 @@ import articlesRouter from "./articles.js";
 import spacesRouter from "./spaces.js";
 import followsRouter from "./follows.js";
 import docsRouter from "./docs.js";
+import messagesRouter from "./messages.js";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use(articlesRouter);
 router.use(spacesRouter);
 router.use(followsRouter);
 router.use(docsRouter);
+router.use(messagesRouter);
 
 export default router;

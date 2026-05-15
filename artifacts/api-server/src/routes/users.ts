@@ -256,6 +256,27 @@ router.post("/users/ping", async (req, res): Promise<void> => {
   res.json({ ok: true, lastSeen: now.toISOString() });
 });
 
+/* ── Update civic role ───────────────────────────────────────────────────── */
+router.patch("/users/me/civic-role", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { civicRole } = req.body as { civicRole?: string | null };
+  const allowed = ["guardian", "ambassador", null, undefined];
+  if (!allowed.includes(civicRole)) {
+    res.status(400).json({ error: "civicRole must be 'guardian', 'ambassador', or null" }); return;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set({ civicRole: civicRole ?? null })
+    .where(eq(usersTable.telegramId, telegramId))
+    .returning({ civicRole: usersTable.civicRole });
+
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ civicRole: updated.civicRole });
+});
+
 /* ── Confirm keys saved ──────────────────────────────────────────────────── */
 router.post("/users/confirm-keys", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
