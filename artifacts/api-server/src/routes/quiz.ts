@@ -5,9 +5,6 @@ import { issueQuizChallenge, validateAndConsumeQuiz, MIN_QUIZ_AGE_MS } from "../
 const router = Router();
 
 const POINTS_PER_LEVEL = 10;
-// Must match the number of levels defined in the client-side LEVELS array.
-// Caps total quiz points at MAX_LEVEL * POINTS_PER_LEVEL = 50.
-const MAX_LEVEL        = 5;
 // Minimum time between consecutive level completions (DB-backed, atomic).
 const QUIZ_COOLDOWN_MS = 3_000; // 3 seconds — prevents double-submission only; token age enforces real quiz duration
 
@@ -79,9 +76,6 @@ router.post("/quiz/complete-level", async (req, res): Promise<void> => {
     return;
   }
 
-  // Award points only up to MAX_LEVEL; levels beyond still advance the counter.
-  const awardPoints = levelCompleted <= MAX_LEVEL;
-
   const [user] = await db
     .select()
     .from(usersTable)
@@ -118,7 +112,7 @@ router.post("/quiz/complete-level", async (req, res): Promise<void> => {
     .update(usersTable)
     .set({
       level: user.level + 1,
-      ...(awardPoints ? { loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${POINTS_PER_LEVEL}` } : {}),
+      loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${POINTS_PER_LEVEL}`,
       lastQuizCompletedAt: new Date(),
     })
     .where(

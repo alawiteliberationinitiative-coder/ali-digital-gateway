@@ -28,9 +28,7 @@ interface KnowledgeBase {
 const QUESTIONS_PER_LEVEL = 5;
 const POINTS_PER_LEVEL    = 10;
 const BONUS_AD_POINTS     = 5;
-// Must match MAX_LEVEL in artifacts/api-server/src/routes/quiz.ts
-// Levels beyond this cap earn no quiz points (but still unlock via completeLevel)
-const MAX_QUIZ_LEVEL = 5;
+
 
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -843,7 +841,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
       // Non-stage levels: persist completion immediately when the last question
       // is answered (before the bonus ad screen). Stage levels are persisted
       // after the mandatory ad in handleStageAdWatch.
-      if (!isStage && telegramId && lvl <= MAX_QUIZ_LEVEL) {
+      if (!isStage && telegramId) {
         const quizToken = quizChallengeRef.current;
         quizChallengeRef.current = "";
         if (quizToken) {
@@ -885,10 +883,7 @@ export function KnowledgeSection({ onBack }: { onBack: () => void }) {
       const quizToken = quizChallengeRef.current;
       quizChallengeRef.current = "";
 
-      // Only call the backend for levels within the reward cap.
-      // For levels beyond MAX_QUIZ_LEVEL the server rejects the request — we
-      // advance the level locally without points instead of blocking the user.
-      if (lvl <= MAX_QUIZ_LEVEL && quizToken) {
+      if (quizToken) {
         try {
           const res = await apiFetch("/api/quiz/complete-level", {
             method: "POST",
