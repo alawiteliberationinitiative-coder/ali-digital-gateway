@@ -516,9 +516,9 @@ function ReferralCount({ telegramId }: { telegramId: string }) {
   );
 }
 
-function NetworkSection({ myTelegramId, onMessage }: { myTelegramId: string; onMessage?: (u: NetUser) => void }) {
+function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand }: { myTelegramId: string; onMessage?: (u: NetUser) => void; onViewFriend?: (u: NetUser) => void; autoExpand?: boolean }) {
   const [tab, setTab] = useState<"followers" | "following">("followers");
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!autoExpand);
   const [followers, setFollowers] = useState<NetUser[]>([]);
   const [following, setFollowing] = useState<NetUser[]>([]);
   const [stats, setStats] = useState({ followersCount: 0, followingCount: 0 });
@@ -655,7 +655,7 @@ function NetworkSection({ myTelegramId, onMessage }: { myTelegramId: string; onM
                   </p>
                 ) : (
                   searchRes.map(u => (
-                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} />
+                    <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} onViewProfile={onViewFriend} />
                   ))
                 )
               ) : displayList.length === 0 ? (
@@ -664,7 +664,7 @@ function NetworkSection({ myTelegramId, onMessage }: { myTelegramId: string; onM
                 </p>
               ) : (
                 displayList.map(u => (
-                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} />
+                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId} onMessage={onMessage} onViewProfile={onViewFriend} />
                 ))
               )}
             </div>
@@ -675,7 +675,7 @@ function NetworkSection({ myTelegramId, onMessage }: { myTelegramId: string; onM
   );
 }
 
-function NetUserRow({ user, myTelegramId, onMessage }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void }) {
+function NetUserRow({ user, myTelegramId, onMessage, onViewProfile }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void }) {
   const RANKS: Record<string, string> = {
     Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
@@ -687,14 +687,19 @@ function NetUserRow({ user, myTelegramId, onMessage }: { user: NetUser; myTelegr
       style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}
       dir="rtl">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0"
-          style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor }}>
+        <button
+          onClick={() => onViewProfile ? onViewProfile(user) : undefined}
+          disabled={!onViewProfile}
+          className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0 active:scale-90 transition-transform"
+          style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor, cursor: onViewProfile ? "pointer" : "default" }}>
           {user.pseudonym.slice(0, 2).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
+        </button>
+        <button onClick={() => onViewProfile ? onViewProfile(user) : undefined} disabled={!onViewProfile}
+          className="flex-1 min-w-0 text-right active:opacity-70 transition-opacity"
+          style={{ cursor: onViewProfile ? "pointer" : "default" }}>
           <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
           <p className="font-mono text-[9px] text-white/30">{user.aliId} · LVL {user.level}</p>
-        </div>
+        </button>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {onMessage && myTelegramId !== user.telegramId && (
             <button onClick={() => onMessage(user)}
@@ -713,6 +718,82 @@ function NetUserRow({ user, myTelegramId, onMessage }: { user: NetUser; myTelegr
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Friend Profile View ──────────────────────────────────────────────────────
+function FriendProfileView({ friend, myTelegramId, onBack, onMessage, onInvite, inviting }: {
+  friend: NetUser; myTelegramId: string; onBack: () => void;
+  onMessage: (u: NetUser) => void;
+  onInvite: () => void;
+  inviting: boolean;
+}) {
+  const RANK_COLORS: Record<string, string> = { Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6", Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316" };
+  const rankColor = RANK_COLORS[friend.rank] ?? "#94a3b8";
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-10 flex flex-col overflow-hidden"
+      style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
+      initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}>
+
+      {/* Header */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-3" dir="rtl"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <button onClick={onBack}
+          className="p-2 rounded-xl active:scale-95 transition-transform"
+          style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
+          <ChevronRight className="w-5 h-5 text-[#d4af37]" />
+        </button>
+        <span className="font-arabic font-bold text-white/80 text-base">ملف الصديق</span>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5" dir="rtl">
+
+        {/* Avatar + info */}
+        <div className="flex flex-col items-center gap-3 pb-2">
+          <div className="w-24 h-24 rounded-full flex items-center justify-center font-mono font-black text-3xl"
+            style={{ background: `${rankColor}18`, border: `2.5px solid ${rankColor}50`, color: rankColor, boxShadow: `0 0 28px ${rankColor}22` }}>
+            {friend.pseudonym.slice(0, 2).toUpperCase()}
+          </div>
+          <div className="text-center">
+            <p className="font-arabic font-bold text-white text-lg">{friend.pseudonym}</p>
+            <p className="font-mono text-[10px] text-white/35 mt-0.5">{friend.aliId}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span className="px-3 py-1 rounded-full font-mono text-xs font-bold"
+              style={{ background: `${rankColor}15`, border: `1px solid ${rankColor}35`, color: rankColor }}>
+              {friend.rank}
+            </span>
+            <span className="px-3 py-1 rounded-full font-mono text-xs"
+              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80" }}>
+              LVL {friend.level}
+            </span>
+          </div>
+          {friend.civicRole && <CivicRoleShield role={friend.civicRole} size="sm" />}
+          <ProfileFollowButton targetTelegramId={friend.telegramId} myTelegramId={myTelegramId} />
+        </div>
+
+        {/* Action buttons */}
+        <div className="space-y-3 pt-2">
+          <button onClick={() => onMessage(friend)}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all"
+            style={{ background: "rgba(212,175,55,0.12)", border: "1.5px solid rgba(212,175,55,0.35)", color: "#d4af37" }}>
+            <MessageSquare className="w-4 h-4" />
+            مراسلة في الدردشة
+          </button>
+          <button onClick={onInvite} disabled={inviting}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all disabled:opacity-60"
+            style={{ background: "rgba(96,165,250,0.12)", border: "1.5px solid rgba(96,165,250,0.35)", color: "#60a5fa" }}>
+            {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-base">🎙</span>}
+            دعوة لجلسة صوتية خاصة
+          </button>
+        </div>
+
+      </div>
+    </motion.div>
   );
 }
 
@@ -1080,7 +1161,7 @@ function ChatView({
 }
 
 // ─── Main Profile Section ─────────────────────────────────────────────────────
-export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string }) {
+export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string; initialTab?: "profile" | "inbox" | "friends"; onOpenCommunity?: (spaceId: number) => void }) {
   const { user } = useTelegram();
   const queryClient = useQueryClient();
   const telegramId  = userData.telegramId;
@@ -1096,11 +1177,39 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onB
   const updateMutation = useUpdatePseudonym();
 
   // Tabs + chat state
-  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox">(initialChatPartnerId ? "inbox" : "profile");
+  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox" | "friends">(initialTab ?? (initialChatPartnerId ? "inbox" : "profile"));
   const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
   const [unreadCount,  setUnreadCount]  = useState(0);
+  const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
+  const [invitingFriend, setInvitingFriend] = useState(false);
 
   // Civic role
+  const handleInviteToPrivateSession = async (friend: NetUser) => {
+    setInvitingFriend(true);
+    try {
+      const res = await apiFetch("/api/spaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `جلسة مع ${friend.pseudonym}`, isPrivate: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        window.Telegram?.WebApp?.showAlert?.((err as { error?: string }).error ?? "تعذّر إنشاء الجلسة");
+        setInvitingFriend(false);
+        return;
+      }
+      const space = await res.json() as { id: number };
+      await apiFetch(`/api/spaces/${space.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteeTelegramId: friend.telegramId, role: "speaker" }),
+      });
+      setFriendProfile(null);
+      onOpenCommunity?.(space.id);
+    } catch { /* ignore */ }
+    setInvitingFriend(false);
+  };
+
   const [civicRole,    setCivicRole]    = useState<string | null>(userData.civicRole ?? null);
   const [savingRole,   setSavingRole]   = useState(false);
 
@@ -1245,16 +1354,22 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onB
             <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">ملف العضو</h1>
             <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
           </div>
-          <div className="flex items-center gap-1 rounded-full px-3 py-1"
-            style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
-            <span className="font-mono text-xs font-bold text-green-400">LVL {userData.level}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full px-3 py-1"
+              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+              <span className="font-mono text-xs font-bold text-green-400">LVL {userData.level}</span>
+            </div>
+            <div className="flex items-center gap-1 rounded-full px-3 py-1"
+              style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
+              <span className="font-mono text-xs font-bold" style={{ color: "#d4af37" }}>⭐ {userData.loyaltyPoints.toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
         {/* ── Tab bar ── */}
         <div className="flex px-4 pb-2 gap-2" dir="rtl">
           <button onClick={() => setProfileTab("profile")}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
             style={{
               background: profileTab === "profile" ? "rgba(212,175,55,0.12)" : "transparent",
               border: `1px solid ${profileTab === "profile" ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)"}`,
@@ -1264,20 +1379,30 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onB
             ملفي
           </button>
           <button onClick={() => setProfileTab("inbox")}
-            className="relative flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
             style={{
               background: profileTab === "inbox" ? "rgba(96,165,250,0.12)" : "transparent",
               border: `1px solid ${profileTab === "inbox" ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.08)"}`,
               color: profileTab === "inbox" ? "#60a5fa" : "rgba(255,255,255,0.35)",
             }}>
             <Mail className="w-3.5 h-3.5" />
-            البريد الخاص
+            الرسائل
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
                 style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}>
                 {unreadCount}
               </span>
             )}
+          </button>
+          <button onClick={() => { setProfileTab("friends"); setFriendProfile(null); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+            style={{
+              background: profileTab === "friends" ? "rgba(74,222,128,0.12)" : "transparent",
+              border: `1px solid ${profileTab === "friends" ? "rgba(74,222,128,0.4)" : "rgba(255,255,255,0.08)"}`,
+              color: profileTab === "friends" ? "#4ade80" : "rgba(255,255,255,0.35)",
+            }}>
+            <Users className="w-3.5 h-3.5" />
+            الأصدقاء
           </button>
         </div>
       </div>
@@ -1296,10 +1421,40 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onB
         )}
       </AnimatePresence>
 
+      {/* ── Friend profile overlay ── */}
+      <AnimatePresence>
+        {friendProfile && !chatPartner && (
+          <FriendProfileView
+            key={friendProfile.telegramId}
+            friend={friendProfile}
+            myTelegramId={telegramId}
+            onBack={() => setFriendProfile(null)}
+            onMessage={(u) => {
+              setFriendProfile(null);
+              handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole, rank: u.rank, level: u.level });
+            }}
+            onInvite={() => handleInviteToPrivateSession(friendProfile)}
+            inviting={invitingFriend}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Inbox tab ── */}
-      {profileTab === "inbox" && !chatPartner && (
+      {profileTab === "inbox" && !chatPartner && !friendProfile && (
         <div className="flex-1 overflow-y-auto">
           <InboxView myTelegramId={telegramId} onOpenChat={handleOpenChat} autoOpenPartnerId={initialChatPartnerId} />
+        </div>
+      )}
+
+      {/* ── Friends tab ── */}
+      {profileTab === "friends" && !chatPartner && !friendProfile && (
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <NetworkSection
+            myTelegramId={telegramId}
+            onMessage={(u) => handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole, rank: u.rank, level: u.level })}
+            onViewFriend={(u) => setFriendProfile(u)}
+            autoExpand
+          />
         </div>
       )}
 
@@ -1657,7 +1812,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId }: { onB
             <span className="font-arabic font-bold text-sm" style={{ color: "#60a5fa" }}>شبكتي الاجتماعية</span>
             <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(96,165,250,0.4),transparent)" }} />
           </div>
-          <NetworkSection myTelegramId={telegramId} onMessage={handleOpenChat} />
+          <NetworkSection myTelegramId={telegramId} onMessage={handleOpenChat} onViewFriend={(u) => setFriendProfile(u)} />
         </div>
 
         {/* Bottom motto */}

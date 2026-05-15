@@ -315,8 +315,9 @@ router.post("/spaces", async (req, res): Promise<void> => {
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const user = await getUser(telegramId);
-  if (!canHost(user, telegramId)) {
-    res.status(403).json({ error: "صلاحية إنشاء المجالس للفريق المنتخب فقط" }); return;
+  const isPrivateRequest = req.body?.isPrivate === true;
+  if (!isPrivateRequest && !canHost(user, telegramId)) {
+    res.status(403).json({ error: "صلاحية إنشاء المجالس العامة للفريق المنتخب فقط" }); return;
   }
 
   const { title, description, scheduledAt, isPrivate } = req.body as {

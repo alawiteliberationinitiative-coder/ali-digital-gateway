@@ -4,6 +4,7 @@ import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
+import { Mail, Users } from "lucide-react";
 import { AdarEmblem } from "./sections/adar";
 import { SpaceAnnouncementBanner } from "./sections/community";
 import { getAdarUnreadCount } from "./sections/adar-utils";
@@ -137,11 +138,12 @@ function playNotifSound() {
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 function ProgressHeader({
-  userData,
-  onOpenProfile,
+  userData, onOpenProfile, onOpenInbox, onOpenFriends,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
   onOpenProfile: () => void;
+  onOpenInbox: () => void;
+  onOpenFriends: () => void;
 }) {
   const xpPerLevel = 500;
   const pts = userData.loyaltyPoints;
@@ -169,16 +171,12 @@ function ProgressHeader({
     return () => clearInterval(id);
   }, []);
 
-  function handleClose() {
-    window.Telegram?.WebApp?.close();
-  }
-
   return (
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border px-4 py-2" dir="rtl">
-      <div className="flex items-center gap-3">
-        {/* Avatar */}
-        <button
-          onClick={onOpenProfile}
+      <div className="flex items-center gap-2">
+
+        {/* Avatar / Profile */}
+        <button onClick={onOpenProfile}
           className="relative flex-shrink-0 active:scale-95 transition-transform"
           aria-label="ملف العضو">
           <AliEmblem className="w-9 h-9" animate={false} />
@@ -186,12 +184,28 @@ function ProgressHeader({
             style={{ background: "#d4af37", color: "#001a10", lineHeight: "14px" }}>
             {userData.level}
           </span>
+        </button>
+
+        {/* Inbox icon */}
+        <button onClick={onOpenInbox}
+          className="relative p-2 rounded-xl active:scale-95 transition-transform flex-shrink-0"
+          aria-label="الرسائل الواردة"
+          style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.2)" }}>
+          <Mail className="w-4 h-4" style={{ color: "#60a5fa" }} />
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
-              style={{ background: "#ef4444", minWidth: 15, minHeight: 15, fontSize: 8, padding: "0 2px", boxShadow: "0 0 8px rgba(239,68,68,0.7)", lineHeight: "15px" }}>
+              style={{ background: "#ef4444", minWidth: 14, minHeight: 14, fontSize: 8, padding: "0 2px", boxShadow: "0 0 6px rgba(239,68,68,0.7)", lineHeight: "14px" }}>
               {unread > 9 ? "9+" : unread}
             </span>
           )}
+        </button>
+
+        {/* Friends icon */}
+        <button onClick={onOpenFriends}
+          className="p-2 rounded-xl active:scale-95 transition-transform flex-shrink-0"
+          aria-label="الأصدقاء"
+          style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)" }}>
+          <Users className="w-4 h-4" style={{ color: "#4ade80" }} />
         </button>
 
         <div className="flex-1 min-w-0">
@@ -209,7 +223,7 @@ function ProgressHeader({
             </div>
           </div>
 
-          {/* Row 2: ID · Rank · $MDD (compact inline) */}
+          {/* Row 2: ID · Rank · $MDD */}
           <button onClick={onOpenProfile}
             className="flex items-center gap-1.5 mb-1.5 active:opacity-70 transition-opacity">
             <span className="font-mono text-[9px] text-primary/70 font-bold tracking-wider">{userData.aliId}</span>
@@ -250,12 +264,12 @@ interface CardDef {
 }
 
 const CARDS: CardDef[] = [
-  { id: "ambassadors", emoji: "🌍",  title: "سفراء القضية",          subtitle: "الشبكة الدولية",                      accent: "#60a5fa", shadow: "rgba(96,165,250,0.2)" },
-  { id: "guardians",   emoji: "🌿",  title: "حراس الأرض",           subtitle: "التوثيق الميداني",                    accent: "#4ade80", shadow: "rgba(74,222,128,0.2)" },
-  { id: "guide",       emoji: "📚",  title: "تعليمات الأنشطة",      subtitle: "دليل شامل لاستخدام المنصة",           accent: "#22c55e", shadow: "rgba(34,197,94,0.25)" },
-  { id: "community",   emoji: "🎙",  title: "المجلس الاجتماعي",      subtitle: "مساحات النقاش الصوتي",                accent: "#60a5fa", shadow: "rgba(96,165,250,0.22)" },
-  { id: "mdd",         emoji: "💰",  title: "ركن $MDD",             subtitle: "أداء العملة والعقد الذكي",            accent: "#d4af37", shadow: "rgba(212,175,55,0.3)", wide: true },
-  { id: "leaderboard", emoji: "🏆",  title: "المتصدرون",             subtitle: "ترتيب الأسماء المستعارة",             accent: "#fb923c", shadow: "rgba(251,146,60,0.25)", wide: true },
+  { id: "ambassadors", emoji: "🌍",  title: "سفراء القضية",     subtitle: "الشبكة الدولية",               accent: "#60a5fa", shadow: "rgba(96,165,250,0.2)" },
+  { id: "guardians",   emoji: "🌿",  title: "حراس الأرض",      subtitle: "التوثيق الميداني",             accent: "#4ade80", shadow: "rgba(74,222,128,0.2)" },
+  { id: "mdd",         emoji: "💰",  title: "الركن المالي",     subtitle: "أداء العملة والعقد الذكي",     accent: "#d4af37", shadow: "rgba(212,175,55,0.3)" },
+  { id: "community",   emoji: "🎙",  title: "المجلس الاجتماعي", subtitle: "مساحات النقاش الصوتي",         accent: "#60a5fa", shadow: "rgba(96,165,250,0.22)" },
+  { id: "guide",       emoji: "📚",  title: "تعليمات الأنشطة", subtitle: "دليل شامل لاستخدام المنصة",    accent: "#22c55e", shadow: "rgba(34,197,94,0.25)", wide: true },
+  { id: "leaderboard", emoji: "🏆",  title: "المتصدرون",        subtitle: "ترتيب الأسماء المستعارة",      accent: "#fb923c", shadow: "rgba(251,146,60,0.25)", wide: true },
 ];
 
 function SectionCard({ card, onPress, delay }: { card: CardDef; onPress: () => void; delay: number }) {
@@ -348,6 +362,7 @@ export default function Dashboard() {
   const [adarUnread, setAdarUnread] = useState(() => getAdarUnreadCount());
   const [pendingNavSpaceId, setPendingNavSpaceId] = useState<number | null>(null);
   const [pendingNavChatId,  setPendingNavChatId]  = useState<string | null>(null);
+  const [initialProfileTab, setInitialProfileTab] = useState<"profile" | "inbox" | "friends">("profile");
 
   // ── Timeout احتياطي: إذا لم يصل telegramId خلال 6 ثوانٍ أظهر شاشة retry ──
   const [noAuthReady, setNoAuthReady] = useState(false);
@@ -426,7 +441,12 @@ export default function Dashboard() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 0.7, ease: "easeOut" }}>
 
-          <ProgressHeader userData={userData} onOpenProfile={() => setActiveSection("profile")} />
+          <ProgressHeader
+            userData={userData}
+            onOpenProfile={() => { setInitialProfileTab("profile"); setActiveSection("profile"); }}
+            onOpenInbox={() => { setInitialProfileTab("inbox"); setActiveSection("profile"); }}
+            onOpenFriends={() => { setInitialProfileTab("friends"); setActiveSection("profile"); }}
+          />
 
           {/* Section overlay */}
           <AnimatePresence mode="wait">
@@ -446,7 +466,7 @@ export default function Dashboard() {
                   {activeSection === "play"        && <PlaySection onBack={handleBack} />}
                   {activeSection === "watch"       && <WatchSection onBack={handleBack} />}
                   {activeSection === "knowledge"   && <KnowledgeSection onBack={handleBack} />}
-                  {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} initialChatPartnerId={pendingNavChatId ?? undefined} />}
+                  {activeSection === "profile"     && <ProfileSection onBack={handleBack} userData={userData} initialChatPartnerId={pendingNavChatId ?? undefined} initialTab={initialProfileTab} onOpenCommunity={(spaceId) => { setPendingNavSpaceId(spaceId); setActiveSection("community"); }} />}
                 </Suspense>
               </motion.div>
             )}
@@ -489,9 +509,9 @@ export default function Dashboard() {
                 )}
 
                 {/* Emblem */}
-                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 144 }}>
+                <div className="relative z-10 flex-shrink-0 self-stretch flex items-center justify-center" style={{ minWidth: 172 }}>
                   <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, rgba(212,175,55,0.18) 0%, transparent 70%)" }} />
-                  <AdarEmblem size={144} glow />
+                  <AdarEmblem size={172} glow />
                 </div>
 
                 {/* Text */}
@@ -500,15 +520,15 @@ export default function Dashboard() {
                   <div className="font-mono text-[10px] tracking-wide mt-0.5" style={{ color: "rgba(212,175,55,0.6)" }}>
                     Alawite Digital Archive & Research
                   </div>
-                  <div className="flex items-center justify-end gap-2 mt-1">
-                    <span className="font-arabic text-[10px] rounded-full px-2 py-0.5"
-                      style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                  <div className="flex gap-2 mt-2">
+                    <div className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl font-arabic text-[10px] font-bold"
+                      style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.38)", color: "rgba(212,175,55,0.9)", boxShadow: "0 0 10px rgba(212,175,55,0.1), inset 0 1px 0 rgba(212,175,55,0.12)" }}>
                       📡 بيانات رسمية
-                    </span>
-                    <span className="font-arabic text-[10px] rounded-full px-2 py-0.5"
-                      style={{ background: "rgba(212,175,55,0.12)", color: "rgba(212,175,55,0.7)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl font-arabic text-[10px] font-bold"
+                      style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.38)", color: "rgba(212,175,55,0.9)", boxShadow: "0 0 10px rgba(212,175,55,0.1), inset 0 1px 0 rgba(212,175,55,0.12)" }}>
                       🗂 أرشيف رقمي
-                    </span>
+                    </div>
                   </div>
                 </div>
 
