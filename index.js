@@ -1,10 +1,101 @@
-const TelegramBot = require('node-telegram-bot-api');
-const http        = require('http');
-const crypto      = require('crypto');
+const http   = require('http');
+const crypto = require('crypto');
 
-const token     = process.env.TELEGRAM_BOT_TOKEN;
-const domains   = (process.env.REPLIT_DOMAINS || '').split(',').map(d => d.trim()).filter(Boolean);
+const token   = process.env.TELEGRAM_BOT_TOKEN;
+const domains = (process.env.REPLIT_DOMAINS || '').split(',').map(d => d.trim()).filter(Boolean);
 const webAppUrl = domains.length > 0 ? `https://${domains[0]}` : null;
+
+// ── Minimal Telegram Bot (native fetch, no external HTTP library) ─────────────
+class TelegramBot {
+  constructor(token) {
+    this._token    = token;
+    this._base     = `https://api.telegram.org/bot${token}`;
+    this._handlers = {};
+    this._polling  = false;
+  }
+
+  async _call(method, params = {}) {
+    const res = await fetch(`${this._base}/${method}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      const err = new Error(data.description || `${method} failed (${res.status})`);
+      err.code = data.error_code;
+      throw err;
+    }
+    return data.result;
+  }
+
+  on(event, handler) {
+    if (!this._handlers[event]) this._handlers[event] = [];
+    this._handlers[event].push(handler);
+    return this;
+  }
+
+  _emit(event, payload) {
+    for (const h of (this._handlers[event] || [])) {
+      try { h(payload); } catch (e) { console.error(`Handler error (${event}):`, e.message); }
+    }
+  }
+
+  processUpdate(update) {
+    if (update.message)        this._emit('message', update.message);
+    if (update.callback_query) this._emit('callback_query', update.callback_query);
+  }
+
+  sendMessage(chatId, text, opts = {}) {
+    return this._call('sendMessage', { chat_id: chatId, text, ...opts });
+  }
+
+  editMessageText(text, opts = {}) {
+    return this._call('editMessageText', { text, ...opts });
+  }
+
+  deleteMessage(chatId, messageId) {
+    return this._call('deleteMessage', { chat_id: chatId, message_id: messageId });
+  }
+
+  answerCallbackQuery(callbackQueryId, opts = {}) {
+    return this._call('answerCallbackQuery', { callback_query_id: callbackQueryId, ...opts });
+  }
+
+  setMyCommands(commands) {
+    return this._call('setMyCommands', { commands });
+  }
+
+  stopPolling() {
+    this._polling = false;
+  }
+
+  startPolling() {
+    this._polling = true;
+    this._pollLoop().catch(e => console.error('Polling loop crashed:', e.message));
+    return this;
+  }
+
+  async _pollLoop() {
+    let offset = 0;
+    while (this._polling) {
+      try {
+        const updates = await this._call('getUpdates', {
+          offset,
+          timeout: 60,
+          allowed_updates: ['message', 'callback_query'],
+        });
+        for (const u of updates) {
+          if (u.update_id >= offset) offset = u.update_id + 1;
+          this.processUpdate(u);
+        }
+      } catch (err) {
+        this._emit('polling_error', err);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  }
+}
 
 // ── Webhook secret (derived deterministically from the bot token) ─────────────
 function webhookSecret() {
@@ -277,7 +368,7 @@ function registerHandlers(bot, isPolling) {
   if (isPolling) {
     let consecutiveConflicts = 0;
     bot.on('polling_error', (err) => {
-      const is409 = err.message?.includes('409');
+      const is409 = err.message?.includes('409') || err.message?.includes('Conflict');
       if (is409) {
         consecutiveConflicts++;
         if (consecutiveConflicts === 1) {
@@ -316,7 +407,7 @@ async function setupBot(bot) {
 if (process.env.REPLIT_DEPLOYMENT === '1') {
   console.log('Production mode: starting bot in webhook mode…');
 
-  const bot = new TelegramBot(token, { polling: false });
+  const bot = new TelegramBot(token);
   registerHandlers(bot, false);
 
   // Register webhook with Telegram
@@ -371,12 +462,9 @@ if (process.env.REPLIT_DEPLOYMENT === '1') {
 
 } else {
   // ── Development: Polling mode ─────────────────────────────────────────────
-  const bot = new TelegramBot(token, {
-    polling: { interval: 2000, autoStart: true, params: { timeout: 60 } },
-    request: { timeout: 60_000 },
-  });
-
+  const bot = new TelegramBot(token);
   registerHandlers(bot, true);
+  bot.startPolling();
   setupBot(bot);
   console.log('ALI bot started (polling). WebApp URL:', webAppUrl || '(not configured)');
 }

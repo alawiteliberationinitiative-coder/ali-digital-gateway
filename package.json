@@ -7,7 +7,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.1.0"
   }
