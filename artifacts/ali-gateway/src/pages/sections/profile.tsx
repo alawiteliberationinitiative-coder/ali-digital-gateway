@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Copy, Check, Eye, EyeOff,
@@ -247,101 +247,191 @@ function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefine
   if (!role) return null;
   const isGuardian = role === "guardian";
   const label = isGuardian ? "حارس الأرض" : "سفير القضية";
-  const w = size === "xs" ? 14 : 18;
-  const h = size === "xs" ? 16 : 20;
-  // dark-on-gold ink colour for inner symbols
-  const INK = "#2d1200";
+  const w = size === "xs" ? 36 : 48;
+  const h = size === "xs" ? 40 : 54;
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full"
+    <div className="inline-flex items-center gap-1.5 rounded-full"
       style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.45)",
-               padding: size === "xs" ? "1px 6px" : "2px 8px" }}>
+               padding: size === "xs" ? "2px 7px" : "3px 10px" }}>
 
       <svg viewBox="0 0 32 36" width={w} height={h} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          {/* Shield gradient */}
+          <linearGradient id="crs-shield" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f5d76e" />
+            <stop offset="55%" stopColor="#d4af37" />
+            <stop offset="100%" stopColor="#9a6e00" />
+          </linearGradient>
 
-        {/* ── Golden shield body ── */}
-        {/* Shadow layer */}
+          {/* Sword 1 blade gradient (bottom-left → top-right) */}
+          <linearGradient id="crs-sw1" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor="#7a4e00" />
+            <stop offset="35%" stopColor="#d4af37" />
+            <stop offset="65%" stopColor="#fff8c8" />
+            <stop offset="100%" stopColor="#d4af37" />
+          </linearGradient>
+          {/* Sword 2 blade gradient (bottom-right → top-left) */}
+          <linearGradient id="crs-sw2" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#7a4e00" />
+            <stop offset="35%" stopColor="#d4af37" />
+            <stop offset="65%" stopColor="#fff8c8" />
+            <stop offset="100%" stopColor="#d4af37" />
+          </linearGradient>
+          {/* Guard gradient */}
+          <linearGradient id="crs-guard" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f5d76e" />
+            <stop offset="100%" stopColor="#9a6e00" />
+          </linearGradient>
+          {/* Sword glow filter */}
+          <filter id="crs-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="0.6" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+
+          {/* Wing left gradient */}
+          <linearGradient id="crs-wl" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#6b3a00" />
+            <stop offset="40%" stopColor="#d4af37" />
+            <stop offset="100%" stopColor="#fff8a0" />
+          </linearGradient>
+          {/* Wing right gradient */}
+          <linearGradient id="crs-wr" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6b3a00" />
+            <stop offset="40%" stopColor="#d4af37" />
+            <stop offset="100%" stopColor="#fff8a0" />
+          </linearGradient>
+          {/* Wing glow radial */}
+          <radialGradient id="crs-wg" cx="50%" cy="65%" r="55%">
+            <stop offset="0%" stopColor="#fff8a0" stopOpacity="1" />
+            <stop offset="60%" stopColor="#d4af37" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#d4af37" stopOpacity="0" />
+          </radialGradient>
+          {/* Wing filter */}
+          <filter id="crs-wglow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="0.9" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* ── Shield body ── */}
         <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
-          fill="#7a4e00" opacity="0.35" transform="translate(0.5,0.8)" />
-        {/* Main fill — warm gold */}
+          fill="#7a4e00" opacity="0.3" transform="translate(0.4,0.7)" />
         <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
-          fill="#d4af37" />
-        {/* Highlight sheen top-left */}
-        <path d="M16 2 L29 6 C29 10 26 14 21 18 C16 14 8 10 3 6 Z"
-          fill="#f5d76e" opacity="0.45" />
-        {/* Border */}
+          fill="url(#crs-shield)" />
+        <path d="M16 2 L29 6 C29 10 25 13 20 17 C16 14 8 10 3 6 Z"
+          fill="#f5d76e" opacity="0.38" />
         <path d="M16 2 L29 6 C29 16 24 27 16 34 C8 27 3 16 3 6 Z"
-          fill="none" stroke="#f0c030" strokeWidth="0.9" opacity="0.9" />
-        {/* Inner border line */}
-        <path d="M16 4 L27.5 7.5 C27.5 16.5 23 26 16 32.5 C9 26 4.5 16.5 4.5 7.5 Z"
-          fill="none" stroke="#7a4e00" strokeWidth="0.5" opacity="0.4" />
+          fill="none" stroke="#f0c030" strokeWidth="0.8" opacity="0.9" />
+        <path d="M16 4 L27.5 7.5 C27.5 16 23 25.5 16 32 C9 25.5 4.5 16 4.5 7.5 Z"
+          fill="none" stroke="#7a4e00" strokeWidth="0.4" opacity="0.5" />
 
         {isGuardian ? (
-          /* ── Crossed Zulfiqar swords (ذو الفقار) ── */
-          <g strokeLinecap="round" strokeLinejoin="round">
-            {/* Sword 1 — hilt bottom-left → forked tip top-right */}
+          /* ── Crossed 3D Golden Swords ── */
+          <g filter="url(#crs-glow)">
+            {/* ── Sword 1: hilt bottom-left → tip top-right ── */}
             {/* Pommel */}
-            <ellipse cx="6.5" cy="29.5" rx="1.8" ry="1.4"
-              transform="rotate(-45 6.5 29.5)" fill={INK} />
+            <ellipse cx="5.8" cy="30.8" rx="2" ry="1.3"
+              transform="rotate(-45 5.8 30.8)" fill="url(#crs-guard)" />
+            <ellipse cx="5.5" cy="30.5" rx="1" ry="0.6"
+              transform="rotate(-45 5.5 30.5)" fill="#fff8c8" opacity="0.7" />
             {/* Grip */}
-            <line x1="7.8" y1="28.2" x2="10.2" y2="25.8"
-              stroke={INK} strokeWidth="1.4" />
-            {/* Guard — perpendicular to blade */}
-            <line x1="8.2" y1="24.8" x2="12.5" y2="27.5"
-              stroke={INK} strokeWidth="1.5" strokeLinecap="round" />
-            {/* Blade */}
-            <line x1="11" y1="25" x2="23.5" y2="11"
-              stroke={INK} strokeWidth="1.2" />
-            {/* Zulfiqar forked tip — two prongs */}
-            <line x1="23.5" y1="11" x2="20.5" y2="7.5"
-              stroke={INK} strokeWidth="1.1" />
-            <line x1="23.5" y1="11" x2="26.5" y2="8"
-              stroke={INK} strokeWidth="1.1" />
-
-            {/* Sword 2 — hilt bottom-right → forked tip top-left (mirror) */}
-            {/* Pommel */}
-            <ellipse cx="25.5" cy="29.5" rx="1.8" ry="1.4"
-              transform="rotate(45 25.5 29.5)" fill={INK} />
-            {/* Grip */}
-            <line x1="24.2" y1="28.2" x2="21.8" y2="25.8"
-              stroke={INK} strokeWidth="1.4" />
+            <rect x="-0.8" y="-2.5" width="2" height="5" rx="0.8"
+              transform="translate(8.8,27) rotate(-45)" fill="url(#crs-guard)" />
+            <rect x="0.2" y="-2.5" width="0.6" height="5" rx="0.3"
+              transform="translate(8.8,27) rotate(-45)" fill="#fff8c8" opacity="0.5" />
             {/* Guard */}
-            <line x1="23.8" y1="24.8" x2="19.5" y2="27.5"
-              stroke={INK} strokeWidth="1.5" strokeLinecap="round" />
-            {/* Blade */}
-            <line x1="21" y1="25" x2="8.5" y2="11"
-              stroke={INK} strokeWidth="1.2" />
-            {/* Forked tip */}
-            <line x1="8.5" y1="11" x2="5.5" y2="8"
-              stroke={INK} strokeWidth="1.1" />
-            <line x1="8.5" y1="11" x2="11.5" y2="7.5"
-              stroke={INK} strokeWidth="1.1" />
+            <rect x="-3.2" y="-0.9" width="6.4" height="1.8" rx="0.9"
+              transform="translate(12.5,23.5) rotate(-45)" fill="url(#crs-guard)" />
+            <rect x="-3" y="-0.9" width="6" height="0.7" rx="0.4"
+              transform="translate(12.5,23.5) rotate(-45)" fill="#fff8c8" opacity="0.5" />
+            {/* Blade body */}
+            <polygon points="14.5,21.5 15.8,22.8 27,7.5 25.7,6.2"
+              fill="url(#crs-sw1)" />
+            {/* Blade edge highlight */}
+            <line x1="15.1" y1="22.2" x2="26.4" y2="6.8"
+              stroke="#fff8c8" strokeWidth="0.5" opacity="0.75" />
+            {/* Blade tip */}
+            <polygon points="25.7,6.2 27,7.5 28.5,5 26.8,3.8"
+              fill="url(#crs-sw1)" />
+
+            {/* ── Sword 2: hilt bottom-right → tip top-left (mirror) ── */}
+            {/* Pommel */}
+            <ellipse cx="26.2" cy="30.8" rx="2" ry="1.3"
+              transform="rotate(45 26.2 30.8)" fill="url(#crs-guard)" />
+            <ellipse cx="26.5" cy="30.5" rx="1" ry="0.6"
+              transform="rotate(45 26.5 30.5)" fill="#fff8c8" opacity="0.7" />
+            {/* Grip */}
+            <rect x="-1.2" y="-2.5" width="2" height="5" rx="0.8"
+              transform="translate(23.2,27) rotate(45)" fill="url(#crs-guard)" />
+            <rect x="-0.2" y="-2.5" width="0.6" height="5" rx="0.3"
+              transform="translate(23.2,27) rotate(45)" fill="#fff8c8" opacity="0.5" />
+            {/* Guard */}
+            <rect x="-3.2" y="-0.9" width="6.4" height="1.8" rx="0.9"
+              transform="translate(19.5,23.5) rotate(45)" fill="url(#crs-guard)" />
+            <rect x="-3" y="-0.9" width="6" height="0.7" rx="0.4"
+              transform="translate(19.5,23.5) rotate(45)" fill="#fff8c8" opacity="0.5" />
+            {/* Blade body */}
+            <polygon points="17.5,21.5 16.2,22.8 5,7.5 6.3,6.2"
+              fill="url(#crs-sw2)" />
+            {/* Blade edge highlight */}
+            <line x1="16.9" y1="22.2" x2="5.6" y2="6.8"
+              stroke="#fff8c8" strokeWidth="0.5" opacity="0.75" />
+            {/* Blade tip */}
+            <polygon points="6.3,6.2 5,7.5 3.5,5 5.2,3.8"
+              fill="url(#crs-sw2)" />
+
+            {/* Cross point diamond accent */}
+            <circle cx="16" cy="17.2" r="1.4" fill="#fff8c8" opacity="0.9" />
+            <circle cx="16" cy="17.2" r="0.7" fill="#d4af37" />
           </g>
         ) : (
-          /* ── Golden wings (سفير القضية) ── */
-          <g fill={INK} opacity="0.88">
-            {/* Left wing — 3 feather arcs fanning leftward */}
-            <path d="M14.5 19 C13 16 7 15 5.5 12.5 L13.5 17 Z" />
-            <path d="M14.5 19 C11 17.5 5 19.5 4 22.5 L14.5 20.5 Z" />
-            <path d="M14.5 19 C11 21 5 23 5.5 26 L14.5 22 Z" />
-            {/* Left wing quill base */}
-            <path d="M14.5 19 C13.5 18 12.5 17 12 16 L14 18 Z" opacity="0.6" />
+          /* ── 3D Golden Angelic Wings ── */
+          <g filter="url(#crs-wglow)">
+            {/* Glow aura behind wings */}
+            <ellipse cx="16" cy="20" rx="12" ry="9" fill="url(#crs-wg)" opacity="0.55" />
 
-            {/* Right wing — mirror */}
-            <path d="M17.5 19 C19 16 25 15 26.5 12.5 L18.5 17 Z" />
-            <path d="M17.5 19 C21 17.5 27 19.5 28 22.5 L17.5 20.5 Z" />
-            <path d="M17.5 19 C21 21 27 23 26.5 26 L17.5 22 Z" />
-            <path d="M17.5 19 C18.5 18 19.5 17 20 16 L18 18 Z" opacity="0.6" />
+            {/* ── Left wing (3 feather layers) ── */}
+            {/* Upper primary feathers */}
+            <path d="M15.5,21 C13,18 9.5,13.5 5.5,10 C8,13 11,17.5 14.5,20.5 Z"
+              fill="url(#crs-wl)" opacity="0.95" />
+            {/* Mid feathers */}
+            <path d="M15.5,21 C11.5,20 6.5,19 3.5,16 C6.5,18.5 11,20 15,21 Z"
+              fill="url(#crs-wl)" opacity="0.85" />
+            {/* Lower coverts */}
+            <path d="M15.5,21 C12,22.5 6.5,23.5 4,21.5 C7,22.5 11.5,22 15.5,21.5 Z"
+              fill="url(#crs-wl)" opacity="0.75" />
+            {/* Feather detail lines */}
+            <line x1="15.5" y1="21" x2="5.5" y2="10" stroke="#fff8c8" strokeWidth="0.5" opacity="0.6" />
+            <line x1="15.5" y1="21" x2="3.5" y2="16" stroke="#fff8c8" strokeWidth="0.5" opacity="0.5" />
+            <line x1="15.5" y1="21" x2="4" y2="21.5" stroke="#fff8c8" strokeWidth="0.5" opacity="0.4" />
+            {/* Inner feather ribs */}
+            <line x1="14" y1="20" x2="7" y2="12" stroke="#fff8c8" strokeWidth="0.35" opacity="0.4" />
+            <line x1="13.5" y1="20.5" x2="6" y2="17" stroke="#fff8c8" strokeWidth="0.35" opacity="0.35" />
 
-            {/* Center medallion connecting the wings */}
-            <circle cx="16" cy="20" r="2" fill={INK} />
-            <circle cx="16" cy="20" r="1" fill="#d4af37" />
+            {/* ── Right wing (mirror) ── */}
+            <path d="M16.5,21 C19,18 22.5,13.5 26.5,10 C24,13 21,17.5 17.5,20.5 Z"
+              fill="url(#crs-wr)" opacity="0.95" />
+            <path d="M16.5,21 C20.5,20 25.5,19 28.5,16 C25.5,18.5 21,20 17,21 Z"
+              fill="url(#crs-wr)" opacity="0.85" />
+            <path d="M16.5,21 C20,22.5 25.5,23.5 28,21.5 C25,22.5 20.5,22 16.5,21.5 Z"
+              fill="url(#crs-wr)" opacity="0.75" />
+            <line x1="16.5" y1="21" x2="26.5" y2="10" stroke="#fff8c8" strokeWidth="0.5" opacity="0.6" />
+            <line x1="16.5" y1="21" x2="28.5" y2="16" stroke="#fff8c8" strokeWidth="0.5" opacity="0.5" />
+            <line x1="16.5" y1="21" x2="28" y2="21.5" stroke="#fff8c8" strokeWidth="0.5" opacity="0.4" />
+            <line x1="18" y1="20" x2="25" y2="12" stroke="#fff8c8" strokeWidth="0.35" opacity="0.4" />
+            <line x1="18.5" y1="20.5" x2="26" y2="17" stroke="#fff8c8" strokeWidth="0.35" opacity="0.35" />
+
+            {/* Center glowing orb */}
+            <circle cx="16" cy="21.5" r="2.5" fill="#fff8a0" opacity="0.4" />
+            <circle cx="16" cy="21.5" r="1.6" fill="#d4af37" opacity="0.9" />
+            <circle cx="16" cy="21.5" r="0.8" fill="#fff8c8" />
           </g>
         )}
       </svg>
 
       <span className="font-arabic font-bold"
-        style={{ fontSize: size === "xs" ? 9 : 10, color: "#d4af37", lineHeight: 1 }}>
+        style={{ fontSize: size === "xs" ? 10 : 11, color: "#d4af37", lineHeight: 1 }}>
         {label}
       </span>
     </div>
@@ -692,6 +782,48 @@ function InboxView({ myTelegramId, onOpenChat }: { myTelegramId: string; onOpenC
   );
 }
 
+// ─── Chat Input (isolated memo — does NOT re-render when messages list updates) ─
+const ChatInput = memo(function ChatInput({ onSend }: { onSend: (text: string) => Promise<void> }) {
+  const [input, setInput]   = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setInput("");
+    try { await onSend(text); } finally { setSending(false); }
+  };
+
+  return (
+    <div className="flex-shrink-0 px-3 pb-4 pt-2"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,15,8,0.5)" }}>
+      <div className="flex items-end gap-2" dir="rtl">
+        <div className="flex-1 rounded-2xl px-3 py-2.5 flex items-end"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="اكتب رسالتك..."
+            rows={1}
+            dir="rtl"
+            className="w-full bg-transparent font-arabic text-sm text-white/85 outline-none resize-none placeholder:text-white/25"
+            style={{ maxHeight: 100, overflowY: "auto" }}
+          />
+        </div>
+        <button onClick={send} disabled={!input.trim() || sending}
+          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-all disabled:opacity-40"
+          style={{ background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.4)" }}>
+          {sending
+            ? <Loader2 className="w-4 h-4 text-[#d4af37] animate-spin" />
+            : <Send className="w-4 h-4 text-[#d4af37]" />}
+        </button>
+      </div>
+    </div>
+  );
+});
+
 // ─── Chat View ────────────────────────────────────────────────────────────────
 function ChatView({
   myTelegramId, partner, onBack, onDeleted, onBlocked,
@@ -703,8 +835,6 @@ function ChatView({
   onBlocked?: () => void;
 }) {
   const [messages, setMessages]           = useState<ChatMessage[]>([]);
-  const [input, setInput]                 = useState("");
-  const [sending, setSending]             = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmBlock, setConfirmBlock]   = useState(false);
   const [actioning, setActioning]         = useState(false);
@@ -746,18 +876,19 @@ function ChatView({
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  const send = async () => {
-    if (!input.trim() || sending) return;
-    setSending(true);
+  const sendMessage = useCallback(async (text: string) => {
     await apiFetch("/api/messages/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toTelegramId: partner.telegramId, content: input.trim() }),
+      body: JSON.stringify({ toTelegramId: partner.telegramId, content: text }),
     });
-    setInput("");
     await load();
-    setSending(false);
-  };
+  }, [partner.telegramId, load]);
+
+  const deleteMsg = useCallback(async (id: number) => {
+    const res = await apiFetch(`/api/messages/${id}`, { method: "DELETE" });
+    if (res.ok) setMessages(prev => prev.filter(m => m.id !== id));
+  }, []);
 
   const handleDelete = async () => {
     setActioning(true);
@@ -889,7 +1020,17 @@ function ChatView({
           {messages.map(msg => {
             const isMine = msg.fromTelegramId === myTelegramId;
             return (
-              <div key={msg.id} className={`flex ${isMine ? "justify-start" : "justify-end"}`}>
+              <div key={msg.id} className={`flex items-end gap-1.5 ${isMine ? "justify-start" : "justify-end"}`}>
+                {/* Trash button — only for sender's own messages, on the outer side */}
+                {isMine && (
+                  <button
+                    onClick={() => deleteMsg(msg.id)}
+                    className="flex-shrink-0 p-1 rounded-lg opacity-40 hover:opacity-90 active:scale-90 transition-all"
+                    style={{ color: "#ef4444" }}
+                    title="حذف الرسالة">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <div className="max-w-[75%] rounded-2xl px-3 py-2"
                   style={{
                     background: isMine ? "rgba(212,175,55,0.1)" : "rgba(96,165,250,0.1)",
@@ -905,29 +1046,8 @@ function ChatView({
         </div>
       </div>
 
-      {/* Input */}
-      <div className="flex-shrink-0 px-3 pb-4 pt-2"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,15,8,0.5)" }}>
-        <div className="flex items-end gap-2" dir="rtl">
-          <div className="flex-1 rounded-2xl px-3 py-2.5 flex items-end"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
-            <textarea value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="اكتب رسالتك..."
-              rows={1}
-              dir="rtl"
-              className="w-full bg-transparent font-arabic text-sm text-white/85 outline-none resize-none placeholder:text-white/25"
-              style={{ maxHeight: 100, overflowY: "auto" }}
-            />
-          </div>
-          <button onClick={send} disabled={!input.trim() || sending}
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-all disabled:opacity-40"
-            style={{ background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.4)" }}>
-            {sending ? <Loader2 className="w-4 h-4 text-[#d4af37] animate-spin" /> : <Send className="w-4 h-4 text-[#d4af37]" />}
-          </button>
-        </div>
-      </div>
+      {/* Input — isolated memo component to prevent re-renders from messages updates */}
+      <ChatInput onSend={sendMessage} />
     </motion.div>
   );
 }

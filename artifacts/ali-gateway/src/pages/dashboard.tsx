@@ -4,7 +4,6 @@ import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut } from "lucide-react";
 import { AdarEmblem } from "./sections/adar";
 import { SpaceAnnouncementBanner } from "./sections/community";
 import { getAdarUnreadCount } from "./sections/adar-utils";
@@ -234,17 +233,6 @@ function ProgressHeader({
           </div>
         </div>
 
-        {/* ── زر الخروج الآمن ── في أقصى اليسار (بجانب أزرار نظام Telegram) */}
-        <button
-          onClick={handleClose}
-          aria-label="خروج آمن"
-          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-xl active:scale-90 transition-transform"
-          style={{
-            background: "rgba(212,175,55,0.08)",
-            border: "1px solid rgba(212,175,55,0.22)",
-          }}>
-          <LogOut className="w-3.5 h-3.5" style={{ color: "rgba(212,175,55,0.7)" }} />
-        </button>
       </div>
     </div>
   );

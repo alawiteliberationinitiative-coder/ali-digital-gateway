@@ -274,6 +274,22 @@ router.post("/messages/read/:partnerId", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+/* ── Delete single message (sender only) ────────────────────────────────── */
+router.delete("/messages/:id", async (req, res): Promise<void> => {
+  const myId = req.telegramId;
+  const id   = parseInt(req.params.id, 10);
+  if (!myId)   { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [deleted] = await db
+    .delete(messagesTable)
+    .where(and(eq(messagesTable.id, id), eq(messagesTable.fromTelegramId, myId)))
+    .returning({ id: messagesTable.id });
+
+  if (!deleted) { res.status(404).json({ error: "Not found or not yours" }); return; }
+  res.json({ ok: true });
+});
+
 /* ── Delete conversation ─────────────────────────────────────────────────── */
 router.delete("/messages/thread/:partnerId", async (req, res): Promise<void> => {
   const myId      = req.telegramId;
