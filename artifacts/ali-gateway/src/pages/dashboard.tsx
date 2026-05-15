@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense, memo } from "react";
 import { useLocation } from "wouter";
 import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
@@ -137,7 +137,7 @@ function playNotifSound() {
 }
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
-function ProgressHeader({
+const ProgressHeader = memo(function ProgressHeader({
   userData, onOpenProfile, onOpenInbox, onOpenFriends,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
@@ -238,10 +238,8 @@ function ProgressHeader({
           {/* Row 3: XP bar */}
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-              <motion.div className="h-full rounded-full"
-                style={{ background: "linear-gradient(90deg, #d4af37 0%, #f0d060 100%)" }}
-                initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }} />
+              <div className="h-full rounded-full transition-[width] duration-700 ease-out"
+                style={{ background: "linear-gradient(90deg, #d4af37 0%, #f0d060 100%)", width: `${pct}%` }} />
             </div>
             <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{currentXp}/{xpPerLevel}</span>
           </div>
@@ -250,7 +248,7 @@ function ProgressHeader({
       </div>
     </div>
   );
-}
+});
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
 interface CardDef {
@@ -272,12 +270,10 @@ const CARDS: CardDef[] = [
   { id: "leaderboard", emoji: "🏆",  title: "المتصدرون",        subtitle: "ترتيب الأسماء المستعارة",      accent: "#fb923c", shadow: "rgba(251,146,60,0.25)", wide: true },
 ];
 
-function SectionCard({ card, onPress, delay }: { card: CardDef; onPress: () => void; delay: number }) {
+const SectionCard = memo(function SectionCard({ card, onPress }: { card: CardDef; onPress: () => void }) {
   return (
     <motion.button
       onClick={onPress}
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.35 }}
       whileTap={{ scale: 0.96 }}
       className={`${card.wide ? "col-span-2" : "col-span-1"} flex ${card.wide ? "flex-row" : "flex-col"} items-center ${card.wide ? "gap-3 px-4 py-3" : "gap-1.5 p-3.5"} rounded-3xl border-2 text-right active:brightness-90 transition-all`}
       style={{
@@ -299,7 +295,7 @@ function SectionCard({ card, onPress, delay }: { card: CardDef; onPress: () => v
       )}
     </motion.button>
   );
-}
+});
 
 // ─── No-Auth Retry Screen ─────────────────────────────────────────────────────
 function NoAuthScreen() {
@@ -449,12 +445,12 @@ export default function Dashboard() {
           />
 
           {/* Section overlay */}
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             {activeSection !== null && (
               <motion.div key={activeSection}
                 className="fixed inset-0 z-30 bg-background overflow-hidden"
                 initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
-                transition={{ type: "spring", stiffness: 320, damping: 32 }}>
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}>
                 <Suspense fallback={<SectionLoading />}>
                   {activeSection === "adar"        && <AdarSection onBack={handleBack} onRead={() => setAdarUnread(0)} />}
                   {activeSection === "guide"       && <GuideSection onBack={handleBack} />}
@@ -480,9 +476,6 @@ export default function Dashboard() {
               {/* ★ ADAR MEDIA CENTER BUTTON ★ */}
               <motion.button
                 onClick={() => setActiveSection("adar")}
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 20 }}
                 whileTap={{ scale: 0.96 }}
                 className="col-span-2 relative overflow-hidden rounded-3xl flex items-center gap-3 px-4 py-2.5 border-2"
                 style={{
@@ -492,20 +485,15 @@ export default function Dashboard() {
                   backdropFilter: "blur(12px)",
                 }}>
                 {/* Shimmer */}
-                <motion.div className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(212,175,55,0.08) 50%, transparent 70%)" }}
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
+                <div className="absolute inset-0 pointer-events-none ali-shimmer"
+                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(212,175,55,0.08) 50%, transparent 70%)" }} />
 
                 {/* Notification badge */}
                 {adarUnread > 0 && (
-                  <motion.div
-                    className="absolute top-2.5 left-3 z-20 w-5 h-5 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white"
-                    style={{ background: "radial-gradient(circle, #ef4444, #b91c1c)", boxShadow: "0 0 10px rgba(239,68,68,0.7), 0 0 20px rgba(239,68,68,0.35)" }}
-                    animate={{ scale: [1, 1.15, 1], boxShadow: ["0 0 10px rgba(239,68,68,0.7)", "0 0 18px rgba(239,68,68,0.9)", "0 0 10px rgba(239,68,68,0.7)"] }}
-                    transition={{ repeat: Infinity, duration: 1.6 }}>
+                  <div className="absolute top-2.5 left-3 z-20 w-5 h-5 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white ali-pulse-scale"
+                    style={{ background: "radial-gradient(circle, #ef4444, #b91c1c)", boxShadow: "0 0 10px rgba(239,68,68,0.7), 0 0 20px rgba(239,68,68,0.35)" }}>
                     {adarUnread}
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Emblem */}
@@ -563,9 +551,6 @@ export default function Dashboard() {
               {/* ★ EARN & KNOWLEDGE BUTTON ★ */}
               <motion.button
                 onClick={() => setActiveSection("knowledge")}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.18, type: "spring", stiffness: 260, damping: 18 }}
                 whileTap={{ scale: 0.93 }}
                 className="col-span-2 relative overflow-hidden rounded-3xl py-3 flex flex-col items-center justify-center gap-1.5 border-2"
                 style={{
@@ -573,17 +558,10 @@ export default function Dashboard() {
                   borderColor: "rgba(255,255,255,0.25)",
                   boxShadow: "0 7px 0 rgba(100,75,0,0.7), 0 0 40px rgba(212,175,55,0.35)",
                 }}>
-                <motion.div className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)" }}
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ repeat: Infinity, duration: 2.4, ease: "linear", repeatDelay: 1.2 }} />
-                <motion.div className="absolute inset-0 rounded-3xl border-2 border-white/30"
-                  animate={{ opacity: [0.6, 0, 0.6] }}
-                  transition={{ repeat: Infinity, duration: 1.8 }} />
+                <div className="absolute inset-0 pointer-events-none ali-shimmer-fast"
+                  style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)" }} />
                 <div className="flex items-center gap-3 relative z-10">
-                  <motion.span className="text-3xl"
-                    animate={{ scale: [1, 1.15, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.6 }}>🧠</motion.span>
+                  <span className="text-3xl ali-pulse-scale">🧠</span>
                   <div className="text-right">
                     <div className="font-arabic font-bold text-[#002b1b] text-xl leading-tight drop-shadow-sm">ادعم واربح طريق النحل 🐝</div>
                     <div className="font-arabic text-[#002b1b]/70 text-xs">أجب واكسب نقاط الولاء · محرك المعرفة</div>
@@ -599,9 +577,6 @@ export default function Dashboard() {
               {/* ★ WATCH BUTTON ★ */}
               <motion.button
                 onClick={() => setActiveSection("watch")}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.28, duration: 0.4 }}
                 whileTap={{ scale: 0.96 }}
                 className="col-span-2 relative overflow-hidden rounded-3xl py-3 flex items-center justify-between gap-4 px-5 border-2"
                 style={{
@@ -610,14 +585,10 @@ export default function Dashboard() {
                   boxShadow: "0 5px 0 rgba(55,10,90,0.55), 0 0 28px rgba(139,92,246,0.2)",
                 }}>
                 {/* Shimmer */}
-                <motion.div className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.12) 50%, transparent 65%)" }}
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ repeat: Infinity, duration: 3, ease: "linear", repeatDelay: 1.5 }} />
+                <div className="absolute inset-0 pointer-events-none ali-shimmer-watch"
+                  style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.12) 50%, transparent 65%)" }} />
                 <div className="flex items-center gap-3 relative z-10">
-                  <motion.span className="text-3xl"
-                    animate={{ scale: [1, 1.12, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}>📺</motion.span>
+                  <span className="text-3xl ali-pulse-scale-sm">📺</span>
                   <div className="text-right">
                     <div className="font-arabic font-bold text-purple-100 text-xl leading-tight">شاهد وادعم</div>
                     <div className="font-arabic text-purple-300/80 text-xs mt-0.5">اكسب نقاط ولاء بمشاهدة المحتوى</div>
@@ -633,11 +604,11 @@ export default function Dashboard() {
               {CARDS.map((card, i) =>
                 card.id === "community" ? (
                   <div key="community-wrap" className="col-span-1 flex flex-col gap-1">
-                    <SectionCard card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection("community")} />
+                    <SectionCard card={card} onPress={() => setActiveSection("community")} />
                     <SpaceAnnouncementBanner onOpen={() => setActiveSection("community")} />
                   </div>
                 ) : (
-                  <SectionCard key={card.id} card={card} delay={i * 0.07 + 0.43} onPress={() => setActiveSection(card.id)} />
+                  <SectionCard key={card.id} card={card} onPress={() => setActiveSection(card.id)} />
                 )
               )}
             </div>

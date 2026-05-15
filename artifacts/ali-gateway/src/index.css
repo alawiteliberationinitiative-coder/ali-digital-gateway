@@ -304,6 +304,31 @@ body {
   }
 }
 
+/* ── Performance: GPU-composited CSS animations (replace Framer Infinity loops) ── */
+@keyframes ali-shimmer {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(210%); }
+}
+@keyframes ali-pulse-opacity {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes ali-pulse-scale {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.14); }
+}
+@keyframes ali-pulse-scale-sm {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.10); }
+}
+
+.ali-shimmer        { animation: ali-shimmer 3.5s linear 2s infinite; will-change: transform; }
+.ali-shimmer-fast   { animation: ali-shimmer 2.4s linear 1.2s infinite; will-change: transform; }
+.ali-shimmer-watch  { animation: ali-shimmer 3s linear 1.5s infinite; will-change: transform; }
+.ali-pulse-dot      { animation: ali-pulse-opacity 1s ease-in-out infinite; will-change: opacity; }
+.ali-pulse-scale    { animation: ali-pulse-scale 1.6s ease-in-out infinite; will-change: transform; }
+.ali-pulse-scale-sm { animation: ali-pulse-scale-sm 2s ease-in-out infinite; will-change: transform; }
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

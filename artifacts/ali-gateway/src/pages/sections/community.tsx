@@ -1108,8 +1108,7 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
           {live.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2" dir="rtl">
-                <motion.div className="w-2 h-2 rounded-full bg-red-500"
-                  animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
+                <div className="w-2 h-2 rounded-full bg-red-500 ali-pulse-dot" />
                 <p className="font-arabic text-xs font-bold text-white/50">جلسات مباشرة</p>
               </div>
               {live.map((s, i) => (
@@ -1119,8 +1118,7 @@ function SpacesList({ spaces, canCreate, telegramId, loading, onJoin, onEnter, o
                   <div className="px-4 py-2.5 flex items-center justify-between"
                     style={{ background: "rgba(239,68,68,0.05)", borderBottom: "1px solid rgba(239,68,68,0.12)" }} dir="rtl">
                     <div className="flex items-center gap-2">
-                      <motion.div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"
-                        animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
+                      <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 ali-pulse-dot" />
                       <span className="font-arabic text-[10px] text-red-400 font-bold">مباشر</span>
                       <PrivacyBadge isPrivate={s.isPrivate} />
                     </div>
@@ -1355,8 +1353,7 @@ function SpaceView({ space, telegramId, myParticipant, onLeave, onRaiseHand, onM
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {space.status === "live" && (
-              <motion.div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"
-                animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
+              <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 ali-pulse-dot" />
             )}
             <p className="font-arabic text-sm font-bold text-white/90 truncate">{space.title}</p>
           </div>
@@ -1877,8 +1874,7 @@ export function SpaceAnnouncementBanner({ onOpen }: { onOpen: () => void }) {
         <div className="flex items-center gap-1.5 px-3 py-2 flex-shrink-0"
           style={{ borderLeft: `1px solid ${isLive ? "rgba(239,68,68,0.2)" : BLUE + "18"}` }}>
           {isLive
-            ? <motion.div className="w-2 h-2 rounded-full bg-red-500"
-                animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} />
+            ? <div className="w-2 h-2 rounded-full bg-red-500 ali-pulse-dot" />
             : <Clock className="w-3 h-3" style={{ color: BLUE }} />}
           <span className="font-arabic text-[9px] font-bold" style={{ color: isLive ? "#f87171" : BLUE }}>{timeLabel}</span>
         </div>
