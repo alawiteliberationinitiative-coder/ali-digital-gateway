@@ -91,25 +91,35 @@ function canHost(user: Awaited<ReturnType<typeof getUser>>, telegramId: string) 
 /**
  * GET /api/spaces/ice-servers
  * Returns STUN/TURN server list for WebRTC.
- * Includes Telegram's STUN server for compatibility + optional TURN from env.
+ * Requires valid Telegram identity — TURN credentials must never be exposed to
+ * unauthenticated callers.
  */
-router.get("/spaces/ice-servers", (_req, res): void => {
+router.get("/spaces/ice-servers", async (req, res): Promise<void> => {
+  // Require a verified Telegram identity — TURN credentials must never be
+  // returned to unauthenticated callers.
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [user] = await db.select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId));
+  if (!user) { res.status(403).json({ error: "User not found" }); return; }
+
   const servers: Array<{ urls: string; username?: string; credential?: string }> = [
-    { urls: "stun:stun.telegram.org:443" },   // Telegram's STUN — same infra as TG voice
+    { urls: "stun:stun.telegram.org:443" },
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun.cloudflare.com:3478" }, // Cloudflare STUN
+    { urls: "stun:stun.cloudflare.com:3478" },
   ];
 
-  // Optional TURN server from environment (set TURN_URL, TURN_USERNAME, TURN_CREDENTIAL)
+  // TURN credentials are only included for authenticated users
   const turnUrl  = process.env.TURN_URL;
   const turnUser = process.env.TURN_USERNAME;
   const turnCred = process.env.TURN_CREDENTIAL;
   if (turnUrl && turnUser && turnCred) {
     servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
-    // Also add TCP variant for firewalled networks
-    const tcpUrl = turnUrl.replace(/^turn:/, "turn:").replace(/:\d+$/, ":443");
+    const tcpUrl = turnUrl.replace(/:\d+$/, ":443");
     if (tcpUrl !== turnUrl) {
       servers.push({ urls: `${tcpUrl}?transport=tcp`, username: turnUser, credential: turnCred });
     }
