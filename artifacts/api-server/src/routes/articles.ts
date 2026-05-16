@@ -46,8 +46,26 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
     res.status(403).json({ error: "غير مصرح بالرفع" }); return;
   }
 
-  const { mimeType } = req.body as { mimeType?: string };
-  if (!mimeType) { res.status(400).json({ error: "mimeType مطلوب" }); return; }
+  const { mimeType: rawMime, fileName } =
+    req.body as { mimeType?: string; fileName?: string };
+
+  // iOS returns empty file.type for many formats — fall back to extension lookup
+  const EXT_MIME: Record<string, string> = {
+    mp4: "video/mp4",  mov: "video/quicktime",  avi: "video/x-msvideo",
+    webm: "video/webm", "3gp": "video/3gpp",   "3g2": "video/3gpp2",
+    mkv: "video/x-matroska", mpeg: "video/mpeg", mpg: "video/mpeg",
+    jpg: "image/jpeg",  jpeg: "image/jpeg",      png: "image/png",
+    gif: "image/gif",   webp: "image/webp",      heic: "image/heic",
+    heif: "image/heif", bmp: "image/bmp",        tiff: "image/tiff",
+  };
+  const fileExt = (fileName ?? "").split(".").pop()?.toLowerCase() ?? "";
+  const mimeType =
+    (rawMime && rawMime !== "application/octet-stream" ? rawMime : null) ??
+    EXT_MIME[fileExt] ??
+    rawMime ??
+    "application/octet-stream";
+
+  req.log.info({ mimeType, rawMime, fileName }, "upload-token requested");
 
   const supabaseUrl = (process.env.SUPABASE_URL ?? "")
     .replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");

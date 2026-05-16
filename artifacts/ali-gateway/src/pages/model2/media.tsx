@@ -403,10 +403,28 @@ function ComposeSheet({
   const fileRef      = useRef<HTMLInputElement>(null);
   const fileRefVideo = useRef<HTMLInputElement>(null);
 
+  // iOS / some Android browsers return empty file.type for many video & image formats.
+  // Infer from the file extension so uploads always have a valid Content-Type.
+  function guessMime(file: File): string {
+    if (file.type) return file.type;
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const map: Record<string, string> = {
+      mp4: "video/mp4",  mov: "video/quicktime",  avi: "video/x-msvideo",
+      webm: "video/webm", "3gp": "video/3gpp",   "3g2": "video/3gpp2",
+      mkv: "video/x-matroska", mpeg: "video/mpeg", mpg: "video/mpeg",
+      jpg: "image/jpeg",  jpeg: "image/jpeg",      png: "image/png",
+      gif: "image/gif",   webp: "image/webp",      heic: "image/heic",
+      heif: "image/heif", bmp: "image/bmp",        tiff: "image/tiff",
+    };
+    return map[ext] ?? "application/octet-stream";
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 75_000_000) { setError("الملف أكبر من 75 ميجابايت"); return; }
+
+    const mime = guessMime(file);
 
     setUploading(true);
     setError(null);
@@ -414,11 +432,11 @@ function ComposeSheet({
       // Step 1 — Get a Supabase signed upload URL from our server (tiny request)
       const tokenRes = await apiFetch("/api/articles/upload-token", {
         method: "POST",
-        body: JSON.stringify({ mimeType: file.type }),
+        body: JSON.stringify({ mimeType: mime, fileName: file.name }),
       });
       if (!tokenRes.ok) {
         const err = await tokenRes.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? "فشل الحصول على رابط الرفع");
+        throw new Error(err.error ?? `فشل الحصول على رابط الرفع (${tokenRes.status})`);
       }
       const { uploadUrl, publicUrl } = await tokenRes.json() as { uploadUrl: string; publicUrl: string };
 
@@ -428,7 +446,7 @@ function ComposeSheet({
       try {
         const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
-          headers: { "Content-Type": file.type },
+          headers: { "Content-Type": mime },
           body: file,
           signal: controller.signal,
         });
