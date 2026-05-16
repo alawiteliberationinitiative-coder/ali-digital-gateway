@@ -443,7 +443,11 @@ function ComposeSheet({
 
   async function handleSubmit() {
     setError(null);
-    if (!title.trim() || !body.trim()) { setError("العنوان والمحتوى مطلوبان"); return; }
+    const bodyRequired = !mediaUrl.trim();
+    if (!title.trim() || (bodyRequired && !body.trim())) {
+      setError(bodyRequired ? "العنوان والمحتوى مطلوبان" : "العنوان مطلوب");
+      return;
+    }
     setSubmitting(true);
     try {
       const r = await apiFetch("/api/articles", {
@@ -486,10 +490,11 @@ function ComposeSheet({
               placeholder="عنوان المحتوى..." value={title} maxLength={200} onChange={e => setTitle(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="font-arabic text-xs text-white/50">المحتوى *</label>
+            <label className="font-arabic text-xs text-white/50">{mediaUrl.trim() ? "المحتوى (اختياري)" : "المحتوى *"}</label>
             <textarea className="w-full rounded-2xl px-4 py-3 text-sm font-arabic text-white/90 outline-none resize-none"
               style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${GOLD}20`, minHeight: 120 }}
-              placeholder="اكتب المحتوى هنا..." value={body} maxLength={20_000} onChange={e => setBody(e.target.value)} />
+              placeholder={mediaUrl.trim() ? "وصف اختياري..." : "اكتب المحتوى هنا..."}
+              value={body} maxLength={20_000} onChange={e => setBody(e.target.value)} />
           </div>
           <div className="space-y-2">
             <label className="font-arabic text-xs text-white/50">صورة أو فيديو (اختياري)</label>
@@ -525,11 +530,11 @@ function ComposeSheet({
         </div>
         <div className="flex-shrink-0 px-5 pb-8 pt-2">
           <motion.button whileTap={{ scale: 0.97 }} onClick={handleSubmit}
-            disabled={submitting || uploading || !title.trim() || !body.trim()}
+            disabled={submitting || uploading || !title.trim() || (!mediaUrl.trim() && !body.trim())}
             className="w-full rounded-2xl py-3.5 font-arabic font-bold text-sm flex items-center justify-center gap-2"
             style={{
-              background: (submitting || uploading || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg,${GOLD},#e8c840)`,
-              color:      (submitting || uploading || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.25)" : "#061409",
+              background: (submitting || uploading || !title.trim() || (!mediaUrl.trim() && !body.trim())) ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg,${GOLD},#e8c840)`,
+              color:      (submitting || uploading || !title.trim() || (!mediaUrl.trim() && !body.trim())) ? "rgba(255,255,255,0.25)" : "#061409",
             }}>
             {submitting ? <><Loader2 size={16} className="animate-spin" />جاري النشر...</>
              : uploading ? <><Loader2 size={16} className="animate-spin" />جاري رفع الملف...</>
