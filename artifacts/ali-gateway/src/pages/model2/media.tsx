@@ -405,38 +405,46 @@ function ComposeSheet({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10_485_760) { setError("الملف أكبر من 10 ميجابايت"); return; }
+    if (file.size > 75_000_000) { setError("الملف أكبر من 75 ميجابايت"); return; }
 
     setUploading(true);
     setError(null);
     try {
-      // Read as base64 data URL
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = ev => resolve(ev.target?.result as string);
-        reader.onerror = () => reject(new Error("تعذّر قراءة الملف"));
-        reader.readAsDataURL(file);
-      });
-
-      // Upload to server → Supabase Storage
-      // Timeout of 5 min — videos can be large and Supabase upload takes time
-      const r = await apiFetch("/api/articles/upload-media", {
+      // Step 1 — Get a Supabase signed upload URL from our server (tiny request)
+      const tokenRes = await apiFetch("/api/articles/upload-token", {
         method: "POST",
-        timeoutMs: 5 * 60 * 1_000,
-        body: JSON.stringify({ data: dataUrl, mimeType: file.type }),
+        body: JSON.stringify({ mimeType: file.type }),
       });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({})) as { error?: string };
-        throw new Error(e.error ?? "فشل رفع الملف");
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "فشل الحصول على رابط الرفع");
       }
-      const { url } = await r.json() as { url: string };
-      setMediaUrl(url);
+      const { uploadUrl, publicUrl } = await tokenRes.json() as { uploadUrl: string; publicUrl: string };
+
+      // Step 2 — Upload binary DIRECTLY to Supabase, bypassing the Replit proxy
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1_000);
+      try {
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+          signal: controller.signal,
+        });
+        if (!uploadRes.ok) {
+          const txt = await uploadRes.text().catch(() => "");
+          throw new Error(`فشل رفع الملف (${uploadRes.status})${txt ? `: ${txt}` : ""}`);
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+
+      setMediaUrl(publicUrl);
       setPreviewing(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "فشل رفع الملف");
     } finally {
       setUploading(false);
-      // Reset file input so the same file can be picked again
       if (fileRef.current) fileRef.current.value = "";
     }
   }

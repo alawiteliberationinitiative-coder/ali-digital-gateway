@@ -33,8 +33,10 @@ router.get("/articles", async (_req, res): Promise<void> => {
   res.json(rows);
 });
 
-// ── POST /api/articles/upload-media ──────────────────────────────────────────
-router.post("/articles/upload-media", async (req, res): Promise<void> => {
+// ── POST /api/articles/upload-token ──────────────────────────────────────────
+// Returns a Supabase signed upload URL so the client can PUT the file
+// directly to Supabase, completely bypassing the Replit proxy body-size limit.
+router.post("/articles/upload-token", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -44,17 +46,8 @@ router.post("/articles/upload-media", async (req, res): Promise<void> => {
     res.status(403).json({ error: "غير مصرح بالرفع" }); return;
   }
 
-  const { data, mimeType } = req.body as { data?: string; mimeType?: string };
-  if (!data || !mimeType) {
-    res.status(400).json({ error: "data و mimeType مطلوبان" }); return;
-  }
-
-  // Strip optional data URL prefix then decode
-  const base64 = data.replace(/^data:[^;]+;base64,/, "");
-  const buffer = Buffer.from(base64, "base64");
-  if (buffer.byteLength > 75_000_000) {
-    res.status(400).json({ error: "الملف أكبر من 75 ميجابايت" }); return;
-  }
+  const { mimeType } = req.body as { mimeType?: string };
+  if (!mimeType) { res.status(400).json({ error: "mimeType مطلوب" }); return; }
 
   const supabaseUrl = (process.env.SUPABASE_URL ?? "")
     .replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
@@ -63,7 +56,7 @@ router.post("/articles/upload-media", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Storage not configured" }); return;
   }
 
-  // Create bucket if it doesn't exist yet (idempotent — 409 is fine)
+  // Ensure bucket exists (idempotent — 409 is fine)
   await fetch(`${supabaseUrl}/storage/v1/bucket`, {
     method: "POST",
     headers: {
@@ -72,27 +65,36 @@ router.post("/articles/upload-media", async (req, res): Promise<void> => {
       Authorization: `Bearer ${supabaseKey}`,
     },
     body: JSON.stringify({ id: "articles-media", name: "articles-media", public: true }),
-  }).catch(() => { /* ignore */ });
+  }).catch(() => {});
 
   const ext  = (mimeType.split("/")[1] ?? "bin").split(";")[0];
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const up = await fetch(`${supabaseUrl}/storage/v1/object/articles-media/${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": mimeType,
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
+  // Request a signed upload URL from Supabase
+  const signRes = await fetch(
+    `${supabaseUrl}/storage/v1/object/sign/upload/articles-media/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({}),
     },
-    body: buffer,
-  });
+  );
 
-  if (!up.ok) {
-    const txt = await up.text();
-    res.status(500).json({ error: `فشل رفع الملف: ${txt}` }); return;
+  if (!signRes.ok) {
+    const txt = await signRes.text();
+    res.status(500).json({ error: `فشل إنشاء رابط الرفع: ${txt}` }); return;
   }
 
-  res.json({ url: `${supabaseUrl}/storage/v1/object/public/articles-media/${path}` });
+  const { signedURL } = await signRes.json() as { signedURL: string };
+
+  res.json({
+    uploadUrl: `${supabaseUrl}${signedURL}`,
+    publicUrl: `${supabaseUrl}/storage/v1/object/public/articles-media/${path}`,
+  });
 });
 
 // ── POST /api/articles ────────────────────────────────────────────────────────
