@@ -171,27 +171,14 @@ const Model2Header = memo(function Model2Header({
         </div>
       </div>
 
-      {/* Adar logo — appears ONLY on media (home) tab, animates in/out */}
-      {/* Uses a fixed-size placeholder slot to prevent layout shift */}
-      <div className="flex-shrink-0 w-9 h-9 relative">
-        <AnimatePresence>
-          {activeTab === "media" && (
-            <motion.div
-              key="adar-logo"
-              className="absolute inset-0"
-              initial={{ opacity: 0, scale: 0.65 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.65 }}
-              transition={{ duration: 0.22 }}>
-              <img
-                src="/adar-logo.png"
-                alt="ADAR"
-                className="w-full h-full rounded-full object-cover"
-                style={{ border: `1.5px solid ${GOLD}50`, boxShadow: `0 0 14px ${GOLD}28` }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Adar logo — always visible, sized to fill the header height */}
+      <div className="flex-shrink-0 relative" style={{ width: 52, height: 52 }}>
+        <img
+          src="/adar-logo.png"
+          alt="ADAR"
+          className="w-full h-full rounded-full object-cover"
+          style={{ border: `1.5px solid ${GOLD}55`, boxShadow: `0 0 16px ${GOLD}35` }}
+        />
       </div>
     </div>
   );
