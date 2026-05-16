@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Send, X, ChevronDown,
-  Plus, Trash2, Image, Loader2, ArrowDownToLine, Volume2, VolumeX,
+  Plus, Trash2, Image, Loader2, ArrowDownToLine,
+  Volume2, VolumeX, Wifi, WifiOff, Play, Gauge,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -20,12 +21,64 @@ interface Article {
 }
 interface CommentData { id: number; text: string; ts: number }
 
+type VideoQuality = "high" | "medium" | "low";
+
+interface NetworkState {
+  quality:       VideoQuality;
+  effectiveType: string;   // "4g" | "3g" | "2g" | "slow-2g" | "unknown"
+  saveData:      boolean;
+}
+
+// ── Network quality hook ───────────────────────────────────────────────────────
+// Uses Network Information API (Chrome/Android) with safe fallback.
+function useNetworkQuality(): NetworkState {
+  function read(): NetworkState {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conn = (navigator as any).connection
+               ?? (navigator as any).mozConnection
+               ?? (navigator as any).webkitConnection;
+
+    if (!conn) return { quality: "medium", effectiveType: "unknown", saveData: false };
+
+    const saveData: boolean = !!conn.saveData;
+    const et: string = conn.effectiveType ?? "unknown";
+    const dl: number = conn.downlink ?? 0;
+
+    let quality: VideoQuality;
+    if (saveData || et === "slow-2g" || et === "2g" || (dl > 0 && dl < 0.25)) {
+      quality = "low";
+    } else if (et === "3g" || (dl > 0 && dl < 1.5)) {
+      quality = "medium";
+    } else {
+      quality = "high";
+    }
+
+    return { quality, effectiveType: et, saveData };
+  }
+
+  const [state, setState] = useState<NetworkState>(read);
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conn = (navigator as any).connection
+               ?? (navigator as any).mozConnection
+               ?? (navigator as any).webkitConnection;
+    if (!conn) return;
+    const handler = () => setState(read());
+    conn.addEventListener("change", handler);
+    return () => conn.removeEventListener("change", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return state;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const FALLBACK: Article[] = [
-  { id: -1, title: "مبادرة التحرير العلوي — البوابة الرقمية",        body: "منصة متكاملة تجمع التوثيق والرصد والمناصرة في فضاء رقمي آمن، مكرّسة لخدمة أبناء الطائفة العلوية وتوثيق قضيتهم أمام العالم.",                                                                  authorPseudonym: "فريق ALI",       authorAliId: "ALI-0001", createdAt: new Date().toISOString() },
-  { id: -2, title: "مركز ADAR للرصد الإعلامي",                       body: "الباحث الرقمي — أرشيف علوي موزّع للبحث والتوثيق والرصد. نتتبّع المشهد الإعلامي ونوثّق الرواية الحقيقية للأحداث بعيداً عن التزوير.",                                                              authorPseudonym: "مركز ADAR",      authorAliId: "ALI-0002", createdAt: new Date().toISOString() },
-  { id: -3, title: "رمز $MDD — ركيزة الدعم المالي",                  body: "عملة رقمية مدعومة بمنظومة العقد الذكي، تُمكّن المجتمع من المشاركة الفاعلة في بناء المستقبل وتمويل العمل الإنساني والتوثيقي.",                                                                   authorPseudonym: "الركن المالي",   authorAliId: "ALI-0003", createdAt: new Date().toISOString() },
-  { id: -4, title: "المجلس الاجتماعي — فضاء النقاش الحر",            body: "مساحات صوتية مشفّرة تتيح حوارات هادئة وعميقة بين أبناء المجتمع، بعيداً عن ضجيج وسائل التواصل التقليدية.",                                                                                        authorPseudonym: "فريق المجتمع",   authorAliId: "ALI-0004", createdAt: new Date().toISOString() },
+  { id: -1, title: "مبادرة التحرير العلوي — البوابة الرقمية",   body: "منصة متكاملة تجمع التوثيق والرصد والمناصرة في فضاء رقمي آمن، مكرّسة لخدمة أبناء الطائفة العلوية وتوثيق قضيتهم أمام العالم.",  authorPseudonym: "فريق ALI",     authorAliId: "ALI-0001", createdAt: new Date().toISOString() },
+  { id: -2, title: "مركز ADAR للرصد الإعلامي",                  body: "الباحث الرقمي — أرشيف علوي موزّع للبحث والتوثيق والرصد. نتتبّع المشهد الإعلامي ونوثّق الرواية الحقيقية للأحداث.",              authorPseudonym: "مركز ADAR",    authorAliId: "ALI-0002", createdAt: new Date().toISOString() },
+  { id: -3, title: "رمز $MDD — ركيزة الدعم المالي",             body: "عملة رقمية مدعومة بمنظومة العقد الذكي، تُمكّن المجتمع من المشاركة الفاعلة في بناء المستقبل وتمويل العمل الإنساني.",           authorPseudonym: "الركن المالي", authorAliId: "ALI-0003", createdAt: new Date().toISOString() },
+  { id: -4, title: "المجلس الاجتماعي — فضاء النقاش الحر",       body: "مساحات صوتية مشفّرة تتيح حوارات هادئة وعميقة بين أبناء المجتمع، بعيداً عن ضجيج وسائل التواصل التقليدية.",                   authorPseudonym: "فريق المجتمع", authorAliId: "ALI-0004", createdAt: new Date().toISOString() },
 ];
 
 const CARD_BG = [
@@ -45,17 +98,9 @@ function formatDate(iso: string) {
   try { return new Date(iso).toLocaleDateString("ar-SA", { day: "numeric", month: "short" }); }
   catch { return ""; }
 }
-
-/** Returns true for video URLs (mp4, webm, mov, ogg, m4v) */
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url);
 }
-
-/**
- * Save media to device.
- * In Telegram Mini App → openLink (user can long-press to save in browser).
- * Fallback → open in new tab.
- */
 function saveMedia(url: string) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,12 +108,119 @@ function saveMedia(url: string) {
     if (twa?.openLink) { twa.openLink(url); return; }
   } catch { /* ignore */ }
   const a = document.createElement("a");
-  a.href = url;
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+// Quality metadata used in the selector panel
+const QUALITY_META: Record<VideoQuality, {
+  label: string; desc: string; badge: string;
+  dotColor: string; strategy: string;
+}> = {
+  high:   { label: "دقة عالية",    badge: "HD", desc: "تحميل كامل — مناسب لشبكة 4G أو Wi-Fi",   dotColor: "#4ade80", strategy: "auto"     },
+  medium: { label: "دقة متوسطة",   badge: "SD", desc: "تشغيل بلمسة — يوفّر بيانات الشبكة",      dotColor: GOLD,      strategy: "metadata" },
+  low:    { label: "دقة خفيفة",    badge: "LD", desc: "نص فقط — مثالي لشبكة 2G أو بيانات ضعيفة", dotColor: "#f87171", strategy: "none"     },
+};
+
+// ── QualityPanel ──────────────────────────────────────────────────────────────
+function QualityPanel({
+  current,
+  autoQuality,
+  onSelect,
+  onClose,
+  isBuffering,
+}: {
+  current: VideoQuality;
+  autoQuality: VideoQuality;
+  onSelect: (q: VideoQuality) => void;
+  onClose: () => void;
+  isBuffering: boolean;
+}) {
+  return (
+    <>
+      <motion.div className="absolute inset-0 z-30" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }} />
+
+      <motion.div
+        className="absolute inset-x-3 z-40 rounded-3xl overflow-hidden"
+        style={{ bottom: 90, background: "rgba(4,18,6,0.97)", border: `1px solid ${GOLD}18` }}
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0,  scale: 1    }}
+        exit={{    opacity: 0, y: 12, scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 400, damping: 32 }}>
+
+        {/* header */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3" dir="rtl">
+          <div className="flex items-center gap-2">
+            <Gauge size={15} color={GOLD} />
+            <span className="font-arabic font-bold text-sm text-white/90">جودة الفيديو</span>
+          </div>
+          {isBuffering && (
+            <span className="font-arabic text-[10px] px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}>
+              التحميل بطيء
+            </span>
+          )}
+          <button onClick={onClose} className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.08)" }}>
+            <X size={13} color="rgba(255,255,255,0.5)" />
+          </button>
+        </div>
+
+        {/* auto-detected info */}
+        <div className="mx-4 mb-3 px-3 py-2 rounded-xl flex items-center gap-2" dir="rtl"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <Wifi size={13} color="rgba(255,255,255,0.35)" />
+          <span className="font-arabic text-white/40 text-xs">
+            الشبكة المكتشفة: <span style={{ color: QUALITY_META[autoQuality].dotColor }}>{QUALITY_META[autoQuality].label}</span>
+          </span>
+        </div>
+
+        {/* options */}
+        <div className="px-3 pb-4 space-y-2" dir="rtl">
+          {(["high", "medium", "low"] as VideoQuality[]).map(q => {
+            const m = QUALITY_META[q];
+            const isSelected = q === current;
+            return (
+              <motion.button key={q} whileTap={{ scale: 0.97 }} onClick={() => onSelect(q)}
+                className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-right transition-colors"
+                style={{
+                  background: isSelected ? `${GOLD}12` : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${isSelected ? GOLD + "35" : "rgba(255,255,255,0.08)"}`,
+                }}>
+                {/* dot */}
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: m.dotColor, boxShadow: isSelected ? `0 0 8px ${m.dotColor}80` : "none" }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-arabic font-bold text-sm" style={{ color: isSelected ? GOLD : "rgba(255,255,255,0.85)" }}>{m.label}</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                      style={{ background: isSelected ? `${GOLD}20` : "rgba(255,255,255,0.07)", color: isSelected ? GOLD : "rgba(255,255,255,0.4)" }}>
+                      {m.badge}
+                    </span>
+                    {q === autoQuality && (
+                      <span className="font-arabic text-[9px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)" }}>تلقائي</span>
+                    )}
+                  </div>
+                  <p className="font-arabic text-[11px] text-white/40 mt-0.5">{m.desc}</p>
+                </div>
+                {/* checkmark */}
+                {isSelected && (
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}50` }}>
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
+      </motion.div>
+    </>
+  );
 }
 
 // ── Compose sheet (admin only) ────────────────────────────────────────────────
@@ -90,12 +242,9 @@ function ComposeSheet({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5_242_880) { setError("الصورة أكبر من 5 ميجابايت"); return; }
+    if (file.size > 5_242_880) { setError("الملف أكبر من 5 ميجابايت"); return; }
     const reader = new FileReader();
-    reader.onload = ev => {
-      setMediaUrl(ev.target?.result as string);
-      setPreviewing(true);
-    };
+    reader.onload = ev => { setMediaUrl(ev.target?.result as string); setPreviewing(true); };
     reader.readAsDataURL(file);
   }
 
@@ -123,23 +272,19 @@ function ComposeSheet({
     <>
       <motion.div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-
       <motion.div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-3xl"
         style={{ background: "linear-gradient(160deg,#031006,#061409)", border: `1px solid ${GOLD}18`, borderBottom: "none", maxHeight: "88dvh" }}
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 340, damping: 36 }}>
-
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 rounded-full" style={{ background: `${GOLD}30` }} />
         </div>
-
         <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0" dir="rtl">
           <span className="font-arabic font-bold text-base" style={{ color: GOLD }}>نشر محتوى جديد</span>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.08)" }}>
             <X size={16} color="rgba(255,255,255,0.6)" />
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-4 min-h-0" dir="rtl">
           <div className="space-y-1.5">
             <label className="font-arabic text-xs text-white/50">العنوان *</label>
@@ -180,11 +325,8 @@ function ComposeSheet({
               </div>
             )}
           </div>
-          {error && (
-            <p className="font-arabic text-red-400 text-xs bg-red-400/10 rounded-xl px-4 py-2.5 border border-red-400/20">{error}</p>
-          )}
+          {error && <p className="font-arabic text-red-400 text-xs bg-red-400/10 rounded-xl px-4 py-2.5 border border-red-400/20">{error}</p>}
         </div>
-
         <div className="flex-shrink-0 px-5 pb-8 pt-2">
           <motion.button whileTap={{ scale: 0.97 }} onClick={handleSubmit}
             disabled={submitting || !title.trim() || !body.trim()}
@@ -201,59 +343,111 @@ function ComposeSheet({
   );
 }
 
-// ── MediaCard: isolated card with its own video + image loading state ─────────
+// ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article,
-  idx,
-  isActive,
-  liked,
-  articleComments,
-  isCommentOpen,
-  isDeleting,
-  isAdmin,
-  saved,
-  commentText,
-  onLike,
-  onToggleComment,
-  onDelete,
-  onSave,
-  onAddComment,
-  onCommentTextChange,
-  cardRef,
+  article, idx, isActive, liked, articleComments, isCommentOpen,
+  isDeleting, isAdmin, saved, commentText,
+  onLike, onToggleComment, onDelete, onSave, onAddComment, onCommentTextChange,
+  cardRef, networkState,
 }: {
-  article: Article;
-  idx: number;
-  isActive: boolean;
-  liked: boolean;
+  article:         Article;
+  idx:             number;
+  isActive:        boolean;
+  liked:           boolean;
   articleComments: CommentData[];
-  isCommentOpen: boolean;
-  isDeleting: boolean;
-  isAdmin: boolean;
-  saved: boolean;
-  commentText: string;
-  onLike: () => void;
-  onToggleComment: () => void;
-  onDelete: () => void;
-  onSave: () => void;
-  onAddComment: () => void;
+  isCommentOpen:   boolean;
+  isDeleting:      boolean;
+  isAdmin:         boolean;
+  saved:           boolean;
+  commentText:     string;
+  onLike:              () => void;
+  onToggleComment:     () => void;
+  onDelete:            () => void;
+  onSave:              () => void;
+  onAddComment:        () => void;
   onCommentTextChange: (v: string) => void;
-  cardRef: (el: HTMLDivElement | null) => void;
+  cardRef:         (el: HTMLDivElement | null) => void;
+  networkState:    NetworkState;
 }) {
-  const [mediaLoaded,  setMediaLoaded]  = useState(false);
-  const [mediaError,   setMediaError]   = useState(false);
-  const [muted,        setMuted]        = useState(true);
+  const [mediaLoaded,    setMediaLoaded]    = useState(false);
+  const [mediaError,     setMediaError]     = useState(false);
+  const [muted,          setMuted]          = useState(true);
+  const [isBuffering,    setIsBuffering]    = useState(false);
+  const [qualityOpen,    setQualityOpen]    = useState(false);
+  // selectedQuality: null = use auto (from network), or user override
+  const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
+  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const isVideo  = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
 
-  // Auto-play video when card is active, pause otherwise
+  const isVideo = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
+
+  // effective quality = user override OR auto from network
+  const effectiveQuality: VideoQuality = selectedQuality ?? networkState.quality;
+  const meta = QUALITY_META[effectiveQuality];
+
+  // ── Video play/pause by active state ───────────────────────────────────────
   useEffect(() => {
-    if (!videoRef.current) return;
-    if (isActive) {
-      videoRef.current.play().catch(() => {/* autoplay blocked */});
+    if (!videoRef.current || !isVideo) return;
+    if (isActive && effectiveQuality !== "low") {
+      videoRef.current.play().catch(() => {/* autoplay policy */});
     } else {
       videoRef.current.pause();
     }
-  }, [isActive]);
+  }, [isActive, effectiveQuality, isVideo]);
+
+  // ── Buffering detection: show quality panel after 2.5 s of stalling ────────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    function onWaiting() {
+      setIsBuffering(true);
+      bufferTimerRef.current = setTimeout(() => {
+        // Only open quality panel automatically on first buffer stall
+        setQualityOpen(prev => prev || true);
+      }, 2500);
+    }
+    function onPlaying() {
+      setIsBuffering(false);
+      if (bufferTimerRef.current) {
+        clearTimeout(bufferTimerRef.current);
+        bufferTimerRef.current = null;
+      }
+    }
+
+    video.addEventListener("waiting",  onWaiting);
+    video.addEventListener("playing",  onPlaying);
+    video.addEventListener("canplay",  onPlaying);
+    return () => {
+      video.removeEventListener("waiting",  onWaiting);
+      video.removeEventListener("playing",  onPlaying);
+      video.removeEventListener("canplay",  onPlaying);
+      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+    };
+  }, [isVideo]);
+
+  // ── Apply quality change to video element ──────────────────────────────────
+  function applyQuality(q: VideoQuality) {
+    setSelectedQuality(q);
+    setQualityOpen(false);
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (q === "low") {
+      video.pause();
+      return;
+    }
+    // Force reload with new preload hint
+    const t = video.currentTime;
+    video.load();
+    video.currentTime = t;
+    if (isActive) video.play().catch(() => {});
+  }
+
+  // Preload attribute based on quality + active state
+  const preloadAttr = effectiveQuality === "high" ? "auto"
+    : effectiveQuality === "medium" ? (isActive ? "auto" : "metadata")
+    : "none";
 
   return (
     <div
@@ -269,12 +463,32 @@ function MediaCard({
       {article.mediaUrl && !mediaError && (
         <div className="absolute inset-0">
 
-          {/* blur placeholder shown until media loads */}
-          {!mediaLoaded && (
+          {/* spinner placeholder */}
+          {!mediaLoaded && effectiveQuality !== "low" && (
             <div className="absolute inset-0 flex items-center justify-center"
               style={{ background: CARD_BG[idx % CARD_BG.length] }}>
               <div className="w-7 h-7 rounded-full border-2 animate-spin"
                 style={{ borderColor: `${GOLD}30`, borderTopColor: `${GOLD}90` }} />
+            </div>
+          )}
+
+          {/* LD mode: no video, show play-in-browser CTA */}
+          {isVideo && effectiveQuality === "low" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+              style={{ background: CARD_BG[idx % CARD_BG.length] }}>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${GOLD}25` }}>
+                <WifiOff size={22} color={`${GOLD}90`} />
+              </div>
+              <p className="font-arabic text-white/45 text-xs text-center px-6">
+                تم إيقاف الفيديو لتوفير البيانات
+              </p>
+              <motion.button whileTap={{ scale: 0.95 }}
+                onClick={() => article.mediaUrl && saveMedia(article.mediaUrl)}
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-arabic"
+                style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30`, color: GOLD }}>
+                <Play size={12} />مشاهدة في المتصفح
+              </motion.button>
             </div>
           )}
 
@@ -284,14 +498,14 @@ function MediaCard({
               src={article.mediaUrl}
               className="w-full h-full object-cover"
               style={{
+                display:    effectiveQuality === "low" ? "none" : "block",
                 opacity:    mediaLoaded ? 0.7 : 0,
                 transition: "opacity 0.5s ease",
-                filter:     mediaLoaded ? "none" : "blur(16px)",
               }}
               muted={muted}
               loop
               playsInline
-              preload={isActive ? "auto" : "metadata"}
+              preload={preloadAttr}
               onLoadedData={() => setMediaLoaded(true)}
               onError={() => setMediaError(true)}
             />
@@ -311,30 +525,71 @@ function MediaCard({
             />
           )}
 
-          {/* dark gradient for readability */}
+          {/* dark gradient overlay */}
           <div className="absolute inset-0 pointer-events-none"
             style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.94) 0%,rgba(2,14,4,0.3) 55%,rgba(2,14,4,0.5) 100%)" }} />
         </div>
       )}
 
-      {/* ── Category badge ── */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* ── Category + quality badge row (top-right) ── */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
         <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
           style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
           {isVideo ? "فيديو" : "إخباري"}
         </span>
+
+        {/* Quality badge — tappable to open quality panel */}
+        {isVideo && (
+          <motion.button whileTap={{ scale: 0.9 }}
+            onClick={() => setQualityOpen(o => !o)}
+            className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
+            style={{
+              background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
+                         : effectiveQuality === "medium" ? `${GOLD}15`
+                         :                                 "rgba(248,113,113,0.15)",
+              border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
+                         : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
+                         :                                 "1px solid rgba(248,113,113,0.35)",
+              color:       QUALITY_META[effectiveQuality].dotColor,
+            }}>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
+            {meta.badge}
+          </motion.button>
+        )}
       </div>
 
-      {/* ── Video: mute/unmute toggle ── */}
-      {isVideo && mediaLoaded && (
-        <motion.button
-          whileTap={{ scale: 0.9 }}
+      {/* ── Buffering spinner overlay (center) ── */}
+      <AnimatePresence>
+        {isVideo && isBuffering && effectiveQuality !== "low" && (
+          <motion.div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="rounded-full p-3" style={{ background: "rgba(0,0,0,0.45)" }}>
+              <Loader2 size={28} color="rgba(255,255,255,0.7)" className="animate-spin" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Quality panel ── */}
+      <AnimatePresence>
+        {qualityOpen && (
+          <QualityPanel
+            current={effectiveQuality}
+            autoQuality={networkState.quality}
+            onSelect={applyQuality}
+            onClose={() => setQualityOpen(false)}
+            isBuffering={isBuffering}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Video: mute/unmute ── */}
+      {isVideo && mediaLoaded && effectiveQuality !== "low" && (
+        <motion.button whileTap={{ scale: 0.9 }}
           onClick={() => setMuted(m => !m)}
           className="absolute top-4 z-10 w-9 h-9 rounded-full flex items-center justify-center"
           style={{ left: isAdmin ? 52 : 16, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.15)" }}>
-          {muted
-            ? <VolumeX size={15} color="rgba(255,255,255,0.7)" />
-            : <Volume2 size={15} color="white" />}
+          {muted ? <VolumeX size={15} color="rgba(255,255,255,0.7)" /> : <Volume2 size={15} color="white" />}
         </motion.button>
       )}
 
@@ -371,15 +626,11 @@ function MediaCard({
           <span className="text-white/60 text-[10px] font-mono">{articleComments.length}</span>
         </motion.button>
 
-        {/* Save — only when media exists */}
+        {/* Save */}
         {article.mediaUrl && (
           <motion.button whileTap={{ scale: 1.2 }} onClick={onSave} className="flex flex-col items-center gap-1">
             <div className="w-11 h-11 rounded-full flex items-center justify-center"
-              style={{
-                background: saved ? `${GOLD}20` : "rgba(255,255,255,0.08)",
-                border: `1px solid ${saved ? GOLD + "55" : "rgba(255,255,255,0.15)"}`,
-                transition: "all 0.25s",
-              }}>
+              style={{ background: saved ? `${GOLD}20` : "rgba(255,255,255,0.08)", border: `1px solid ${saved ? GOLD + "55" : "rgba(255,255,255,0.15)"}`, transition: "all 0.25s" }}>
               <ArrowDownToLine size={20} color={saved ? GOLD : "white"} />
             </div>
             <span className="text-[10px] font-arabic" style={{ color: saved ? GOLD : "rgba(255,255,255,0.45)" }}>
@@ -389,7 +640,23 @@ function MediaCard({
         )}
       </div>
 
-      {/* ── Bottom content overlay ── */}
+      {/* ── MD-quality: tap-to-play overlay ── */}
+      <AnimatePresence>
+        {isVideo && isActive && effectiveQuality === "medium" && !mediaLoaded && (
+          <motion.div className="absolute inset-0 z-15 flex items-center justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ background: "rgba(0,0,0,0.35)" }}>
+            <motion.button whileTap={{ scale: 0.9 }}
+              onClick={() => videoRef.current?.play().catch(() => {})}
+              className="w-16 h-16 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.25)" }}>
+              <Play size={26} color="white" fill="white" />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Bottom content ── */}
       <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-20 pointer-events-none"
         style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.97) 0%,rgba(2,14,4,0.7) 55%,transparent 100%)" }}
         dir="rtl">
@@ -420,7 +687,6 @@ function MediaCard({
             style={{ background: "rgba(4,16,6,0.98)", backdropFilter: "blur(20px)", border: `1px solid ${GOLD}12`, maxHeight: "60%" }}
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 360, damping: 36 }}>
-
             <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
               style={{ borderColor: `${GOLD}12` }} dir="rtl">
               <span className="font-arabic text-white/80 text-sm font-bold">التعليقات ({articleComments.length})</span>
@@ -429,22 +695,20 @@ function MediaCard({
                 <X size={14} color="rgba(255,255,255,0.6)" />
               </button>
             </div>
-
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" dir="rtl">
-              {articleComments.length === 0 ? (
-                <p className="font-arabic text-white/30 text-sm text-center py-6">لا توجد تعليقات بعد</p>
-              ) : articleComments.map(c => (
-                <div key={c.id} className="flex gap-2">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
-                    style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
-                  <div className="rounded-2xl rounded-tr-sm px-3 py-2 text-xs flex-1"
-                    style={{ background: "rgba(255,255,255,0.06)" }}>
-                    <p className="font-arabic text-white/80 leading-relaxed">{c.text}</p>
-                  </div>
-                </div>
-              ))}
+              {articleComments.length === 0
+                ? <p className="font-arabic text-white/30 text-sm text-center py-6">لا توجد تعليقات بعد</p>
+                : articleComments.map(c => (
+                    <div key={c.id} className="flex gap-2">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+                        style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
+                      <div className="rounded-2xl rounded-tr-sm px-3 py-2 text-xs flex-1"
+                        style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <p className="font-arabic text-white/80 leading-relaxed">{c.text}</p>
+                      </div>
+                    </div>
+                  ))}
             </div>
-
             <div className="flex items-center gap-2 px-3 py-3 border-t flex-shrink-0"
               style={{ borderColor: `${GOLD}10` }} dir="rtl">
               <input
@@ -468,7 +732,7 @@ function MediaCard({
   );
 }
 
-// ── Main MediaSection ─────────────────────────────────────────────────────────
+// ── MediaSection ──────────────────────────────────────────────────────────────
 export function MediaSection({
   telegramId,
   isAdmin = false,
@@ -476,6 +740,8 @@ export function MediaSection({
   telegramId: string;
   isAdmin?: boolean;
 }) {
+  const networkState = useNetworkQuality();
+
   const [articles,    setArticles]    = useState<Article[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [likes,       setLikes]       = useState<Record<number, boolean>>({});
@@ -486,11 +752,9 @@ export function MediaSection({
   const [deletingId,  setDeletingId]  = useState<number | null>(null);
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
-
-  // Refs for IntersectionObserver
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // ── Load articles ──────────────────────────────────────────────────────────
+  // ── Load ───────────────────────────────────────────────────────────────────
   const loadArticles = useCallback(() => {
     return apiFetch("/api/articles")
       .then(r => (r.ok ? r.json() as Promise<Article[]> : Promise.reject()))
@@ -498,51 +762,44 @@ export function MediaSection({
       .catch(() => setArticles(FALLBACK))
       .finally(() => setLoading(false));
   }, []);
-
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
-  // ── IntersectionObserver: detect active card ───────────────────────────────
-  // Also drives video play/pause inside MediaCard via isActive prop
+  // ── IntersectionObserver ───────────────────────────────────────────────────
   useEffect(() => {
     if (articles.length === 0) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const idx = cardRefs.current.indexOf(entry.target as HTMLDivElement);
-            if (idx !== -1) setActiveIdx(idx);
-          }
+    const observer = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          const i = cardRefs.current.indexOf(e.target as HTMLDivElement);
+          if (i !== -1) setActiveIdx(i);
         }
-      },
-      { threshold: 0.55 },   // card must be >55% visible to count as active
-    );
+      }
+    }, { threshold: 0.55 });
     cardRefs.current.forEach(el => { if (el) observer.observe(el); });
     return () => observer.disconnect();
   }, [articles]);
 
-  // ── Preload images for active + next 2 cards (Instagram-style) ────────────
+  // ── Preload images for next 2 cards ───────────────────────────────────────
   useEffect(() => {
-    const toLoad = articles.slice(activeIdx, activeIdx + 3);
-    toLoad.forEach(a => {
+    if (networkState.quality === "low") return; // don't preload on weak networks
+    articles.slice(activeIdx, activeIdx + 3).forEach(a => {
       if (a.mediaUrl && !isVideoUrl(a.mediaUrl)) {
         const img = new window.Image();
         img.src = a.mediaUrl;
       }
     });
-  }, [activeIdx, articles]);
+  }, [activeIdx, articles, networkState.quality]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleLike    = useCallback((id: number) => setLikes(p => ({ ...p, [id]: !p[id] })), []);
   const toggleComment = useCallback((id: number) => setOpenCard(p => p === id ? null : id), []);
-
-  const addComment = useCallback((id: number) => {
+  const addComment    = useCallback((id: number) => {
     const text = commentText.trim();
     if (!text) return;
     setComments(p => ({ ...p, [id]: [...(p[id] ?? []), { id: Date.now(), text, ts: Date.now() }] }));
     setCommentText("");
   }, [commentText]);
-
-  const handleDelete = useCallback(async (id: number) => {
+  const handleDelete  = useCallback(async (id: number) => {
     if (id < 0) return;
     setDeletingId(id);
     try {
@@ -550,18 +807,15 @@ export function MediaSection({
       if (r.ok) setArticles(p => p.filter(a => a.id !== id));
     } finally { setDeletingId(null); }
   }, []);
-
-  const handleSave = useCallback((article: Article) => {
+  const handleSave    = useCallback((article: Article) => {
     if (!article.mediaUrl) return;
     saveMedia(article.mediaUrl);
     setSavedIds(p => new Set([...p, article.id]));
   }, []);
-
   const handlePublished = useCallback((article: Article) => {
     setArticles(p => [article, ...p.filter(a => a.id > 0)]);
   }, []);
 
-  // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -574,7 +828,6 @@ export function MediaSection({
   return (
     <div className="h-full relative">
 
-      {/* ── Snap-scroll reel container ── */}
       <div className="h-full overflow-y-scroll"
         style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
 
@@ -598,6 +851,7 @@ export function MediaSection({
             onAddComment={() => addComment(article.id)}
             onCommentTextChange={setCommentText}
             cardRef={el => { cardRefs.current[idx] = el; }}
+            networkState={networkState}
           />
         ))}
       </div>
@@ -610,14 +864,13 @@ export function MediaSection({
           className="absolute z-30 flex items-center justify-center rounded-full"
           style={{
             bottom: 24, right: 16, width: 52, height: 52,
-            background:  `linear-gradient(135deg,${GOLD},#e8c840)`,
-            boxShadow:   `0 6px 28px ${GOLD}55,0 2px 8px rgba(0,0,0,0.4)`,
+            background: `linear-gradient(135deg,${GOLD},#e8c840)`,
+            boxShadow:  `0 6px 28px ${GOLD}55,0 2px 8px rgba(0,0,0,0.4)`,
           }}>
           <Plus size={24} color="#061409" strokeWidth={2.5} />
         </motion.button>
       )}
 
-      {/* ── Compose sheet ── */}
       <AnimatePresence>
         {composeOpen && (
           <ComposeSheet onClose={() => setComposeOpen(false)} onPublished={handlePublished} />
