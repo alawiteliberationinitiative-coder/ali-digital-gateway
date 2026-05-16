@@ -6,6 +6,7 @@ export const articlesTable = pgTable("ali_articles", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   body: text("body").notNull(),
+  mediaUrl: text("media_url"),                          // صورة/فيديو اختياري
   authorTelegramId: text("author_telegram_id").notNull(),
   authorPseudonym: text("author_pseudonym").notNull(),
   authorAliId: text("author_ali_id").notNull(),

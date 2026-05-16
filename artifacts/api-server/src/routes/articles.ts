@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, usersTable, articlesTable } from "@workspace/db";
+import { db, eq, desc, usersTable, articlesTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
 
 const router = Router();
@@ -9,22 +9,30 @@ async function getUser(telegramId: string) {
   return user;
 }
 
+/** التحقق من صلاحية النشر */
+function canPublish(telegramId: string, role: string | null | undefined): boolean {
+  return ADMIN_IDS.includes(telegramId) || role === "staff" || role === "admin";
+}
+
+// ── GET /api/articles ─────────────────────────────────────────────────────────
 router.get("/articles", async (_req, res): Promise<void> => {
   const rows = await db
     .select({
-      id: articlesTable.id,
-      title: articlesTable.title,
-      body: articlesTable.body,
+      id:              articlesTable.id,
+      title:           articlesTable.title,
+      body:            articlesTable.body,
+      mediaUrl:        articlesTable.mediaUrl,
       authorPseudonym: articlesTable.authorPseudonym,
-      authorAliId: articlesTable.authorAliId,
-      createdAt: articlesTable.createdAt,
-      updatedAt: articlesTable.updatedAt,
+      authorAliId:     articlesTable.authorAliId,
+      createdAt:       articlesTable.createdAt,
+      updatedAt:       articlesTable.updatedAt,
     })
     .from(articlesTable)
-    .orderBy(articlesTable.createdAt);
+    .orderBy(desc(articlesTable.createdAt));
   res.json(rows);
 });
 
+// ── POST /api/articles ────────────────────────────────────────────────────────
 router.post("/articles", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -32,34 +40,54 @@ router.post("/articles", async (req, res): Promise<void> => {
   const user = await getUser(telegramId);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
-  const isAdmin = ADMIN_IDS.includes(telegramId);
-  if (!isAdmin && user.role !== "staff" && user.role !== "admin") {
-    res.status(403).json({ error: "ليس لديك صلاحية النشر — هذه الميزة مخصصة لفريق العمل المنتخب فقط" });
+  if (!canPublish(telegramId, user.role)) {
+    res.status(403).json({ error: "ليس لديك صلاحية النشر — هذه الميزة مخصصة لفريق العمل فقط" });
     return;
   }
 
-  const { title, body } = req.body as { title?: string; body?: string };
+  const { title, body, mediaUrl } = req.body as {
+    title?: string;
+    body?: string;
+    mediaUrl?: string;
+  };
+
   if (!title?.trim() || !body?.trim()) {
     res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
     return;
   }
-  if (title.length > 200) { res.status(400).json({ error: "العنوان طويل جداً (200 حرف كحد أقصى)" }); return; }
-  if (body.length > 20000) { res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return; }
+  if (title.length > 200)   { res.status(400).json({ error: "العنوان طويل جداً (200 حرف كحد أقصى)" }); return; }
+  if (body.length > 20_000) { res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return; }
+
+  // التحقق البسيط من URL الصورة إذا وُجد
+  let safeMediaUrl: string | null = null;
+  if (mediaUrl?.trim()) {
+    try {
+      const u = new URL(mediaUrl.trim());
+      if (u.protocol === "https:" || u.protocol === "http:") {
+        safeMediaUrl = u.toString();
+      }
+    } catch {
+      res.status(400).json({ error: "رابط الصورة غير صالح" });
+      return;
+    }
+  }
 
   const [article] = await db
     .insert(articlesTable)
     .values({
-      title: title.trim(),
-      body: body.trim(),
+      title:           title.trim(),
+      body:            body.trim(),
+      mediaUrl:        safeMediaUrl,
       authorTelegramId: telegramId,
       authorPseudonym: user.pseudonym,
-      authorAliId: user.aliId,
+      authorAliId:     user.aliId,
     })
     .returning();
 
   res.status(201).json(article);
 });
 
+// ── DELETE /api/articles/:id ──────────────────────────────────────────────────
 router.delete("/articles/:id", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }

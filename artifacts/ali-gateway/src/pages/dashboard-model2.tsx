@@ -317,6 +317,13 @@ export default function DashboardModel2() {
 
   const handleCloseProfile = useCallback(() => setShowProfile(false), []);
 
+  // صلاحية الأدمن: تُحدَّد من telegramId أو من دور المستخدم
+  const isAdmin = !!telegramId && (
+    telegramId === "6213952907" ||
+    userData?.role === "admin"  ||
+    userData?.role === "staff"
+  );
+
   // ── Loading state ────────────────────────────────────────────────────────────
   if (isLoading || !userData) {
     if (noAuthReady && !telegramId) return <NoAuthScreen />;
@@ -361,7 +368,7 @@ export default function DashboardModel2() {
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}>
                 <Suspense fallback={<TabLoading />}>
-                  {activeTab === "media"   && <MediaSection        telegramId={telegramId} />}
+                  {activeTab === "media"   && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
                   {activeTab === "reports" && <ReportsSection      telegramId={telegramId} />}
                   {activeTab === "field"   && <FieldMonitorSection telegramId={telegramId} />}
                   {activeTab === "docs"    && <DocumentationSection telegramId={telegramId} />}
