@@ -56,31 +56,64 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Storage not configured" }); return;
   }
 
-  // Ensure bucket exists (idempotent — 409 is fine)
-  await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-    },
-    body: JSON.stringify({ id: "articles-media", name: "articles-media", public: true }),
-  }).catch(() => {});
+  const storageHeaders = {
+    "Content-Type": "application/json",
+    apikey:         supabaseKey,
+    Authorization:  `Bearer ${supabaseKey}`,
+  };
 
-  const ext  = (mimeType.split("/")[1] ?? "bin").split(";")[0];
+  // ── 1. Ensure bucket exists ──────────────────────────────────────────────
+  // Try to create it first; 409 = already exists (fine).
+  // If creation fails for any other reason, verify it exists before continuing.
+  const bucketCreate = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+    method:  "POST",
+    headers: storageHeaders,
+    body:    JSON.stringify({
+      id:                 "articles-media",
+      name:               "articles-media",
+      public:             true,
+      file_size_limit:    100 * 1024 * 1024,          // 100 MB
+      allowed_mime_types: ["image/*", "video/*"],
+    }),
+  }).catch(() => null);
+
+  const bucketOk = bucketCreate && (bucketCreate.ok || bucketCreate.status === 409);
+
+  if (!bucketOk) {
+    // Verify the bucket already exists before giving up
+    const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/articles-media`, {
+      headers: storageHeaders,
+    }).catch(() => null);
+    if (!verifyRes?.ok) {
+      const detail = bucketCreate ? await bucketCreate.text().catch(() => "") : "network error";
+      res.status(500).json({ error: `فشل إنشاء المستودع: ${detail}` }); return;
+    }
+  }
+
+  // ── 2. Build a safe file extension ──────────────────────────────────────
+  // Map common MIME types to canonical extensions mobile players accept
+  const MIME_EXT: Record<string, string> = {
+    "video/mp4": "mp4", "video/quicktime": "mov", "video/x-msvideo": "avi",
+    "video/webm": "webm", "video/3gpp": "3gp", "video/3gpp2": "3g2",
+    "video/x-matroska": "mkv", "video/mpeg": "mpeg",
+    "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif",
+    "image/webp": "webp", "image/heic": "heic", "image/heif": "heif",
+  };
+  const baseMime = mimeType.split(";")[0]?.trim() ?? "";
+  const ext  = MIME_EXT[baseMime] ?? (baseMime.split("/")[1] ?? "bin").split("+")[0];
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  // Request a signed upload URL from Supabase
+  // ── 3. Request a signed upload URL from Supabase ─────────────────────────
+  // Body: Supabase cloud expects {} or { upsert: true }.
+  // The response shape has changed between versions:
+  //   newer: { url: "/storage/v1/object/sign/upload/…?token=…", token, path }
+  //   older: { signedURL: "https://…", token, path }
   const signRes = await fetch(
     `${supabaseUrl}/storage/v1/object/sign/upload/articles-media/${path}`,
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({ expiresIn: 3600 }),
+      method:  "POST",
+      headers: storageHeaders,
+      body:    JSON.stringify({ upsert: true }),
     },
   );
 
@@ -89,10 +122,17 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
     res.status(500).json({ error: `فشل إنشاء رابط الرفع: ${txt}` }); return;
   }
 
-  const { signedURL } = await signRes.json() as { signedURL: string };
+  const signData = await signRes.json() as { url?: string; signedURL?: string };
+  const rawUrl   = signData.url ?? signData.signedURL ?? "";
+  if (!rawUrl) {
+    res.status(500).json({ error: "فشل إنشاء رابط الرفع: استجابة Supabase غير متوقعة" }); return;
+  }
+
+  // rawUrl may be absolute or relative — normalise to absolute
+  const uploadUrl = rawUrl.startsWith("http") ? rawUrl : `${supabaseUrl}${rawUrl}`;
 
   res.json({
-    uploadUrl: `${supabaseUrl}${signedURL}`,
+    uploadUrl,
     publicUrl: `${supabaseUrl}/storage/v1/object/public/articles-media/${path}`,
   });
 });
