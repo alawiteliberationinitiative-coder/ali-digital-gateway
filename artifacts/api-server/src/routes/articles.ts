@@ -52,8 +52,8 @@ router.post("/articles/upload-media", async (req, res): Promise<void> => {
   // Strip optional data URL prefix then decode
   const base64 = data.replace(/^data:[^;]+;base64,/, "");
   const buffer = Buffer.from(base64, "base64");
-  if (buffer.byteLength > 10_485_760) {
-    res.status(400).json({ error: "الملف أكبر من 10 ميجابايت" }); return;
+  if (buffer.byteLength > 75_000_000) {
+    res.status(400).json({ error: "الملف أكبر من 75 ميجابايت" }); return;
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL ?? "")

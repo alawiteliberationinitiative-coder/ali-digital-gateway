@@ -419,8 +419,10 @@ function ComposeSheet({
       });
 
       // Upload to server → Supabase Storage
+      // Timeout of 5 min — videos can be large and Supabase upload takes time
       const r = await apiFetch("/api/articles/upload-media", {
         method: "POST",
+        timeoutMs: 5 * 60 * 1_000,
         body: JSON.stringify({ data: dataUrl, mimeType: file.type }),
       });
       if (!r.ok) {
