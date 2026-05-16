@@ -698,7 +698,7 @@ function MediaCard({
               className="w-full h-full object-cover"
               style={{
                 display:    effectiveQuality === "low" ? "none" : "block",
-                opacity:    mediaLoaded ? 0.7 : 0,
+                opacity:    mediaLoaded ? 1 : 0,
                 transition: "opacity 0.5s ease",
               }}
               muted={muted}
@@ -714,7 +714,7 @@ function MediaCard({
               alt=""
               className="w-full h-full object-cover"
               style={{
-                opacity:    mediaLoaded ? 0.55 : 0,
+                opacity:    mediaLoaded ? 1 : 0,
                 transition: "opacity 0.6s ease, filter 0.6s ease",
                 filter:     mediaLoaded ? "none" : "blur(20px)",
               }}
@@ -724,9 +724,9 @@ function MediaCard({
             />
           )}
 
-          {/* dark gradient overlay */}
+          {/* dark gradient overlay — only bottom edge to blend into text area */}
           <div className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.94) 0%,rgba(2,14,4,0.3) 55%,rgba(2,14,4,0.5) 100%)" }} />
+            style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.75) 0%,transparent 45%)" }} />
         </div>
       )}
 
@@ -883,7 +883,7 @@ function MediaCard({
 
       {/* ── Bottom content ── */}
       <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-20 pointer-events-none"
-        style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.97) 0%,rgba(2,14,4,0.7) 55%,transparent 100%)" }}
+        style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.92) 0%,rgba(2,14,4,0.55) 50%,transparent 100%)" }}
         dir="rtl">
         <h2 className="font-arabic font-bold text-white text-[19px] leading-tight line-clamp-2 mb-2">{article.title}</h2>
         <div className="flex items-center gap-2 mb-2">
