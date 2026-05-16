@@ -1,25 +1,31 @@
 /**
  * Centralized fetch utility that automatically attaches Telegram auth headers.
  * x-telegram-init-data is the authoritative identity signal validated by the server.
- * Supports per-request timeout (default 12 s) and automatic retry on network failures.
+ *
+ * Timeout: applied to every request (default 12 s).
+ * Retries:  only for safe, idempotent methods (GET, HEAD).
+ *           POST / PUT / PATCH / DELETE are never retried — retrying side-effecting
+ *           requests could duplicate rewards, invites, signaling writes, etc.
  */
 
-let _initData = "";
+let _initData   = "";
 let _telegramId = "";
 
 export function configureApi(telegramId: string, initData: string) {
   _telegramId = telegramId;
-  _initData = initData;
+  _initData   = initData;
 }
 
 export function getInitData(): string { return _initData; }
 
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
-  retries?: number;
+  retries?:   number;
 }
 
-async function attempt(input: RequestInfo, init: RequestInit, timeoutMs: number): Promise<Response> {
+const SAFE_METHODS = new Set(["GET", "HEAD"]);
+
+async function doFetch(input: RequestInfo, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -39,21 +45,21 @@ export async function apiFetch(
 
   const reqInit: RequestInit = { ...init, headers };
 
+  // Only retry safe, idempotent methods — never retry side-effecting requests
+  const method = (reqInit.method ?? "GET").toUpperCase();
+  const maxAttempts = SAFE_METHODS.has(method) ? retries + 1 : 1;
+
   let lastError: unknown;
-  for (let attempt_ = 0; attempt_ <= retries; attempt_++) {
-    if (attempt_ > 0) {
-      await new Promise((r) => setTimeout(r, 400 * attempt_));
-    }
+  for (let i = 0; i < maxAttempts; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 400 * i));
     try {
-      const res = await attempt(input, reqInit, timeoutMs);
-      return res;
+      return await doFetch(input, reqInit, timeoutMs);
     } catch (err) {
       lastError = err;
-      if (err instanceof DOMException && err.name === "AbortError") {
-        continue;
-      }
+      if (err instanceof DOMException && err.name === "AbortError") continue;
       const isNetworkError =
-        err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("network"));
+        err instanceof TypeError &&
+        (err.message.includes("fetch") || err.message.includes("network"));
       if (!isNetworkError) throw err;
     }
   }
