@@ -389,16 +389,45 @@ function ComposeSheet({
   const [mediaUrl,   setMediaUrl]   = useState("");
   const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading,  setUploading]  = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5_242_880) { setError("الملف أكبر من 5 ميجابايت"); return; }
-    const reader = new FileReader();
-    reader.onload = ev => { setMediaUrl(ev.target?.result as string); setPreviewing(true); };
-    reader.readAsDataURL(file);
+    if (file.size > 10_485_760) { setError("الملف أكبر من 10 ميجابايت"); return; }
+
+    setUploading(true);
+    setError(null);
+    try {
+      // Read as base64 data URL
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = ev => resolve(ev.target?.result as string);
+        reader.onerror = () => reject(new Error("تعذّر قراءة الملف"));
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to server → Supabase Storage
+      const r = await apiFetch("/api/articles/upload-media", {
+        method: "POST",
+        body: JSON.stringify({ data: dataUrl, mimeType: file.type }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({})) as { error?: string };
+        throw new Error(e.error ?? "فشل رفع الملف");
+      }
+      const { url } = await r.json() as { url: string };
+      setMediaUrl(url);
+      setPreviewing(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "فشل رفع الملف");
+    } finally {
+      setUploading(false);
+      // Reset file input so the same file can be picked again
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   async function handleSubmit() {
@@ -454,10 +483,13 @@ function ComposeSheet({
           <div className="space-y-2">
             <label className="font-arabic text-xs text-white/50">صورة أو فيديو (اختياري)</label>
             <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
-            <button type="button" onClick={() => fileRef.current?.click()}
+            <button type="button" onClick={() => !uploading && fileRef.current?.click()}
+              disabled={uploading}
               className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-arabic"
-              style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD }}>
-              <Image size={14} />اختيار من الهاتف
+              style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD, opacity: uploading ? 0.6 : 1 }}>
+              {uploading
+                ? <><Loader2 size={14} className="animate-spin" />جاري الرفع...</>
+                : <><Image size={14} />اختيار من الهاتف</>}
             </button>
             <input className="w-full rounded-2xl px-4 py-2.5 text-xs font-arabic text-white/70 outline-none"
               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${GOLD}15` }}
@@ -482,13 +514,15 @@ function ComposeSheet({
         </div>
         <div className="flex-shrink-0 px-5 pb-8 pt-2">
           <motion.button whileTap={{ scale: 0.97 }} onClick={handleSubmit}
-            disabled={submitting || !title.trim() || !body.trim()}
+            disabled={submitting || uploading || !title.trim() || !body.trim()}
             className="w-full rounded-2xl py-3.5 font-arabic font-bold text-sm flex items-center justify-center gap-2"
             style={{
-              background: (submitting || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg,${GOLD},#e8c840)`,
-              color:      (submitting || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.25)" : "#061409",
+              background: (submitting || uploading || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg,${GOLD},#e8c840)`,
+              color:      (submitting || uploading || !title.trim() || !body.trim()) ? "rgba(255,255,255,0.25)" : "#061409",
             }}>
-            {submitting ? <><Loader2 size={16} className="animate-spin" />جاري النشر...</> : "نشر المحتوى"}
+            {submitting ? <><Loader2 size={16} className="animate-spin" />جاري النشر...</>
+             : uploading ? <><Loader2 size={16} className="animate-spin" />جاري رفع الملف...</>
+             : "نشر المحتوى"}
           </motion.button>
         </div>
       </motion.div>

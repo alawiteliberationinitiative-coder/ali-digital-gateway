@@ -20,7 +20,8 @@ app.use(
   })
 );
 
-// ── Body parsing with hard size cap ─────────────────────────────────────────
+// ── Body parsing — larger limit for media upload, 1 MB everywhere else ──────
+app.use("/api/articles/upload-media", express.json({ limit: "15mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 // ── Global rate limit: 300 req / min per IP ──────────────────────────────────

@@ -33,6 +33,68 @@ router.get("/articles", async (_req, res): Promise<void> => {
   res.json(rows);
 });
 
+// ── POST /api/articles/upload-media ──────────────────────────────────────────
+router.post("/articles/upload-media", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const user = await getUser(telegramId);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!canPublish(telegramId, user.role)) {
+    res.status(403).json({ error: "غير مصرح بالرفع" }); return;
+  }
+
+  const { data, mimeType } = req.body as { data?: string; mimeType?: string };
+  if (!data || !mimeType) {
+    res.status(400).json({ error: "data و mimeType مطلوبان" }); return;
+  }
+
+  // Strip optional data URL prefix then decode
+  const base64 = data.replace(/^data:[^;]+;base64,/, "");
+  const buffer = Buffer.from(base64, "base64");
+  if (buffer.byteLength > 10_485_760) {
+    res.status(400).json({ error: "الملف أكبر من 10 ميجابايت" }); return;
+  }
+
+  const supabaseUrl = (process.env.SUPABASE_URL ?? "")
+    .replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ error: "Storage not configured" }); return;
+  }
+
+  // Create bucket if it doesn't exist yet (idempotent — 409 is fine)
+  await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({ id: "articles-media", name: "articles-media", public: true }),
+  }).catch(() => { /* ignore */ });
+
+  const ext  = (mimeType.split("/")[1] ?? "bin").split(";")[0];
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const up = await fetch(`${supabaseUrl}/storage/v1/object/articles-media/${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": mimeType,
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+    },
+    body: buffer,
+  });
+
+  if (!up.ok) {
+    const txt = await up.text();
+    res.status(500).json({ error: `فشل رفع الملف: ${txt}` }); return;
+  }
+
+  res.json({ url: `${supabaseUrl}/storage/v1/object/public/articles-media/${path}` });
+});
+
 // ── POST /api/articles ────────────────────────────────────────────────────────
 router.post("/articles", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
