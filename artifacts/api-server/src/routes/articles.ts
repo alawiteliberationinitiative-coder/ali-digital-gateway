@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { db, eq, desc, usersTable, articlesTable } from "@workspace/db";
+import { db, eq, usersTable, articlesTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
-import { sendArticleToChannel } from "../lib/telegram-notify.js";
+import { sendArticleToChannel, archiveMediaToTelegram } from "../lib/telegram-notify.js";
 
 const router = Router();
 
@@ -116,23 +116,26 @@ router.post("/articles", async (req, res): Promise<void> => {
     mediaUrl?: string;
   };
 
-  if (!title?.trim() || !body?.trim()) {
-    res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
+  const hasMedia = !!mediaUrl?.trim();
+  if (!title?.trim() || (!hasMedia && !body?.trim())) {
+    res.status(400).json({ error: "العنوان مطلوب، والمحتوى مطلوب إذا لم يكن هناك وسائط" });
     return;
   }
   if (title.length > 200)   { res.status(400).json({ error: "العنوان طويل جداً (200 حرف كحد أقصى)" }); return; }
-  if (body.length > 20_000) { res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return; }
+  if (body && body.length > 20_000) { res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return; }
 
-  // التحقق البسيط من URL الصورة إذا وُجد
+  // Validate media URL — must be an absolute https URL (Supabase upload result)
   let safeMediaUrl: string | null = null;
-  if (mediaUrl?.trim()) {
+  if (hasMedia) {
     try {
-      const u = new URL(mediaUrl.trim());
+      const u = new URL(mediaUrl!.trim());
       if (u.protocol === "https:" || u.protocol === "http:") {
         safeMediaUrl = u.toString();
+      } else {
+        res.status(400).json({ error: "رابط الوسائط غير صالح" }); return;
       }
     } catch {
-      res.status(400).json({ error: "رابط الصورة غير صالح" });
+      res.status(400).json({ error: "رابط الوسائط غير صالح" });
       return;
     }
   }
@@ -140,27 +143,49 @@ router.post("/articles", async (req, res): Promise<void> => {
   const [article] = await db
     .insert(articlesTable)
     .values({
-      title:           title.trim(),
-      body:            body.trim(),
-      mediaUrl:        safeMediaUrl,
+      title:            title.trim(),
+      body:             body?.trim() ?? "",
+      mediaUrl:         safeMediaUrl,
       authorTelegramId: telegramId,
-      authorPseudonym: user.pseudonym,
-      authorAliId:     user.aliId,
+      authorPseudonym:  user.pseudonym,
+      authorAliId:      user.aliId,
     })
     .returning();
 
-  // Archive to Telegram storage channel — fire-and-forget, never blocks the response
-  sendArticleToChannel({
-    id:              article.id,
-    title:           article.title,
-    body:            article.body,
-    mediaUrl:        article.mediaUrl,
-    authorPseudonym: article.authorPseudonym,
-    authorAliId:     article.authorAliId,
-    createdAt:       article.createdAt instanceof Date
-                       ? article.createdAt.toISOString()
-                       : String(article.createdAt),
-  });
+  const createdAt = article.createdAt instanceof Date
+    ? article.createdAt.toISOString()
+    : String(article.createdAt);
+
+  if (safeMediaUrl) {
+    // Transfer media from Supabase → Telegram storage channel, then update DB
+    archiveMediaToTelegram({
+      id:              article.id,
+      title:           article.title,
+      body:            article.body,
+      authorPseudonym: article.authorPseudonym,
+      authorAliId:     article.authorAliId,
+      createdAt,
+      supabaseUrl:     safeMediaUrl,
+    }).then(async (fileId) => {
+      if (!fileId) return;
+      // Update mediaUrl to our lightweight proxy endpoint
+      await db
+        .update(articlesTable)
+        .set({ mediaUrl: `/api/media/${fileId}` })
+        .where(eq(articlesTable.id, article.id));
+    }).catch(() => {});
+  } else {
+    // Text-only article — archive to channel as before
+    sendArticleToChannel({
+      id:              article.id,
+      title:           article.title,
+      body:            article.body,
+      mediaUrl:        null,
+      authorPseudonym: article.authorPseudonym,
+      authorAliId:     article.authorAliId,
+      createdAt,
+    });
+  }
 
   res.status(201).json(article);
 });
