@@ -236,6 +236,7 @@ router.post("/articles", async (req, res): Promise<void> => {
       title:            title.trim(),
       body:             body?.trim() ?? "",
       mediaUrl:         safeMediaUrl,
+      supabaseUrl:      safeMediaUrl,   // رابط Supabase الأصلي — احتياطي دائم
       authorTelegramId: telegramId,
       authorPseudonym:  user.pseudonym,
       authorAliId:      user.aliId,
@@ -247,7 +248,9 @@ router.post("/articles", async (req, res): Promise<void> => {
     : String(article.createdAt);
 
   if (safeMediaUrl) {
-    // Transfer media from Supabase → Telegram storage channel, then update DB
+    // Archive media to Telegram storage channel; keep Supabase copy as fallback.
+    // On success: store telegramFileId + switch mediaUrl to the proxy endpoint.
+    // On failure: mediaUrl stays as the Supabase URL — still works directly.
     archiveMediaToTelegram({
       id:              article.id,
       title:           article.title,
@@ -258,10 +261,13 @@ router.post("/articles", async (req, res): Promise<void> => {
       supabaseUrl:     safeMediaUrl,
     }).then(async (fileId) => {
       if (!fileId) return;
-      // Update mediaUrl to our lightweight proxy endpoint
+      // Switch display URL to proxy (Telegram CDN) — Supabase copy is kept as fallback
       await db
         .update(articlesTable)
-        .set({ mediaUrl: `/api/media/${fileId}` })
+        .set({
+          mediaUrl:       `/api/media/${fileId}`,
+          telegramFileId: fileId,
+        })
         .where(eq(articlesTable.id, article.id));
     }).catch(() => {});
   } else {

@@ -145,8 +145,8 @@ export async function archiveMediaToTelegram(article: {
 
     if (!fileId) return null;
 
-    // Clean up Supabase — best effort, ignore errors
-    deleteSupabaseFile(article.supabaseUrl).catch(() => {});
+    // Keep file in Supabase as permanent fallback — do NOT delete.
+    // The proxy (/api/media/:fileId) falls back to supabaseUrl if Telegram fails.
 
     return fileId;
   } catch {
