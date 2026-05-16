@@ -660,7 +660,7 @@ function MediaCard({
 
       {/* ── Media layer ── */}
       {article.mediaUrl && !mediaError && (
-        <div className="absolute inset-0">
+        <div className="absolute inset-x-0 top-0" style={{ bottom: "80px" }}>
 
           {/* spinner placeholder */}
           {!mediaLoaded && effectiveQuality !== "low" && (
@@ -724,45 +724,34 @@ function MediaCard({
             />
           )}
 
-          {/* dark gradient overlay — only bottom edge to blend into text area */}
-          <div className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.75) 0%,transparent 45%)" }} />
         </div>
       )}
 
-      {/* ── Category + quality badge + timestamp (top-right) ── */}
-      <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
-            style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
-            {isVideo ? "فيديو" : "إخباري"}
-          </span>
-
-          {/* Quality badge — tappable to open quality panel */}
-          {isVideo && (
-            <motion.button whileTap={{ scale: 0.9 }}
-              onClick={() => setQualityOpen(o => !o)}
-              className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
-              style={{
-                background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
-                           : effectiveQuality === "medium" ? `${GOLD}15`
-                           :                                 "rgba(248,113,113,0.15)",
-                border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
-                           : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
-                           :                                 "1px solid rgba(248,113,113,0.35)",
-                color:       QUALITY_META[effectiveQuality].dotColor,
-              }}>
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
-              {meta.badge}
-            </motion.button>
-          )}
-        </div>
-
-        {/* Timestamp — like Facebook post date */}
-        <span className="font-arabic text-[9px] pr-0.5 pointer-events-none"
-          style={{ color: "rgba(255,255,255,0.38)", textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>
-          {formatDateTime(article.createdAt)}
+      {/* ── Category + quality badge (top-right) ── */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+        <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
+          style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
+          {isVideo ? "فيديو" : "إخباري"}
         </span>
+
+        {/* Quality badge — tappable to open quality panel */}
+        {isVideo && (
+          <motion.button whileTap={{ scale: 0.9 }}
+            onClick={() => setQualityOpen(o => !o)}
+            className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
+            style={{
+              background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
+                         : effectiveQuality === "medium" ? `${GOLD}15`
+                         :                                 "rgba(248,113,113,0.15)",
+              border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
+                         : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
+                         :                                 "1px solid rgba(248,113,113,0.35)",
+              color:       QUALITY_META[effectiveQuality].dotColor,
+            }}>
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
+            {meta.badge}
+          </motion.button>
+        )}
       </div>
 
       {/* ── Buffering spinner overlay (center) ── */}
@@ -820,7 +809,7 @@ function MediaCard({
 
       {/* ── Right action sidebar ── */}
       <div className="absolute left-3 z-10 flex flex-col items-center gap-4"
-        style={{ bottom: isCommentOpen ? "62%" : "116px" }}>
+        style={{ bottom: isCommentOpen ? "62%" : "100px" }}>
 
         {/* Like */}
         <motion.button whileTap={{ scale: 1.35 }} onClick={onLike} className="flex flex-col items-center gap-1">
@@ -881,29 +870,23 @@ function MediaCard({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom content ── */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-20 pointer-events-none"
-        style={{ background: "linear-gradient(0deg,rgba(2,14,4,0.92) 0%,rgba(2,14,4,0.55) 50%,transparent 100%)" }}
+      {/* ── Title bar (outside / below media) ── */}
+      <div className="absolute inset-x-0 bottom-0 z-10 px-4 flex flex-col justify-center gap-1.5"
+        style={{ height: "80px", background: CARD_BG[idx % CARD_BG.length], borderTop: `1px solid ${GOLD}18` }}
         dir="rtl">
-        <h2 className="font-arabic font-bold text-white text-[19px] leading-tight line-clamp-2 mb-2">{article.title}</h2>
-        <div className="flex items-center gap-2 mb-2">
+        <h2 className="font-arabic font-bold text-white text-[15px] leading-tight line-clamp-1">
+          {article.title}
+        </h2>
+        <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
             style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}45`, color: GOLD }}>
             {article.authorPseudonym.charAt(0)}
           </div>
-          <span className="font-arabic text-white/50 text-xs">{article.authorPseudonym}</span>
+          <span className="font-arabic text-white/55 text-xs">{article.authorPseudonym}</span>
           <span className="text-white/25 text-[10px]">·</span>
-          <span className="text-white/40 text-[10px]">{formatDate(article.createdAt)}</span>
+          <span className="font-arabic text-white/40 text-[10px]">{formatDateTime(article.createdAt)}</span>
         </div>
-        <p className="font-arabic text-white/65 text-sm leading-relaxed line-clamp-3">{article.body}</p>
       </div>
-
-      {/* scroll hint */}
-      {idx > 0 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-20 pointer-events-none">
-          <ChevronDown size={16} color="white" />
-        </div>
-      )}
 
       {/* ── Comment panel ── */}
       <AnimatePresence>
@@ -921,6 +904,21 @@ function MediaCard({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" dir="rtl">
+              {/* ── Pinned body as top comment ── */}
+              {article.body && (
+                <div className="flex gap-2 pb-3 border-b" style={{ borderColor: `${GOLD}15` }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+                    style={{ background: `${GOLD}28`, color: GOLD }}>✦</div>
+                  <div className="rounded-2xl rounded-tr-sm px-3 py-2 flex-1"
+                    style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}18` }}>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <span className="text-[9px]">📌</span>
+                      <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>تعليق مثبّت</span>
+                    </div>
+                    <p className="font-arabic text-white/80 leading-relaxed text-[13px]">{article.body}</p>
+                  </div>
+                </div>
+              )}
               {articleComments.length === 0
                 ? <p className="font-arabic text-white/30 text-sm text-center py-6">لا توجد تعليقات بعد</p>
                 : articleComments.map(c => (
