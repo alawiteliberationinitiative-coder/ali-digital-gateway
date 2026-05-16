@@ -4,6 +4,7 @@ import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Volume2, VolumeX, Wifi, WifiOff, Play, Gauge,
+  Share2, Link2, Check,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -223,6 +224,141 @@ function QualityPanel({
   );
 }
 
+// ── SharePanel ────────────────────────────────────────────────────────────────
+function buildShareText(article: Article): { text: string; url: string } {
+  const url  = window.location.origin;
+  const body = article.body.length > 160 ? article.body.slice(0, 160) + "…" : article.body;
+  const text = `🌿 *${article.title}*\n\n${body}\n\n📲 انضم إلى بوابة ALI الرقمية — المنصة العلوية للتوثيق والمناصرة والبث الرقمي الحر`;
+  return { text, url };
+}
+
+function SharePanel({ article, onClose }: { article: Article; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const { text, url } = buildShareText(article);
+  const fullMsg = `${text}\n\n🔗 ${url}`;
+
+  function openInTg(shareUrl: string) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const twa = (window as any).Telegram?.WebApp;
+      if (twa?.openLink) { twa.openLink(shareUrl); return; }
+    } catch { /* ignore */ }
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function shareWhatsApp() {
+    openInTg(`https://wa.me/?text=${encodeURIComponent(fullMsg)}`);
+    onClose();
+  }
+  function shareTelegram() {
+    openInTg(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
+    onClose();
+  }
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(fullMsg); }
+    catch { /* fallback: select all */ }
+    setCopied(true);
+    setTimeout(() => { setCopied(false); onClose(); }, 1400);
+  }
+
+  const options = [
+    {
+      id: "whatsapp",
+      label: "مشاركة على واتساب",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      ),
+      color: "#25D366",
+      bg: "rgba(37,211,102,0.1)",
+      border: "rgba(37,211,102,0.25)",
+      action: shareWhatsApp,
+    },
+    {
+      id: "telegram",
+      label: "مشاركة على تلغرام",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#2AABEE">
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+        </svg>
+      ),
+      color: "#2AABEE",
+      bg: "rgba(42,171,238,0.1)",
+      border: "rgba(42,171,238,0.25)",
+      action: shareTelegram,
+    },
+    {
+      id: "copy",
+      label: copied ? "تم النسخ!" : "نسخ الرابط",
+      icon: copied
+        ? <Check size={20} color="#4ade80" />
+        : <Link2 size={20} color="rgba(255,255,255,0.7)" />,
+      color: copied ? "#4ade80" : "rgba(255,255,255,0.7)",
+      bg: copied ? "rgba(74,222,128,0.1)" : "rgba(255,255,255,0.06)",
+      border: copied ? "rgba(74,222,128,0.25)" : "rgba(255,255,255,0.12)",
+      action: copyLink,
+    },
+  ] as const;
+
+  return (
+    <>
+      {/* backdrop */}
+      <motion.div className="absolute inset-0 z-30" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }} />
+
+      {/* panel */}
+      <motion.div
+        className="absolute inset-x-0 bottom-0 z-40 rounded-t-3xl"
+        style={{ background: "linear-gradient(160deg,#031a06,#061409)", border: `1px solid ${GOLD}15`, borderBottom: "none" }}
+        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 380, damping: 36 }}>
+
+        {/* drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+        </div>
+
+        {/* header */}
+        <div className="flex items-center justify-between px-5 pt-1 pb-3" dir="rtl">
+          <div className="flex items-center gap-2">
+            <Share2 size={15} color={GOLD} />
+            <span className="font-arabic font-bold text-sm text-white/90">مشاركة المحتوى</span>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.08)" }}>
+            <X size={13} color="rgba(255,255,255,0.5)" />
+          </button>
+        </div>
+
+        {/* article preview strip */}
+        <div className="mx-4 mb-4 px-3 py-2.5 rounded-2xl flex items-start gap-2.5" dir="rtl"
+          style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GOLD}12` }}>
+          <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: `${GOLD}50` }} />
+          <p className="font-arabic text-white/55 text-xs leading-relaxed line-clamp-2">{article.title}</p>
+        </div>
+
+        {/* share options */}
+        <div className="px-4 pb-8 space-y-2.5" dir="rtl">
+          {options.map(opt => (
+            <motion.button key={opt.id} whileTap={{ scale: 0.97 }} onClick={opt.action}
+              className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5"
+              style={{ background: opt.bg, border: `1px solid ${opt.border}` }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(0,0,0,0.25)" }}>
+                {opt.icon}
+              </div>
+              <span className="font-arabic font-semibold text-sm" style={{ color: opt.color }}>{opt.label}</span>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
 // ── Compose sheet (admin only) ────────────────────────────────────────────────
 function ComposeSheet({
   onClose,
@@ -374,6 +510,7 @@ function MediaCard({
   const [muted,          setMuted]          = useState(true);
   const [isBuffering,    setIsBuffering]    = useState(false);
   const [qualityOpen,    setQualityOpen]    = useState(false);
+  const [shareOpen,      setShareOpen]      = useState(false);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
   const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -583,6 +720,13 @@ function MediaCard({
         )}
       </AnimatePresence>
 
+      {/* ── Share panel ── */}
+      <AnimatePresence>
+        {shareOpen && (
+          <SharePanel article={article} onClose={() => setShareOpen(false)} />
+        )}
+      </AnimatePresence>
+
       {/* ── Video: mute/unmute ── */}
       {isVideo && mediaLoaded && effectiveQuality !== "low" && (
         <motion.button whileTap={{ scale: 0.9 }}
@@ -638,6 +782,17 @@ function MediaCard({
             </span>
           </motion.button>
         )}
+
+        {/* Share */}
+        <motion.button whileTap={{ scale: 1.2 }} onClick={() => setShareOpen(o => !o)} className="flex flex-col items-center gap-1">
+          <div className="w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ background: shareOpen ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.08)", border: `1px solid ${shareOpen ? "rgba(168,85,247,0.4)" : "rgba(255,255,255,0.15)"}`, transition: "all 0.25s" }}>
+            <Share2 size={20} color={shareOpen ? "#a855f7" : "white"} />
+          </div>
+          <span className="text-[10px] font-arabic" style={{ color: shareOpen ? "#a855f7" : "rgba(255,255,255,0.45)" }}>
+            مشاركة
+          </span>
+        </motion.button>
       </div>
 
       {/* ── MD-quality: tap-to-play overlay ── */}
