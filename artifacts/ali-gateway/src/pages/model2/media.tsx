@@ -99,6 +99,15 @@ function formatDate(iso: string) {
   try { return new Date(iso).toLocaleDateString("ar-SA", { day: "numeric", month: "short" }); }
   catch { return ""; }
 }
+function formatDateTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
+    const time = d.toLocaleTimeString("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true });
+    return `${date} · ${time}`;
+  } catch { return ""; }
+}
+const LAST_SEEN_KEY = "ali_last_seen_article";
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url);
 }
@@ -719,31 +728,39 @@ function MediaCard({
         </div>
       )}
 
-      {/* ── Category + quality badge row (top-right) ── */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
-        <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
-          style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
-          {isVideo ? "فيديو" : "إخباري"}
-        </span>
+      {/* ── Category + quality badge + timestamp (top-right) ── */}
+      <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
+            style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
+            {isVideo ? "فيديو" : "إخباري"}
+          </span>
 
-        {/* Quality badge — tappable to open quality panel */}
-        {isVideo && (
-          <motion.button whileTap={{ scale: 0.9 }}
-            onClick={() => setQualityOpen(o => !o)}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
-            style={{
-              background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
-                         : effectiveQuality === "medium" ? `${GOLD}15`
-                         :                                 "rgba(248,113,113,0.15)",
-              border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
-                         : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
-                         :                                 "1px solid rgba(248,113,113,0.35)",
-              color:       QUALITY_META[effectiveQuality].dotColor,
-            }}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
-            {meta.badge}
-          </motion.button>
-        )}
+          {/* Quality badge — tappable to open quality panel */}
+          {isVideo && (
+            <motion.button whileTap={{ scale: 0.9 }}
+              onClick={() => setQualityOpen(o => !o)}
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
+              style={{
+                background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
+                           : effectiveQuality === "medium" ? `${GOLD}15`
+                           :                                 "rgba(248,113,113,0.15)",
+                border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
+                           : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
+                           :                                 "1px solid rgba(248,113,113,0.35)",
+                color:       QUALITY_META[effectiveQuality].dotColor,
+              }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
+              {meta.badge}
+            </motion.button>
+          )}
+        </div>
+
+        {/* Timestamp — like Facebook post date */}
+        <span className="font-arabic text-[9px] pr-0.5 pointer-events-none"
+          style={{ color: "rgba(255,255,255,0.38)", textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>
+          {formatDateTime(article.createdAt)}
+        </span>
       </div>
 
       {/* ── Buffering spinner overlay (center) ── */}
@@ -958,7 +975,9 @@ export function MediaSection({
   const [deletingId,  setDeletingId]  = useState<number | null>(null);
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRefs      = useRef<(HTMLDivElement | null)[]>([]);
+  // Prevents re-running the restore scroll after the initial mount
+  const didRestoreRef = useRef(false);
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const loadArticles = useCallback(() => {
@@ -969,6 +988,28 @@ export function MediaSection({
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => { loadArticles(); }, [loadArticles]);
+
+  // ── Restore scroll to last-seen article (Telegram-channel style) ──────────
+  useEffect(() => {
+    if (articles.length === 0 || didRestoreRef.current) return;
+    const savedId = parseInt(localStorage.getItem(LAST_SEEN_KEY) ?? "0", 10);
+    if (!savedId) return;
+    const targetIdx = articles.findIndex(a => a.id === savedId);
+    if (targetIdx <= 0) return;
+    didRestoreRef.current = true;
+    requestAnimationFrame(() => {
+      cardRefs.current[targetIdx]?.scrollIntoView({ behavior: "instant" });
+      setActiveIdx(targetIdx);
+    });
+  }, [articles]);
+
+  // ── Persist last-seen article id whenever visible card changes ─────────────
+  useEffect(() => {
+    const article = articles[activeIdx];
+    if (article && article.id > 0) {
+      localStorage.setItem(LAST_SEEN_KEY, String(article.id));
+    }
+  }, [activeIdx, articles]);
 
   // ── IntersectionObserver ───────────────────────────────────────────────────
   useEffect(() => {
@@ -1019,7 +1060,8 @@ export function MediaSection({
     setSavedIds(p => new Set([...p, article.id]));
   }, []);
   const handlePublished = useCallback((article: Article) => {
-    setArticles(p => [article, ...p.filter(a => a.id > 0)]);
+    // Newest articles go at the bottom (ascending order)
+    setArticles(p => [...p.filter(a => a.id > 0), article]);
   }, []);
 
   if (loading) {

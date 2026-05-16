@@ -29,7 +29,7 @@ router.get("/articles", async (_req, res): Promise<void> => {
       updatedAt:       articlesTable.updatedAt,
     })
     .from(articlesTable)
-    .orderBy(desc(articlesTable.createdAt));
+    .orderBy(articlesTable.createdAt);  // oldest → newest (top → bottom)
   res.json(rows);
 });
 
