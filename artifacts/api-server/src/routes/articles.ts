@@ -131,7 +131,7 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
     {
       method:  "POST",
       headers: storageHeaders,
-      body:    JSON.stringify({ upsert: true }),
+      body:    JSON.stringify({ expiresIn: 3600, upsert: true }),
     },
   );
 
