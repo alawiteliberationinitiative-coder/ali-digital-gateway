@@ -43,6 +43,11 @@ export async function apiFetch(
   if (_telegramId) headers.set("x-telegram-id", _telegramId);
   if (_initData)   headers.set("x-telegram-init-data", _initData);
 
+  // Auto-set Content-Type for JSON string bodies so express.json() parses them
+  if (typeof init.body === "string" && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+
   const reqInit: RequestInit = { ...init, headers };
 
   // Only retry safe, idempotent methods — never retry side-effecting requests
