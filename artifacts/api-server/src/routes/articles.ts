@@ -159,7 +159,7 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
   //   newer: { url: "/storage/v1/object/sign/upload/…?token=…", token, path }
   //   older: { signedURL: "https://…", token, path }
   const signRes = await fetch(
-    `${supabaseUrl}/storage/v1/object/sign/upload/articles-media/${path}`,
+    `${supabaseUrl}/storage/v1/object/upload/sign/articles-media/${path}`,
     {
       method:  "POST",
       headers: storageHeaders,
