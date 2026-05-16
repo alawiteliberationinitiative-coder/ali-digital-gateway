@@ -1659,10 +1659,42 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-full px-3 py-1"
-              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
-              <span className="font-mono text-xs font-bold text-green-400">LVL {userData.level}</span>
-            </div>
+            {/* Messages icon — badge = unread count */}
+            <button
+              onClick={() => setProfileTab("inbox")}
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.3)" }}>
+              <MessageSquare className="w-4 h-4 text-blue-400" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
+                  style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)", zIndex: 1 }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+            {/* Call icon — pulsing ring when there is an active/ringing call */}
+            <button
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
+              style={{
+                background: callState?.status === "ringing" ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.1)",
+                border: `1px solid ${callState?.status === "ringing" ? "rgba(34,197,94,0.6)" : "rgba(34,197,94,0.3)"}`,
+              }}>
+              {callState?.status === "ringing"
+                ? <motion.div
+                    animate={{ scale: [1, 1.18, 1] }}
+                    transition={{ repeat: Infinity, duration: 0.7 }}>
+                    <PhoneIncoming className="w-4 h-4 text-green-400" />
+                  </motion.div>
+                : <Phone className="w-4 h-4 text-green-400" />}
+              {callState?.status === "ringing" && (
+                <motion.span
+                  className="absolute inset-0 rounded-xl"
+                  animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.5)", "0 0 0 6px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
+                  transition={{ repeat: Infinity, duration: 1.4 }}
+                />
+              )}
+            </button>
+            {/* Points pill */}
             <div className="flex items-center gap-1 rounded-full px-3 py-1"
               style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
               <span className="font-mono text-xs font-bold" style={{ color: "#d4af37" }}>⭐ {userData.loyaltyPoints.toLocaleString()}</span>

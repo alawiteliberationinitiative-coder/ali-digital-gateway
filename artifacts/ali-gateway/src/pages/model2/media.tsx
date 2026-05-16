@@ -733,9 +733,9 @@ function MediaCard({
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: CARD_GLOW[idx % CARD_GLOW.length] }} />
 
-      {/* ── Media layer ── */}
+      {/* ── Media layer — full height ── */}
       {article.mediaUrl && !mediaError && (
-        <div className="absolute inset-x-0 top-0" style={{ bottom: "80px" }}>
+        <div className="absolute inset-0">
 
           {/* spinner placeholder */}
           {!mediaLoaded && effectiveQuality !== "low" && (
@@ -918,7 +918,7 @@ function MediaCard({
 
       {/* ── Right action sidebar ── */}
       <div className="absolute left-3 z-10 flex flex-col items-center"
-        style={{ bottom: isCommentOpen ? "62%" : "100px", gap: 0 }}>
+        style={{ bottom: isCommentOpen ? "62%" : "90px", gap: 0 }}>
 
         {/* Mute/unmute — separated above action buttons */}
         {isVideo && mediaLoaded && effectiveQuality !== "low" && (
@@ -994,28 +994,32 @@ function MediaCard({
         )}
       </AnimatePresence>
 
-      {/* ── Title bar (outside / below media) ── */}
-      <div className="absolute inset-x-0 bottom-0 z-10 px-4 flex flex-col justify-center gap-1.5"
-        style={{ height: "80px", background: CARD_BG[idx % CARD_BG.length], borderTop: `1px solid ${GOLD}18` }}
+      {/* ── Info overlay — bottom-right, leaves left clear for action buttons ── */}
+      <div
+        className="absolute inset-x-0 bottom-0 z-10 pointer-events-none"
+        style={{
+          background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 55%, transparent 100%)",
+          paddingBottom: 14,
+          paddingTop: 64,
+          paddingRight: 16,
+          paddingLeft: 72,   /* leave room for action-button sidebar on the left */
+        }}
         dir="rtl">
-        <h2 className="font-arabic font-bold text-white text-[15px] leading-tight line-clamp-1">
+        <h2 className="font-arabic font-bold text-white text-[15px] leading-tight line-clamp-2 drop-shadow mb-1.5">
           {article.title}
         </h2>
-        <div className="flex items-center justify-between">
-          {/* Author + date — RTL start (right) */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-              style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}45`, color: GOLD }}>
-              {article.authorPseudonym.charAt(0)}
-            </div>
-            <span className="font-arabic text-white/55 text-xs truncate">{article.authorPseudonym}</span>
-            <span className="text-white/25 text-[10px] flex-shrink-0">·</span>
-            <span className="font-arabic text-white/40 text-[10px] flex-shrink-0">{formatDateTime(article.createdAt)}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+            style={{ background: `${GOLD}35`, border: `1px solid ${GOLD}60`, color: GOLD }}>
+            {article.authorPseudonym.charAt(0)}
           </div>
-          {/* View count — Telegram style, RTL end (left) */}
-          <div className="flex items-center gap-1 flex-shrink-0 mr-1" dir="ltr">
-            <Eye size={11} color="rgba(255,255,255,0.32)" />
-            <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.32)" }}>
+          <span className="font-arabic text-white/70 text-xs">{article.authorPseudonym}</span>
+          <span className="text-white/30 text-[10px]">·</span>
+          <span className="font-arabic text-white/50 text-[10px]">{formatDateTime(article.createdAt)}</span>
+          <span className="text-white/30 text-[10px]">·</span>
+          <div className="flex items-center gap-0.5" dir="ltr">
+            <Eye size={10} color="rgba(255,255,255,0.40)" />
+            <span className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>
               {formatViews(localViews)}
             </span>
           </div>
