@@ -1,9 +1,19 @@
 /**
- * Feature flag — controls which UI model is rendered at /dashboard.
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║          ALI DIGITAL GATEWAY — مفتاح النموذج النشط                      ║
+ * ╠══════════════════════════════════════════════════════════════════════════╣
+ * ║  لتبديل واجهة التطبيق، غيّر قيمة ACTIVE_MODEL فقط — ولا شيء آخر.       ║
+ * ║  النموذج غير المختار لا يُحمَّل ولا يُنفَّذ إطلاقاً عند التشغيل.         ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
  *
- *   "model_1"  →  original classic interface (quiz / knowledge / sections grid)
- *   "model_2"  →  royal green + gold glassmorphism multi-tab interface (new)
+ *   "MODEL_1"  →  الواجهة الكلاسيكية  (اختبارات / معرفة / شبكة أقسام)
+ *   "MODEL_2"  →  الواجهة الزجاجية الملكية  (أخضر ملكي + ذهبي، تبويبات)
  *
- * Change this single value to switch instantly. No data or API logic is touched.
+ * ملاحظة: هذا الملف هو المصدر الوحيد للحقيقة (Single Source of Truth).
+ * جميع منطق التطبيق الخلفي والأنظمة المشتركة (النقاط، المستخدمون،
+ * الأسئلة، الإعلانات) تعمل بشكل مستقل عن هذا الإعداد تماماً.
  */
-export const CURRENT_MODEL: "model_1" | "model_2" = "model_2";
+
+export type ActiveModel = "MODEL_1" | "MODEL_2";
+
+export const ACTIVE_MODEL: ActiveModel = "MODEL_2";
