@@ -8,9 +8,13 @@ import { ErrorBoundary } from "@/components/error-boundary";
 
 import Splash from "@/pages/splash";
 import Onboarding from "@/pages/onboarding";
-import Dashboard from "@/pages/dashboard";
+import Dashboard from "@/pages/dashboard";             // Model 1 — classic
+import DashboardModel2 from "@/pages/dashboard-model2"; // Model 2 — royal glassmorphism
+
+import { CURRENT_MODEL } from "@/config/model";
 
 console.log("[ALI] App Started — Telegram WebApp available:", !!window.Telegram?.WebApp);
+console.log(`[ALI] Active model: ${CURRENT_MODEL}`);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,12 +26,15 @@ const queryClient = new QueryClient({
   },
 });
 
+// Select dashboard component based on feature flag — no other code is affected
+const DashboardComponent = CURRENT_MODEL === "model_2" ? DashboardModel2 : Dashboard;
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Splash} />
       <Route path="/onboarding" component={Onboarding} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dashboard" component={DashboardComponent} />
       <Route component={NotFound} />
     </Switch>
   );
