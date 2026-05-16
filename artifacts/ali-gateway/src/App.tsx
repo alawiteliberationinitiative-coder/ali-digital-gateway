@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { TelegramProvider } from "@/lib/telegram";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ModelLoadingFallback } from "@/components/model-loading-fallback";
+import { DevModelSwitcher } from "@/components/dev-model-switcher";
 import Splash from "@/pages/splash";
 import Onboarding from "@/pages/onboarding";
 
@@ -56,6 +57,7 @@ function App() {
               <Router />
             </WouterRouter>
             <Toaster />
+            <DevModelSwitcher />
           </TelegramProvider>
         </TooltipProvider>
       </QueryClientProvider>
