@@ -103,14 +103,31 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url);
 }
 function saveMedia(url: string) {
+  // Try Telegram's native downloadFile API (v7.10+) — saves directly to gallery
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const twa = (window as any).Telegram?.WebApp;
-    if (twa?.openLink) { twa.openLink(url); return; }
+    if (typeof twa?.downloadFile === "function") {
+      const ext  = url.split("?")[0].split(".").pop() ?? "jpg";
+      const name = `ali-media-${Date.now()}.${ext}`;
+      twa.downloadFile({ url, file_name: name });
+      return;
+    }
   } catch { /* ignore */ }
-  const a = document.createElement("a");
-  a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+  // Fallback: anchor with download attribute — works in most mobile browsers
+  try {
+    const ext  = url.split("?")[0].split(".").pop() ?? "jpg";
+    const name = `ali-media-${Date.now()}.${ext}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch { /* ignore */ }
 }
 
 // Quality metadata used in the selector panel
@@ -770,7 +787,7 @@ function MediaCard({
           <span className="text-white/60 text-[10px] font-mono">{articleComments.length}</span>
         </motion.button>
 
-        {/* Save */}
+        {/* Download */}
         {article.mediaUrl && (
           <motion.button whileTap={{ scale: 1.2 }} onClick={onSave} className="flex flex-col items-center gap-1">
             <div className="w-11 h-11 rounded-full flex items-center justify-center"
@@ -778,7 +795,7 @@ function MediaCard({
               <ArrowDownToLine size={20} color={saved ? GOLD : "white"} />
             </div>
             <span className="text-[10px] font-arabic" style={{ color: saved ? GOLD : "rgba(255,255,255,0.45)" }}>
-              {saved ? "تم" : "حفظ"}
+              {saved ? "تم ✓" : "تنزيل"}
             </span>
           </motion.button>
         )}
