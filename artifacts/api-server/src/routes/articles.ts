@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, usersTable, articlesTable } from "@workspace/db";
+import { db, eq, sql, usersTable, articlesTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
 import { sendArticleToChannel, archiveMediaToTelegram } from "../lib/telegram-notify.js";
 
@@ -119,30 +119,24 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
   };
 
   // ── 1. Ensure bucket exists ──────────────────────────────────────────────
-  // Try to create it first; 409 = already exists (fine).
-  // If creation fails for any other reason, verify it exists before continuing.
-  const bucketCreate = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+  // POST to create; 409 = already exists (ok). Use minimal body — Supabase
+  // rejects wildcard allowed_mime_types so we omit that field entirely.
+  const bucketRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
     method:  "POST",
     headers: storageHeaders,
-    body:    JSON.stringify({
-      id:                 "articles-media",
-      name:               "articles-media",
-      public:             true,
-      file_size_limit:    100 * 1024 * 1024,          // 100 MB
-      allowed_mime_types: ["image/*", "video/*"],
-    }),
+    body:    JSON.stringify({ id: "articles-media", name: "articles-media", public: true }),
   }).catch(() => null);
 
-  const bucketOk = bucketCreate && (bucketCreate.ok || bucketCreate.status === 409);
-
+  const bucketOk = bucketRes && (bucketRes.ok || bucketRes.status === 409);
   if (!bucketOk) {
-    // Verify the bucket already exists before giving up
-    const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/articles-media`, {
+    // Might already exist — verify before aborting
+    const checkRes = await fetch(`${supabaseUrl}/storage/v1/bucket/articles-media`, {
       headers: storageHeaders,
     }).catch(() => null);
-    if (!verifyRes?.ok) {
-      const detail = bucketCreate ? await bucketCreate.text().catch(() => "") : "network error";
-      res.status(500).json({ error: `فشل إنشاء المستودع: ${detail}` }); return;
+    if (!checkRes?.ok) {
+      const detail = bucketRes ? await bucketRes.text().catch(() => "") : "network error";
+      req.log.error({ detail }, "bucket creation failed");
+      res.status(500).json({ error: `فشل إنشاء مستودع الملفات: ${detail}` }); return;
     }
   }
 
