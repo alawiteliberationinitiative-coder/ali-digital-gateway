@@ -436,34 +436,19 @@ function ComposeSheet({
     setUploading(true);
     setError(null);
     try {
-      // Step 1 — Get a Supabase signed upload URL from our server (tiny request)
-      const tokenRes = await apiFetch("/api/articles/upload-token", {
-        method: "POST",
-        body: JSON.stringify({ mimeType: mime, fileName: file.name }),
+      // Upload through our server — avoids CORS / Telegram WebView restrictions
+      // that block direct cross-origin PUT calls to Supabase from mobile WebViews.
+      const uploadRes = await apiFetch("/api/articles/upload-media", {
+        method:    "PUT",
+        headers:   { "content-type": mime, "x-file-name": file.name },
+        body:      file,
+        timeoutMs: 5 * 60 * 1_000,   // 5 min for large videos
       });
-      if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? `فشل الحصول على رابط الرفع (${tokenRes.status})`);
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? `فشل الرفع (${uploadRes.status})`);
       }
-      const { uploadUrl, publicUrl } = await tokenRes.json() as { uploadUrl: string; publicUrl: string };
-
-      // Step 2 — Upload binary DIRECTLY to Supabase, bypassing the Replit proxy
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1_000);
-      try {
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": mime },
-          body: file,
-          signal: controller.signal,
-        });
-        if (!uploadRes.ok) {
-          const txt = await uploadRes.text().catch(() => "");
-          throw new Error(`فشل رفع الملف (${uploadRes.status})${txt ? `: ${txt}` : ""}`);
-        }
-      } finally {
-        clearTimeout(timer);
-      }
+      const { publicUrl } = await uploadRes.json() as { publicUrl: string };
 
       setMediaUrl(publicUrl);
       setPreviewing(true);

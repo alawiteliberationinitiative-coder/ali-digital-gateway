@@ -20,8 +20,9 @@ app.use(
   })
 );
 
-// ── Body parsing — larger limit for media upload, 1 MB everywhere else ──────
-app.use("/api/articles/upload-media", express.json({ limit: "100mb" }));
+// ── Body parsing ─────────────────────────────────────────────────────────────
+// /api/articles/upload-media receives raw binary (video/image) — no JSON parsing.
+app.use("/api/articles/upload-media", express.raw({ type: "*/*", limit: "80mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 // ── Global rate limit: 300 req / min per IP ──────────────────────────────────

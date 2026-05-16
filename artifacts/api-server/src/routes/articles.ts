@@ -187,6 +187,116 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
   });
 });
 
+// ── PUT /api/articles/upload-media ───────────────────────────────────────────
+// Receives the raw file bytes from the client and uploads to Supabase server-side.
+// This avoids CORS/WebView restrictions that block direct-to-Supabase PUT calls
+// from Telegram Mini Apps.
+router.put("/articles/upload-media", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const user = await getUser(telegramId);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!canPublish(telegramId, user.role)) {
+    res.status(403).json({ error: "غير مصرح بالرفع" }); return;
+  }
+
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    res.status(400).json({ error: "لم يتم إرسال ملف" }); return;
+  }
+  if (req.body.length > 80_000_000) {
+    res.status(413).json({ error: "الملف أكبر من 80 ميجابايت" }); return;
+  }
+
+  const EXT_MIME: Record<string, string> = {
+    mp4: "video/mp4", mov: "video/quicktime", avi: "video/x-msvideo",
+    webm: "video/webm", "3gp": "video/3gpp", "3g2": "video/3gpp2",
+    mkv: "video/x-matroska", mpeg: "video/mpeg", mpg: "video/mpeg",
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+    gif: "image/gif", webp: "image/webp", heic: "image/heic",
+    heif: "image/heif", bmp: "image/bmp", tiff: "image/tiff",
+  };
+  const rawMime  = (req.headers["content-type"] ?? "").split(";")[0].trim();
+  const fileName = String(req.headers["x-file-name"] ?? "upload");
+  const fileExt  = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const mimeType =
+    (rawMime && rawMime !== "application/octet-stream" ? rawMime : null) ??
+    EXT_MIME[fileExt] ??
+    rawMime ??
+    "application/octet-stream";
+
+  req.log.info({ mimeType, fileName, bytes: req.body.length }, "upload-media requested");
+
+  const supabaseUrl = (process.env.SUPABASE_URL ?? "")
+    .replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ error: "Storage not configured" }); return;
+  }
+
+  const storageHeaders = {
+    "Content-Type": "application/json",
+    apikey:         supabaseKey,
+    Authorization:  `Bearer ${supabaseKey}`,
+  };
+
+  // Ensure bucket exists
+  const bucketRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+    method:  "POST",
+    headers: storageHeaders,
+    body:    JSON.stringify({ id: "articles-media", name: "articles-media", public: true }),
+  }).catch(() => null);
+
+  const bucketOk = bucketRes && (bucketRes.ok || bucketRes.status === 409);
+  if (!bucketOk) {
+    const checkRes = await fetch(`${supabaseUrl}/storage/v1/bucket/articles-media`, {
+      headers: storageHeaders,
+    }).catch(() => null);
+    if (!checkRes?.ok) {
+      const detail = bucketRes ? await bucketRes.text().catch(() => "") : "network error";
+      req.log.error({ detail }, "bucket creation failed");
+      res.status(500).json({ error: `فشل إنشاء مستودع الملفات: ${detail}` }); return;
+    }
+  }
+
+  const MIME_EXT: Record<string, string> = {
+    "video/mp4": "mp4", "video/quicktime": "mov", "video/x-msvideo": "avi",
+    "video/webm": "webm", "video/3gpp": "3gp", "video/3gpp2": "3g2",
+    "video/x-matroska": "mkv", "video/mpeg": "mpeg",
+    "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif",
+    "image/webp": "webp", "image/heic": "heic", "image/heif": "heif",
+  };
+  const baseMime = mimeType.split(";")[0]?.trim() ?? "";
+  const ext      = MIME_EXT[baseMime] ?? (baseMime.split("/")[1] ?? "bin").split("+")[0];
+  const path     = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  // Upload server-side — bypasses all CORS/WebView restrictions
+  const uploadRes = await fetch(
+    `${supabaseUrl}/storage/v1/object/articles-media/${path}`,
+    {
+      method:  "POST",
+      headers: {
+        Authorization:   `Bearer ${supabaseKey}`,
+        apikey:          supabaseKey,
+        "Content-Type":  mimeType,
+        "Cache-Control": "max-age=3600",
+        "x-upsert":      "true",
+      },
+      body: new Uint8Array(req.body as Buffer),
+    },
+  );
+
+  if (!uploadRes.ok) {
+    const txt = await uploadRes.text().catch(() => "");
+    req.log.error({ status: uploadRes.status, txt }, "supabase upload failed");
+    res.status(500).json({ error: `فشل رفع الملف: ${txt}` }); return;
+  }
+
+  res.json({
+    publicUrl: `${supabaseUrl}/storage/v1/object/public/articles-media/${path}`,
+  });
+});
+
 // ── POST /api/articles ────────────────────────────────────────────────────────
 router.post("/articles", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
