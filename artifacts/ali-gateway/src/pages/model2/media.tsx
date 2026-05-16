@@ -729,6 +729,26 @@ function MediaCard({
             />
           )}
 
+          {/* ── ADAR watermark ── */}
+          <img
+            src="/adar-logo.png"
+            alt="ADAR"
+            draggable={false}
+            className="absolute top-3 left-3 z-10 pointer-events-none select-none"
+            style={{
+              width: 58,
+              height: 58,
+              objectFit: "contain",
+              opacity: 0.82,
+              filter: [
+                "drop-shadow(0 0 10px rgba(212,175,55,0.55))",
+                "drop-shadow(0 0 4px rgba(212,175,55,0.3))",
+                "drop-shadow(0 2px 6px rgba(0,0,0,0.85))",
+                "brightness(1.12)",
+                "saturate(1.15)",
+              ].join(" "),
+            }}
+          />
         </div>
       )}
 
