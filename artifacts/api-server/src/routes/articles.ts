@@ -80,7 +80,7 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
         apikey: supabaseKey,
         Authorization: `Bearer ${supabaseKey}`,
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ expiresIn: 3600 }),
     },
   );
 
