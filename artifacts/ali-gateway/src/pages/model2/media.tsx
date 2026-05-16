@@ -708,7 +708,7 @@ function MediaCard({
             <video
               ref={videoRef}
               src={article.mediaUrl}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               style={{
                 display:    effectiveQuality === "low" ? "none" : "block",
                 opacity:    mediaLoaded ? 1 : 0,
@@ -725,7 +725,7 @@ function MediaCard({
             <img
               src={article.mediaUrl}
               alt=""
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               style={{
                 opacity:    mediaLoaded ? 1 : 0,
                 transition: "opacity 0.6s ease, filter 0.6s ease",
