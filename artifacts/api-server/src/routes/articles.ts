@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, eq, desc, usersTable, articlesTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
+import { sendArticleToChannel } from "../lib/telegram-notify.js";
 
 const router = Router();
 
@@ -83,6 +84,19 @@ router.post("/articles", async (req, res): Promise<void> => {
       authorAliId:     user.aliId,
     })
     .returning();
+
+  // Archive to Telegram storage channel — fire-and-forget, never blocks the response
+  sendArticleToChannel({
+    id:              article.id,
+    title:           article.title,
+    body:            article.body,
+    mediaUrl:        article.mediaUrl,
+    authorPseudonym: article.authorPseudonym,
+    authorAliId:     article.authorAliId,
+    createdAt:       article.createdAt instanceof Date
+                       ? article.createdAt.toISOString()
+                       : String(article.createdAt),
+  });
 
   res.status(201).json(article);
 });
