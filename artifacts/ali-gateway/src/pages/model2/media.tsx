@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
-  Volume2, VolumeX, Wifi, WifiOff, Play, Gauge,
+  Volume2, VolumeX, Wifi, WifiOff, Play, Pause, Gauge,
   Share2, Link2, Check,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -400,7 +400,8 @@ function ComposeSheet({
   const [submitting, setSubmitting] = useState(false);
   const [uploading,  setUploading]  = useState(false);
   const [error,      setError]      = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef      = useRef<HTMLInputElement>(null);
+  const fileRefVideo = useRef<HTMLInputElement>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -445,7 +446,8 @@ function ComposeSheet({
       setError(e instanceof Error ? e.message : "فشل رفع الملف");
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (fileRef.current)      fileRef.current.value = "";
+      if (fileRefVideo.current) fileRefVideo.current.value = "";
     }
   }
 
@@ -506,15 +508,26 @@ function ComposeSheet({
           </div>
           <div className="space-y-2">
             <label className="font-arabic text-xs text-white/50">صورة أو فيديو (اختياري)</label>
-            <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
-            <button type="button" onClick={() => !uploading && fileRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-arabic"
-              style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD, opacity: uploading ? 0.6 : 1 }}>
-              {uploading
-                ? <><Loader2 size={14} className="animate-spin" />جاري الرفع...</>
-                : <><Image size={14} />اختيار من الهاتف</>}
-            </button>
+            <input ref={fileRef}      type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            <input ref={fileRefVideo} type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => !uploading && fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-arabic flex-1 justify-center"
+                style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD, opacity: uploading ? 0.6 : 1 }}>
+                {uploading
+                  ? <><Loader2 size={13} className="animate-spin" />جاري الرفع...</>
+                  : <><Image size={13} />صورة</>}
+              </button>
+              <button type="button" onClick={() => !uploading && fileRefVideo.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-arabic flex-1 justify-center"
+                style={{ background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.3)", color: "#60a5fa", opacity: uploading ? 0.6 : 1 }}>
+                {uploading
+                  ? <><Loader2 size={13} className="animate-spin" />جاري الرفع...</>
+                  : <><Play size={13} />فيديو</>}
+              </button>
+            </div>
             <input className="w-full rounded-2xl px-4 py-2.5 text-xs font-arabic text-white/70 outline-none"
               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${GOLD}15` }}
               placeholder="أو الصق رابط الصورة/الفيديو هنا..."
@@ -586,9 +599,12 @@ function MediaCard({
   const [isBuffering,    setIsBuffering]    = useState(false);
   const [qualityOpen,    setQualityOpen]    = useState(false);
   const [shareOpen,      setShareOpen]      = useState(false);
+  const [userPaused,     setUserPaused]     = useState(false);
+  const [playHint,       setPlayHint]       = useState<"play" | "pause" | null>(null);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
-  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playHintTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const isVideo = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
@@ -597,15 +613,20 @@ function MediaCard({
   const effectiveQuality: VideoQuality = selectedQuality ?? networkState.quality;
   const meta = QUALITY_META[effectiveQuality];
 
-  // ── Video play/pause by active state ───────────────────────────────────────
+  // ── Video play/pause by active state + user override ──────────────────────
   useEffect(() => {
     if (!videoRef.current || !isVideo) return;
-    if (isActive && effectiveQuality !== "low") {
+    if (isActive && effectiveQuality !== "low" && !userPaused) {
       videoRef.current.play().catch(() => {/* autoplay policy */});
     } else {
       videoRef.current.pause();
     }
-  }, [isActive, effectiveQuality, isVideo]);
+  }, [isActive, effectiveQuality, isVideo, userPaused]);
+
+  // Reset user-pause when a new card becomes active (scroll to next/prev)
+  useEffect(() => {
+    if (isActive) setUserPaused(false);
+  }, [isActive]);
 
   // ── Buffering detection: show quality panel after 2.5 s of stalling ────────
   useEffect(() => {
@@ -637,6 +658,25 @@ function MediaCard({
       if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
     };
   }, [isVideo]);
+
+  // ── Tap to play / pause (TikTok style) ────────────────────────────────────
+  function handleVideoTap() {
+    if (!isVideo || effectiveQuality === "low" || !mediaLoaded) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (userPaused) {
+      setUserPaused(false);
+      video.play().catch(() => {});
+      setPlayHint("play");
+    } else {
+      setUserPaused(true);
+      video.pause();
+      setPlayHint("pause");
+    }
+    if (playHintTimer.current) clearTimeout(playHintTimer.current);
+    playHintTimer.current = setTimeout(() => setPlayHint(null), 900);
+  }
 
   // ── Apply quality change to video element ──────────────────────────────────
   function applyQuality(q: VideoQuality) {
@@ -737,6 +777,30 @@ function MediaCard({
             />
           )}
 
+          {/* ── Tap-to-play/pause transparent overlay ── */}
+          {isVideo && effectiveQuality !== "low" && mediaLoaded && (
+            <div className="absolute inset-0 z-[5] cursor-pointer" onClick={handleVideoTap} />
+          )}
+
+          {/* ── Center play/pause hint (TikTok style) ── */}
+          <AnimatePresence>
+            {playHint && (
+              <motion.div
+                className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none"
+                initial={{ opacity: 0, scale: 0.65 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.25 }}
+                transition={{ duration: 0.18 }}>
+                <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,0.18)" }}>
+                  {playHint === "pause"
+                    ? <Pause size={30} color="white" fill="white" />
+                    : <Play  size={30} color="white" fill="white" style={{ marginLeft: 3 }} />}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* ── ADAR watermark ── */}
           <img
             src="/adar-logo.png"
@@ -819,16 +883,6 @@ function MediaCard({
         )}
       </AnimatePresence>
 
-      {/* ── Video: mute/unmute ── */}
-      {isVideo && mediaLoaded && effectiveQuality !== "low" && (
-        <motion.button whileTap={{ scale: 0.9 }}
-          onClick={() => setMuted(m => !m)}
-          className="absolute top-4 z-10 w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ left: isAdmin ? 52 : 16, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.15)" }}>
-          {muted ? <VolumeX size={15} color="rgba(255,255,255,0.7)" /> : <Volume2 size={15} color="white" />}
-        </motion.button>
-      )}
-
       {/* ── Admin: delete ── */}
       {isAdmin && article.id > 0 && (
         <motion.button whileTap={{ scale: 0.9 }} onClick={onDelete} disabled={isDeleting}
@@ -841,8 +895,21 @@ function MediaCard({
       )}
 
       {/* ── Right action sidebar ── */}
-      <div className="absolute left-3 z-10 flex flex-col items-center gap-4"
-        style={{ bottom: isCommentOpen ? "62%" : "100px" }}>
+      <div className="absolute left-3 z-10 flex flex-col items-center"
+        style={{ bottom: isCommentOpen ? "62%" : "100px", gap: 0 }}>
+
+        {/* Mute/unmute — separated above action buttons */}
+        {isVideo && mediaLoaded && effectiveQuality !== "low" && (
+          <motion.button whileTap={{ scale: 0.9 }}
+            onClick={() => setMuted(m => !m)}
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.15)", marginBottom: 28 }}>
+            {muted ? <VolumeX size={15} color="rgba(255,255,255,0.7)" /> : <Volume2 size={15} color="white" />}
+          </motion.button>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex flex-col items-center gap-4">
 
         {/* Like */}
         <motion.button whileTap={{ scale: 1.35 }} onClick={onLike} className="flex flex-col items-center gap-1">
@@ -885,7 +952,9 @@ function MediaCard({
             مشاركة
           </span>
         </motion.button>
-      </div>
+
+        </div>{/* end action buttons */}
+      </div>{/* end sidebar */}
 
       {/* ── MD-quality: tap-to-play overlay ── */}
       <AnimatePresence>
