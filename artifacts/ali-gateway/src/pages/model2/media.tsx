@@ -4,7 +4,7 @@ import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Volume2, VolumeX, Wifi, WifiOff, Play, Pause, Gauge,
-  Share2, Link2, Check,
+  Share2, Link2, Check, Eye,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -18,7 +18,14 @@ interface Article {
   mediaUrl?: string | null;
   authorPseudonym: string;
   authorAliId: string;
+  viewCount?: number;
   createdAt: string;
+}
+
+function formatViews(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 < 100_000 ? 1 : 0)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(n % 1_000 < 100 ? 1 : 0)}K`;
+  return String(n);
 }
 interface CommentData { id: number; text: string; ts: number }
 
@@ -619,11 +626,23 @@ function MediaCard({
   const [shareOpen,      setShareOpen]      = useState(false);
   const [userPaused,     setUserPaused]     = useState(false);
   const [playHint,       setPlayHint]       = useState<"play" | "pause" | null>(null);
+  const [localViews,     setLocalViews]     = useState(article.viewCount ?? 0);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
   const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playHintTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasTrackedView  = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ── Track view once when card first becomes active ───────────────────────
+  useEffect(() => {
+    if (isActive && !hasTrackedView.current && article.id > 0) {
+      hasTrackedView.current = true;
+      apiFetch(`/api/articles/${article.id}/view`, { method: "POST" })
+        .then(() => setLocalViews(v => v + 1))
+        .catch(() => {});
+    }
+  }, [isActive, article.id]);
 
   const isVideo = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
 
@@ -997,14 +1016,24 @@ function MediaCard({
         <h2 className="font-arabic font-bold text-white text-[15px] leading-tight line-clamp-1">
           {article.title}
         </h2>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-            style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}45`, color: GOLD }}>
-            {article.authorPseudonym.charAt(0)}
+        <div className="flex items-center justify-between">
+          {/* Author + date — RTL start (right) */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+              style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}45`, color: GOLD }}>
+              {article.authorPseudonym.charAt(0)}
+            </div>
+            <span className="font-arabic text-white/55 text-xs truncate">{article.authorPseudonym}</span>
+            <span className="text-white/25 text-[10px] flex-shrink-0">·</span>
+            <span className="font-arabic text-white/40 text-[10px] flex-shrink-0">{formatDateTime(article.createdAt)}</span>
           </div>
-          <span className="font-arabic text-white/55 text-xs">{article.authorPseudonym}</span>
-          <span className="text-white/25 text-[10px]">·</span>
-          <span className="font-arabic text-white/40 text-[10px]">{formatDateTime(article.createdAt)}</span>
+          {/* View count — Telegram style, RTL end (left) */}
+          <div className="flex items-center gap-1 flex-shrink-0 mr-1" dir="ltr">
+            <Eye size={11} color="rgba(255,255,255,0.32)" />
+            <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.32)" }}>
+              {formatViews(localViews)}
+            </span>
+          </div>
         </div>
       </div>
 

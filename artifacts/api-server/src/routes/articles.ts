@@ -17,20 +17,58 @@ function canPublish(telegramId: string, role: string | null | undefined): boolea
 
 // ── GET /api/articles ─────────────────────────────────────────────────────────
 router.get("/articles", async (_req, res): Promise<void> => {
-  const rows = await db
-    .select({
-      id:              articlesTable.id,
-      title:           articlesTable.title,
-      body:            articlesTable.body,
-      mediaUrl:        articlesTable.mediaUrl,
-      authorPseudonym: articlesTable.authorPseudonym,
-      authorAliId:     articlesTable.authorAliId,
-      createdAt:       articlesTable.createdAt,
-      updatedAt:       articlesTable.updatedAt,
-    })
-    .from(articlesTable)
-    .orderBy(articlesTable.createdAt);  // oldest → newest (top → bottom)
-  res.json(rows);
+  // Try with viewCount first; if migration not yet run, fall back gracefully
+  try {
+    const rows = await db
+      .select({
+        id:              articlesTable.id,
+        title:           articlesTable.title,
+        body:            articlesTable.body,
+        mediaUrl:        articlesTable.mediaUrl,
+        authorPseudonym: articlesTable.authorPseudonym,
+        authorAliId:     articlesTable.authorAliId,
+        viewCount:       articlesTable.viewCount,
+        createdAt:       articlesTable.createdAt,
+        updatedAt:       articlesTable.updatedAt,
+      })
+      .from(articlesTable)
+      .orderBy(articlesTable.createdAt);
+    res.json(rows);
+  } catch {
+    // view_count column may not exist yet — fall back without it
+    const rows = await db
+      .select({
+        id:              articlesTable.id,
+        title:           articlesTable.title,
+        body:            articlesTable.body,
+        mediaUrl:        articlesTable.mediaUrl,
+        authorPseudonym: articlesTable.authorPseudonym,
+        authorAliId:     articlesTable.authorAliId,
+        createdAt:       articlesTable.createdAt,
+        updatedAt:       articlesTable.updatedAt,
+      })
+      .from(articlesTable)
+      .orderBy(articlesTable.createdAt);
+    res.json(rows.map(r => ({ ...r, viewCount: 0 })));
+  }
+});
+
+// ── POST /api/articles/:id/view ───────────────────────────────────────────────
+// Called client-side when a card becomes visible (once per session per article).
+// No auth required — view counts are public.
+router.post("/articles/:id/view", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+
+  try {
+    await db
+      .update(articlesTable)
+      .set({ viewCount: sql`${articlesTable.viewCount} + 1` })
+      .where(eq(articlesTable.id, id));
+  } catch {
+    // Column may not exist yet — silently ignore
+  }
+  res.json({ ok: true });
 });
 
 // ── POST /api/articles/upload-token ──────────────────────────────────────────
