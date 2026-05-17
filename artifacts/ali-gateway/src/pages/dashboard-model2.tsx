@@ -21,7 +21,7 @@ const HEADER_H  = 68;   // px — must never change to prevent layout shift
 const TABBAR_H  = 64;   // px — must never change
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
-type Tab = "media" | "reports" | "field" | "docs" | "earn" | "messages" | "calls";
+type Tab = "media" | "reports" | "field" | "docs" | "earn" | "messages" | "calls" | "about";
 type TabIcon = (props: { size?: number; color?: string }) => JSX.Element | null;
 
 const TABS: { id: Tab; label: string; Icon: TabIcon }[] = [
@@ -113,6 +113,66 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ── About ALI-MDD-ADAR section ────────────────────────────────────────────────
+function AboutSection() {
+  const cards = [
+    { emoji: "🌿", title: "ALI", sub: "مبادرة ALI الرقمية", desc: "منصة متكاملة لتحقيق التواصل والتوثيق والتطوير ضمن بيئة آمنة ومشفرة." },
+    { emoji: "💎", title: "MDD", sub: "المنصة الرقمية اللامركزية", desc: "نظام نقاط ومكافآت رقمية يُحفّز المشاركة ويُقدّر إسهام كل عضو في البناء." },
+    { emoji: "🛡", title: "ADAR", sub: "منظومة الرصد والتوثيق", desc: "ذراع الرصد والتوثيق الميداني — يحفظ الشهادات ويصون الذاكرة الرقمية للمبادرة." },
+  ];
+  return (
+    <div className="h-full overflow-y-auto" dir="rtl"
+      style={{ background: "linear-gradient(160deg,#020e04 0%,#061409 55%,#020e04 100%)" }}>
+      <div className="flex flex-col items-center px-5 pt-8 pb-12 gap-7">
+
+        {/* Logo */}
+        <div style={{
+          width: 96, height: 96, borderRadius: "50%", padding: 3,
+          background: `linear-gradient(145deg,${GOLD}60,${GOLD}20)`,
+          boxShadow: `0 0 32px ${GOLD}40, 0 8px 24px rgba(0,0,0,0.5)`,
+        }}>
+          <img src="/adar-logo.png" alt="ADAR"
+            className="w-full h-full rounded-full object-cover"
+            style={{ border: `2px solid ${GOLD}40` }} />
+        </div>
+
+        {/* Main title */}
+        <div className="text-center">
+          <h1 className="font-arabic font-black text-2xl leading-snug" style={{ color: GOLD }}>
+            مبادرة ALI · MDD · ADAR
+          </h1>
+          <p className="font-arabic text-white/45 text-sm mt-1">البوابة الرقمية المتكاملة</p>
+          <div className="mt-3 h-px w-24 mx-auto" style={{ background: `linear-gradient(90deg,transparent,${GOLD}60,transparent)` }} />
+        </div>
+
+        {/* Cards */}
+        {cards.map(c => (
+          <div key={c.title} className="w-full rounded-2xl px-5 py-4 flex gap-4 items-start"
+            style={{
+              background: "linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))",
+              border: `1px solid ${GOLD}22`,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}>
+            <span className="text-3xl flex-shrink-0 mt-0.5">{c.emoji}</span>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono font-black text-base" style={{ color: GOLD }}>{c.title}</span>
+                <span className="font-arabic text-xs text-white/50">{c.sub}</span>
+              </div>
+              <p className="font-arabic text-white/65 text-sm leading-relaxed">{c.desc}</p>
+            </div>
+          </div>
+        ))}
+
+        {/* Footer tag */}
+        <p className="font-arabic text-white/25 text-xs text-center">
+          🌿 بوابة ALI الرقمية — نُبني معاً، نُوثّق معاً، نرتقي معاً
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Coming-soon placeholder ────────────────────────────────────────────────────
 function ComingSoonSection({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -127,73 +187,87 @@ function ComingSoonSection({ icon, label }: { icon: React.ReactNode; label: stri
   );
 }
 
+// ── 3D glass icon wrapper ─────────────────────────────────────────────────────
+const GLASS_ICON: React.CSSProperties = {
+  width: 44, height: 44,
+  borderRadius: 14,
+  background: "linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%)",
+  border: "1px solid rgba(255,255,255,0.22)",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(0,0,0,0.18)",
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+function GlassZone({ onClick, label, width = 64, children }: {
+  onClick: () => void; label: string; width?: number; children: React.ReactNode;
+}) {
+  return (
+    <button onClick={onClick} aria-label={label} className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform" style={{ width }}>
+      <div style={GLASS_ICON}>{children}</div>
+    </button>
+  );
+}
+
 // ── Header (fixed height = HEADER_H px, never shifts) ────────────────────────
 const Model2Header = memo(function Model2Header({
-  userData,
-  onOpenProfile,
-  onOpenMessages,
-  onOpenCalls,
+  userData, onOpenProfile, onOpenMessages, onOpenCalls, onOpenAbout,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
   onOpenProfile:  () => void;
   onOpenMessages: () => void;
   onOpenCalls:    () => void;
+  onOpenAbout:    () => void;
 }) {
   return (
-    <div
-      className="flex-shrink-0 flex items-stretch"
-      style={{
-        height: HEADER_H,
-        background: "rgba(2,14,4,0.97)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(212,175,55,0.12)",
-        position: "relative",
-        zIndex: 20,
-      }}>
+    <div className="flex-shrink-0 flex items-stretch" style={{
+      height: HEADER_H,
+      background: "rgba(2,14,4,0.97)",
+      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      borderBottom: "1px solid rgba(212,175,55,0.12)",
+      position: "relative", zIndex: 20,
+    }}>
 
-      {/* ── Zone 1: Profile (avatar + name) ── tap → profile */}
-      <button
-        onClick={onOpenProfile}
+      {/* ── Zone 1: Profile ── tap → profile */}
+      <button onClick={onOpenProfile} aria-label="الملف الشخصي"
         className="flex items-center gap-2.5 px-4 active:bg-white/5 transition-colors min-w-0"
-        style={{ flex: "1 1 0" }}
-        aria-label="الملف الشخصي">
+        style={{ flex: "1 1 0" }}>
         <AliEmblem className="w-10 h-10 flex-shrink-0" animate={false} />
         <div className="min-w-0 text-right" dir="rtl">
-          <p className="font-arabic font-bold text-sm text-white/90 truncate leading-tight">
-            {userData.pseudonym}
-          </p>
-          <p className="font-mono text-[10px] leading-tight" style={{ color: "rgba(255,255,255,0.35)" }}>
-            {userData.aliId}
-          </p>
+          <p className="font-arabic font-bold text-sm text-white/90 truncate leading-tight">{userData.pseudonym}</p>
+          <p className="font-mono text-[10px] leading-tight" style={{ color: "rgba(255,255,255,0.35)" }}>{userData.aliId}</p>
         </div>
       </button>
 
-      {/* ── Zone 2: Messages (center) ── tap → messages */}
-      <button
-        onClick={onOpenMessages}
-        className="flex items-center justify-center active:bg-white/5 transition-colors flex-shrink-0"
-        style={{ width: 76 }}
-        aria-label="الرسائل">
-        <MessageSquare size={26} color="rgba(255,255,255,0.60)" />
-      </button>
-
-      {/* ── Zone 3: Calls + ADAR logo ── tap → calls */}
-      <button
-        onClick={onOpenCalls}
-        className="flex items-center justify-center gap-2.5 px-4 active:bg-white/5 transition-colors flex-shrink-0"
-        aria-label="المكالمات">
-        <Phone size={26} color="rgba(255,255,255,0.60)" />
-        <img
-          src="/adar-logo.png"
-          alt="ADAR"
-          className="rounded-full object-cover flex-shrink-0"
-          style={{
-            width: 44, height: 44,
-            border: `1.5px solid ${GOLD}55`,
-            boxShadow: `0 0 12px ${GOLD}30`,
-          }}
+      {/* ── Zone 2: Messages ── golden stroke + white-tinted interior, 3D glass */}
+      <GlassZone onClick={onOpenMessages} label="الرسائل">
+        <MessageSquare
+          size={22} color={GOLD}
+          fill="rgba(255,255,255,0.10)"
+          style={{ filter: `drop-shadow(0 0 5px ${GOLD}99)` }}
         />
+      </GlassZone>
+
+      {/* ── Zone 3: Calls ── fully golden, 3D glass */}
+      <GlassZone onClick={onOpenCalls} label="المكالمات">
+        <Phone
+          size={22} color={GOLD}
+          fill={`${GOLD}30`}
+          style={{ filter: `drop-shadow(0 0 6px ${GOLD})` }}
+        />
+      </GlassZone>
+
+      {/* ── Zone 4: ADAR logo ── tap → about page */}
+      <button onClick={onOpenAbout} aria-label="عن المبادرة"
+        className="flex items-center justify-center px-3 flex-shrink-0 active:scale-90 transition-transform"
+        style={{ width: 68 }}>
+        <div style={{
+          width: 46, height: 46, borderRadius: "50%",
+          background: "linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03))",
+          border: `1.5px solid ${GOLD}60`,
+          boxShadow: `0 6px 18px rgba(0,0,0,0.4), 0 0 14px ${GOLD}30, inset 0 1px 0 rgba(255,255,255,0.25)`,
+          padding: 2,
+        }}>
+          <img src="/adar-logo.png" alt="ADAR" className="w-full h-full rounded-full object-cover" />
+        </div>
       </button>
     </div>
   );
@@ -358,6 +432,7 @@ export default function DashboardModel2() {
             onOpenProfile={() => setShowProfile(true)}
             onOpenMessages={() => setActiveTab("messages")}
             onOpenCalls={() => setActiveTab("calls")}
+            onOpenAbout={() => setActiveTab("about")}
           />
 
           {/* ── Tab content area — fills remaining space ── */}
@@ -378,6 +453,7 @@ export default function DashboardModel2() {
                   {activeTab === "earn"     && <EarnSection         telegramId={telegramId} />}
                   {activeTab === "messages" && <ComingSoonSection icon={<MessageSquare size={40} color={GOLD} />} label="الرسائل" />}
                   {activeTab === "calls"    && <ComingSoonSection icon={<Phone          size={40} color={GOLD} />} label="المكالمات" />}
+                  {activeTab === "about"    && <AboutSection />}
                 </Suspense>
               </motion.div>
             </AnimatePresence>
