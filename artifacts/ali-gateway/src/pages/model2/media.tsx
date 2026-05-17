@@ -766,7 +766,7 @@ function MediaCard({
     }
   }, [isActive, isNeighbor, isVideo, effectiveQuality]);
 
-  // ── 3. PLAY — muted videos autoplay without policy issues ────────────────
+  // ── 3. PLAY — muted videos always autoplay without policy issues ──────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
@@ -782,6 +782,18 @@ function MediaCard({
       return () => video.removeEventListener("canplay", tryPlay);
     }
   }, [isActive, isVideo, effectiveQuality, userPaused]);
+
+  // ── 4. Sync video.muted directly — React's muted prop only sets defaultMuted
+  //    and doesn't update video.muted reactively after mount. ────────────────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = globalMuted;
+    // If active card just got unmuted and the video is paused, restart it
+    if (!globalMuted && isActive && !userPaused && isVideo && effectiveQuality !== "low") {
+      video.play().catch(() => {});
+    }
+  }, [globalMuted, isActive, isVideo, effectiveQuality, userPaused]);
 
   // Reset user-pause when card changes
   useEffect(() => {
@@ -1324,11 +1336,20 @@ export function MediaSection({
     };
   }, [activeIdx, articles]);
 
-  // ── Active-card detection: IntersectionObserver + scrollend fallback ─────
+  // ── Active-card detection: scrollend (accurate) + long-debounce fallback ──
+  //
+  // WHY no IntersectionObserver:
+  //   IO fires DURING the snap animation when the old card still has >50%
+  //   intersection — it keeps setting activeIdx to the OLD card, so the
+  //   new card never becomes active and its video never plays.
+  //
+  // WHY 400 ms debounce (not 80 ms):
+  //   CSS snap animations take 300–500 ms.  An 80 ms debounce fires mid-flight,
+  //   Math.round(scrollTop/h) gives the wrong index, the old card stays
+  //   "active", audio keeps bleeding and the new video never starts.
   useEffect(() => {
     if (articles.length === 0) return;
 
-    // Helper: pick the most-centered card using scroll position math
     function snapActiveIdx() {
       const el = scrollRef.current;
       if (!el) return;
@@ -1338,34 +1359,27 @@ export function MediaSection({
       setActiveIdx(Math.max(0, Math.min(idx, articles.length - 1)));
     }
 
-    // IntersectionObserver catches normal scrolling (threshold 0.5 = majority visible)
-    const observer = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        if (e.intersectionRatio >= 0.5) {
-          const i = cardRefs.current.indexOf(e.target as HTMLDivElement);
-          if (i !== -1) setActiveIdx(i);
-        }
-      }
-    }, { threshold: 0.5 });
-    cardRefs.current.forEach(el => { if (el) observer.observe(el); });
-
-    // scrollend fires once after the snap animation settles — most reliable
     const el = scrollRef.current;
+
+    // Primary: scrollend fires exactly once after the snap animation finishes.
     el?.addEventListener("scrollend", snapActiveIdx, { passive: true });
 
-    // Fallback debounced scroll for browsers without scrollend.
-    // ALSO: immediately pause all videos on scroll start to prevent audio bleed.
+    // Fallback for browsers / WebViews that don't support scrollend.
+    // 400 ms gives snap animations enough time to complete before we sample
+    // scrollTop, so Math.round() always picks the correct card.
     let scrollTimer: ReturnType<typeof setTimeout> | null = null;
     function onScroll() {
-      // ── TikTok trick: kill audio the instant user starts scrolling ──
-      scrollRef.current?.querySelectorAll("video").forEach(v => { if (!v.paused) v.pause(); });
+      // Kill audio the instant the user starts scrolling — no waiting for
+      // IntersectionObserver or state updates.
+      scrollRef.current?.querySelectorAll("video").forEach(v => {
+        if (!v.paused) v.pause();
+      });
       if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(snapActiveIdx, 80);
+      scrollTimer = setTimeout(snapActiveIdx, 400);
     }
     el?.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
-      observer.disconnect();
       el?.removeEventListener("scrollend", snapActiveIdx);
       el?.removeEventListener("scroll", onScroll);
       if (scrollTimer) clearTimeout(scrollTimer);
