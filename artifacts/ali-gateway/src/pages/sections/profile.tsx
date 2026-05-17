@@ -168,7 +168,7 @@ function KeyRow({ label, value, accent }: { label: string; value: string; accent
     });
   }
 
-  const masked = value.replace(/[A-Za-z0-9]/g, "★");
+  const masked = value.replace(/./g, "*");
 
   return (
     <div className="rounded-2xl p-3 mb-2 last:mb-0"
@@ -2169,7 +2169,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
                   style={{ background: "rgba(20,241,149,0.15)", border: "1px solid rgba(20,241,149,0.4)", color: "#14f195" }}>◎</span>
                 <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                  style={{ background: "rgba(98,126,234,0.18)", border: "1px solid rgba(98,126,234,0.45)", color: "#627eea" }}>Ξ</span>
+                  style={{ background: "rgba(38,161,123,0.18)", border: "1px solid rgba(38,161,123,0.45)", color: "#26a17b" }}>USDT</span>
                 <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md"
                   style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)" }}>
                   <img src="/mdd-token.jpg" className="w-3.5 h-3.5 rounded-full object-cover" style={{ boxShadow: "0 0 6px rgba(212,175,55,0.6)" }} alt="MDD" />
@@ -2198,25 +2198,14 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       animate={{ x: ["-100%", "100%"] }}
                       transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <div className="flex items-center gap-4">
-                        {/* MDD token coin */}
-                        <div className="relative">
-                          <img src="/mdd-token.jpg" className="w-16 h-16 rounded-full object-cover"
-                            style={{ boxShadow: `0 0 20px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.25), inset 0 0 0 2px rgba(212,175,55,0.6)`,
-                              border: "2px solid rgba(212,175,55,0.7)" }} alt="MDD" />
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ background: "rgba(0,20,10,0.9)", border: "1.5px solid rgba(212,175,55,0.6)" }}>
-                            <Lock className="w-2.5 h-2.5" style={{ color: GOLD }} />
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-mono font-black text-3xl tracking-[0.35em]"
-                            style={{ color: GOLD, textShadow: `0 0 22px ${GOLD}70, 0 0 8px ${GOLD}40` }}>★★★★★★</p>
-                          <div className="flex items-center justify-end gap-1.5 mt-1">
-                            <span className="font-mono font-black text-base"
-                              style={{ color: GOLD, textShadow: `0 0 12px ${GOLD}80`, WebkitTextStroke: "0.5px rgba(255,220,100,0.5)" }}>$MDD</span>
-                          </div>
-                        </div>
+                      <div className="flex flex-col items-center gap-2">
+                        {/* MDD token coin — centred, 50% larger, no border, no lock */}
+                        <img src="/mdd-token.jpg" className="w-24 h-24 rounded-full object-cover"
+                          style={{ boxShadow: `0 0 28px rgba(212,175,55,0.55), 0 0 52px rgba(212,175,55,0.28)` }} alt="MDD" />
+                        <span className="font-mono font-black text-lg tracking-widest"
+                          style={{ color: GOLD, textShadow: `0 0 14px ${GOLD}90`, WebkitTextStroke: "0.5px rgba(255,220,100,0.5)" }}>$MDD</span>
+                        <p className="font-mono font-black text-3xl tracking-[0.35em]"
+                          style={{ color: GOLD, textShadow: `0 0 22px ${GOLD}70, 0 0 8px ${GOLD}40` }}>**********</p>
                       </div>
                       <div className="inline-flex items-center gap-2 rounded-xl px-4 py-2"
                         style={{ background: "rgba(212,175,55,0.15)", border: `1.5px solid rgba(212,175,55,0.45)`,
@@ -2244,7 +2233,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       <span className="font-mono text-base tracking-widest flex-1 text-center"
                         style={{ color: "rgba(212,175,55,0.75)", letterSpacing: "0.25em",
                           textShadow: "0 0 8px rgba(212,175,55,0.4)" }}>
-                        ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
+                        **************
                       </span>
                     </div>
                     <p className="font-arabic text-[11px] font-bold text-center mt-3"
@@ -2281,6 +2270,38 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     <KeyRow label="🔐 مفتاح الخزينة — Vault Key"    value={userData.vaultKey}    accent="#60a5fa" />
                     <KeyRow label="🪪 مفتاح الهوية — Identity Key"  value={userData.identityKey} accent="#a78bfa" />
                     <KeyRow label="👑 المفتاح الرئيسي — Master Key"  value={userData.masterKey}   accent={GOLD}    />
+                  </div>
+
+                  {/* ── Airdrop announcement box ── */}
+                  <div className="rounded-2xl p-4 text-right"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(212,175,55,0.13) 0%, rgba(0,30,15,0.55) 60%, rgba(34,197,94,0.08) 100%)",
+                      border: "1.5px solid rgba(212,175,55,0.45)",
+                      boxShadow: "0 4px 24px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.07)",
+                    }}>
+                    <div className="flex items-center justify-end gap-2 mb-3">
+                      <p className="font-arabic text-sm font-black"
+                        style={{ color: GOLD, textShadow: `0 0 12px rgba(212,175,55,0.7)` }}>🏆 جوائز وإيردروب $MDD</p>
+                      <img src="/mdd-token.jpg" className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                        style={{ boxShadow: "0 0 10px rgba(212,175,55,0.6)" }} alt="MDD" />
+                    </div>
+                    <div className="space-y-3 font-arabic text-[12px] leading-7" dir="rtl">
+                      <p style={{ color: "#e8fff0", textShadow: "0 0 6px rgba(34,197,94,0.2)" }}>
+                        🥇 سيحصل <span className="font-black" style={{ color: "#4ade80" }}>أعلى 500 مشترك</span> من جامعي نقاط الولاء على{" "}
+                        <span className="font-black" style={{ color: GOLD }}>جوائز مالية فورية</span> بالإضافة لحصة من إيردروب <span className="font-black" style={{ color: GOLD }}>$MDD</span>.
+                      </p>
+                      <p style={{ color: "#e8fff0", textShadow: "0 0 6px rgba(34,197,94,0.2)" }}>
+                        🥈 كما سيحصل <span className="font-black" style={{ color: "#4ade80" }}>أعلى 1000 مشترك</span> من جامعي العملة على كمية{" "}
+                        <span className="font-black" style={{ color: GOLD }}>مضاعفة 300%</span> من عملة <span className="font-black" style={{ color: GOLD }}>$MDD</span> في الإيردروب القادم.
+                      </p>
+                      <p style={{ color: "#e8fff0", textShadow: "0 0 6px rgba(34,197,94,0.2)" }}>
+                        🪙 وكل مشترك يجمع نقاط ولاء سيحصل على كمية متناسبة مع نسبة نقاطه في يوم الإيردروب.
+                      </p>
+                      <p className="font-black text-center pt-1"
+                        style={{ color: GOLD, textShadow: `0 0 14px rgba(212,175,55,0.6)`, letterSpacing: "0.04em" }}>
+                        ✨ ترقّبوا موعد إطلاق العملة وتوزيعها ✨
+                      </p>
+                    </div>
                   </div>
 
                 </div>
