@@ -545,15 +545,13 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
 // Architecture:
 //   • One <div> per card, each is 100% of the container height.
 //   • CSS scroll-snap (y mandatory / start always) handles the visual snapping.
-//   • A single globalMuted ref is shared via prop so mute state survives scrolls.
-//   • The CONTAINER owns the scroll logic. It uses three complementary strategies:
-//       1. touchstart/touchend — detect swipe direction + fire after CSS snap (400ms)
-//       2. scrollend           — fires natively after snap finishes (where supported)
-//       3. scroll debounce     — 600ms quiet fallback
-//   • activateCard(idx) is the single function that:
-//       - pauses ALL videos via DOM querySelectorAll (no React re-render needed)
-//       - plays the target video directly via videoRef (no props, no state delay)
-//       - THEN updates React state (activeIdx) for button/overlay re-renders
+//   • A single globalMuted state is shared via prop so mute state survives scrolls.
+//   • EACH CARD owns its own IntersectionObserver (threshold: 0.9):
+//       - When the card enters ≥90% of the scroll container: play its video.
+//       - When the card leaves <90% visible:                  pause its video immediately.
+//       - No timers, no scroll event guessing, no race conditions.
+//       - Works reliably on Android WebView / Telegram Mini App / iOS Safari.
+//   • onBecameActive(idx) callback → parent updates activeIdx → isActive prop.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── ReelCard ──────────────────────────────────────────────────────────────────
@@ -565,6 +563,7 @@ function ReelCard({
   onEditComment, onDeleteComment, onLikeComment,
   networkQuality,
   globalMuted, onToggleMute,
+  onBecameActive,
 }: {
   article: Article; idx: number; isActive: boolean;
   liked: boolean; likeCount: number; articleComments: CommentData[];
@@ -579,6 +578,7 @@ function ReelCard({
   networkQuality: VideoQuality;
   globalMuted: boolean;
   onToggleMute: () => void;
+  onBecameActive: (idx: number) => void;
 }) {
   const isVideo      = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
   const [imgLoaded,  setImgLoaded]  = useState(false);
@@ -596,12 +596,17 @@ function ReelCard({
   const effectiveQuality = selectedQuality ?? networkQuality;
   const isLowData        = effectiveQuality === "low";
 
-  const hasTrackedView = useRef(false);
-  const mountedRef     = useRef(true);
-  const stallRef       = useRef<number | null>(null);
-  const bufTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hintTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const localVideoRef  = useRef<HTMLVideoElement | null>(null);
+  const hasTrackedView   = useRef(false);
+  const mountedRef       = useRef(true);
+  const stallRef         = useRef<number | null>(null);
+  const bufTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localVideoRef    = useRef<HTMLVideoElement | null>(null);
+  // cardDivRef: used by IntersectionObserver to detect when this card is visible
+  const cardDivRef       = useRef<HTMLDivElement | null>(null);
+  // refs that mirror React props so IntersectionObserver callbacks (stale closures) read current values
+  const globalMutedRef2  = useRef(globalMuted);
+  const isLowDataRef     = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -627,11 +632,70 @@ function ReelCard({
     if (isActive) setUserPaused(false);
   }, [isActive]);
 
+  // Keep stale-closure refs in sync with current prop/computed values
+  useEffect(() => { globalMutedRef2.current = globalMuted; }, [globalMuted]);
+  useEffect(() => { isLowDataRef.current = isLowData; }, [isLowData]);
+
   // Sync muted state to video element whenever globalMuted changes
   useEffect(() => {
     const v = localVideoRef.current;
     if (v) v.muted = globalMuted;
   }, [globalMuted]);
+
+  // ── IntersectionObserver: play when ≥90% visible, pause otherwise ──────────
+  // This replaces scroll-event timers. The browser fires the callback the instant
+  // the card crosses the 90% threshold — no guessing, no race conditions.
+  useEffect(() => {
+    if (!isVideo) return;
+    const el = cardDivRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const v = localVideoRef.current;
+        if (!v) return;
+
+        const fullyVisible = entry.isIntersecting && entry.intersectionRatio >= 0.9;
+
+        if (fullyVisible) {
+          // This card entered the viewport — tell parent (updates activeIdx/isActive)
+          onBecameActive(idx);
+          // Don't auto-play in low-data mode
+          if (isLowDataRef.current) return;
+          // Apply current mute state and play
+          v.muted = globalMutedRef2.current;
+          const promise = v.play();
+          if (promise) {
+            promise.catch(() => {
+              // Autoplay with sound blocked → mute and retry (always succeeds)
+              v.muted = true;
+              globalMutedRef2.current = true;
+              v.play().catch(() => {});
+            });
+          }
+        } else {
+          // Card left the viewport — pause immediately, no delay
+          if (!v.paused) {
+            v.pause();
+            // Belt-and-suspenders: also zero the volume momentarily to prevent
+            // any buffered audio from the OS layer sneaking through
+            v.volume = 0;
+            requestAnimationFrame(() => { v.volume = 1; });
+          }
+        }
+      },
+      {
+        // Fire when the card crosses 90% visibility in either direction
+        threshold: [0.9],
+      },
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideo, idx]);
+  // ^ isVideo: reconnect if mediaUrl changes type; idx: stable per card instance
 
   // Buffering events
   useEffect(() => {
@@ -716,6 +780,7 @@ function ReelCard({
 
   return (
     <div
+      ref={cardDivRef}
       data-reel-idx={idx}
       className="relative overflow-hidden flex-shrink-0"
       style={{
@@ -1074,151 +1139,22 @@ export function MediaSection({
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const scrollRef         = useRef<HTMLDivElement>(null);
-  // pendingIdxRef: tracks the most recent activateCard call so stale canplay
-  // callbacks from a previous card don't start playing a superseded card.
-  const pendingIdxRef     = useRef(-1);
   const activeIdxRef      = useRef(0);           // always in sync with activeIdx
   const globalMutedRef    = useRef(false);        // always in sync with globalMuted
   const didRestoreRef     = useRef(false);
   const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const articlesRef       = useRef<Article[]>([]); // live ref for use in callbacks
 
-  // Keep refs in sync
+  // Keep refs in sync with state
   useEffect(() => { activeIdxRef.current = activeIdx; }, [activeIdx]);
   useEffect(() => { globalMutedRef.current = globalMuted; }, [globalMuted]);
-  useEffect(() => { articlesRef.current = articles; }, [articles]);
 
-  // ── Core: activate a card by index ────────────────────────────────────────
-  // Uses querySelectorAll on the live DOM — immune to React ref thrashing.
-  // pendingIdxRef prevents stale canplay callbacks from a previous activation
-  // from playing a card that has already been superseded by a newer swipe.
-  const activateCard = useCallback((idx: number) => {
-    const container = scrollRef.current;
-    const arts      = articlesRef.current;
-    if (!container || idx < 0 || idx >= arts.length) return;
-
-    // Mark this as the latest pending activation (cancels previous canplay waits)
-    pendingIdxRef.current = idx;
-
-    // ── 1. Pause ALL videos via live DOM query (no ref issues) ──
-    container.querySelectorAll<HTMLVideoElement>("video").forEach(v => {
-      if (!v.paused) v.pause();
-      v.currentTime = 0;
-    });
-
-    // ── 2. Find and play the target video via data attribute ──
-    const targetCard  = container.querySelector<HTMLElement>(`[data-reel-idx="${idx}"]`);
-    const target      = targetCard?.querySelector<HTMLVideoElement>("video");
-
-    if (target && isVideoUrl(arts[idx]?.mediaUrl ?? "")) {
-      // Ensure the element starts loading if it hasn't yet
-      if (target.networkState === HTMLMediaElement.NETWORK_EMPTY ||
-          (target.networkState === HTMLMediaElement.NETWORK_IDLE && target.readyState < 3)) {
-        target.load();
-      }
-
-      function tryPlay() {
-        // If a newer activation has occurred, abort
-        if (pendingIdxRef.current !== idx) return;
-        target!.muted = globalMutedRef.current;
-        target!.play().catch(() => {
-          if (pendingIdxRef.current !== idx) return;
-          // Autoplay with sound blocked → mute and retry (always works)
-          target!.muted = true;
-          globalMutedRef.current = true;
-          setGlobalMuted(true);
-          target!.play().catch(() => {});
-        });
-      }
-
-      if (target.readyState >= 3) {
-        tryPlay();
-      } else {
-        target.addEventListener("canplay", tryPlay, { once: true });
-        // Safety: if canplay never fires (e.g. stalled), retry after 2 s
-        setTimeout(() => {
-          if (pendingIdxRef.current === idx && target.paused) tryPlay();
-        }, 2000);
-      }
-    }
-
-    // ── 3. Update React state (UI only — play/pause already done above) ──
+  // ── Callback: fired by each ReelCard's IntersectionObserver ───────────────
+  // When a card reaches ≥90% visibility in the scroll container, it notifies
+  // the parent so activeIdx (and thus isActive props) stay correct.
+  const handleBecameActive = useCallback((idx: number) => {
     setActiveIdx(idx);
     activeIdxRef.current = idx;
   }, []);
-
-  // ── Scroll detection: 3 complementary strategies ──────────────────────────
-  // All attached to the scroll container. The first to fire wins; duplicates
-  // are harmless since activateCard is idempotent for the same idx.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    function calcIdx(): number {
-      const h = el!.clientHeight;
-      if (!h) return 0;
-      return Math.max(0, Math.min(Math.round(el!.scrollTop / h), articlesRef.current.length - 1));
-    }
-
-    function commit() {
-      const idx = calcIdx();
-      if (idx !== activeIdxRef.current) activateCard(idx);
-    }
-
-    // Helper: pause every video in the container via live DOM query (no ref issues)
-    function pauseAll() {
-      el.querySelectorAll<HTMLVideoElement>("video").forEach(v => { if (!v.paused) v.pause(); });
-    }
-
-    // Strategy 1: touchend + 400ms (CSS snap animation takes ~300ms)
-    let touchEndTimer: ReturnType<typeof setTimeout> | null = null;
-    function onTouchStart() {
-      // Pause all the moment the user starts swiping — zero audio bleed
-      pauseAll();
-    }
-    function onTouchEnd() {
-      pauseAll(); // pause again on lift in case touchstart was missed
-      if (touchEndTimer) clearTimeout(touchEndTimer);
-      touchEndTimer = setTimeout(commit, 400);
-    }
-
-    // Strategy 2: scrollend (native, fires after snap animation)
-    function onScrollEnd() {
-      if (touchEndTimer) { clearTimeout(touchEndTimer); touchEndTimer = null; }
-      commit();
-    }
-
-    // Strategy 3: scroll debounce 650ms (fallback for mouse wheel / programmatic)
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-    function onScroll() {
-      pauseAll();
-      if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(commit, 650);
-    }
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchend",   onTouchEnd,   { passive: true });
-    el.addEventListener("scrollend",  onScrollEnd,  { passive: true });
-    el.addEventListener("scroll",     onScroll,     { passive: true });
-
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchend",   onTouchEnd);
-      el.removeEventListener("scrollend",  onScrollEnd);
-      el.removeEventListener("scroll",     onScroll);
-      if (touchEndTimer) clearTimeout(touchEndTimer);
-      if (scrollTimer)   clearTimeout(scrollTimer);
-    };
-  }, [activateCard]);
-
-  // ── Auto-play card 0 after articles load ──────────────────────────────────
-  useEffect(() => {
-    if (articles.length === 0 || loading) return;
-    // Small delay so DOM is committed
-    const t = setTimeout(() => activateCard(activeIdxRef.current), 300);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [articles.length, loading]);
 
   // ── Load articles ──────────────────────────────────────────────────────────
   const loadArticles = useCallback(() => {
@@ -1277,12 +1213,16 @@ export function MediaSection({
         if (!el) return;
         const h = el.clientHeight;
         if (h > 0) el.scrollTop = targetIdx * h;
-        activateCard(targetIdx);
+        // IntersectionObserver will fire automatically once the scroll lands
+        // and activate the correct card. We also update activeIdx eagerly so
+        // the overlay renders for the right card without waiting for the observer.
+        setActiveIdx(targetIdx);
+        activeIdxRef.current = targetIdx;
       }));
     }
 
     doRestore();
-  }, [loading, articles, activateCard]);
+  }, [loading, articles]);
 
   // ── Persist last-seen article ──────────────────────────────────────────────
   useEffect(() => {
@@ -1490,6 +1430,7 @@ export function MediaSection({
             networkQuality={networkState.quality}
             globalMuted={globalMuted}
             onToggleMute={handleToggleMute}
+            onBecameActive={handleBecameActive}
           />
         ))}
       </div>
