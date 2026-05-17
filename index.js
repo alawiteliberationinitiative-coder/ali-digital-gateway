@@ -1,9 +1,14 @@
 const http   = require('http');
 const crypto = require('crypto');
 
-const token   = process.env.TELEGRAM_BOT_TOKEN;
-const domains = (process.env.REPLIT_DOMAINS || '').split(',').map(d => d.trim()).filter(Boolean);
-const webAppUrl = domains.length > 0 ? `https://${domains[0]}` : null;
+const token          = process.env.TELEGRAM_BOT_TOKEN;
+const domains        = (process.env.REPLIT_DOMAINS || '').split(',').map(d => d.trim()).filter(Boolean);
+const webAppUrl      = domains.length > 0 ? `https://${domains[0]}` : null;
+// BotFather short-name registered via /newapp — used for direct t.me deep links.
+// When a user opens https://t.me/ALI_MDD_BOT/app?startapp=<code> Telegram
+// opens the Mini App directly WITHOUT going through the bot chat.
+const BOT_USERNAME   = "ALI_MDD_BOT";
+const APP_SHORT_NAME = "app";
 
 // ── Minimal Telegram Bot (native fetch, no external HTTP library) ─────────────
 class TelegramBot {
@@ -215,9 +220,17 @@ async function sendAppMessage(bot, chatId, refCode = null) {
     ).catch(() => {});
     return;
   }
-  const appUrl = refCode
+
+  // web_app button URL → opens Mini App directly inside Telegram
+  const webAppBtnUrl = refCode
     ? `${webAppUrl}?startapp=${encodeURIComponent(refCode)}`
     : webAppUrl;
+
+  // Direct deep link → https://t.me/BOT/app?startapp=code
+  // Opens the Mini App without going through the bot chat (requires BotFather /newapp setup)
+  const directLink = refCode
+    ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=${encodeURIComponent(refCode)}`
+    : `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`;
 
   await bot.sendMessage(chatId,
 `🟢 *مبادرة التحرير العلوي — A.L.I*
@@ -227,6 +240,9 @@ async function sendAppMessage(bot, chatId, refCode = null) {
 هذه المنصة حكر على أعضاء مبادرة التحرير العلوي المسجّلين.
 ستحصل على هويّة رقمية فريدة ومفاتيح التشفير الثلاثة لحماية حسابك.
 
+🔗 رابطك المباشر:
+\`${directLink}\`
+
 _"حق لا يموت"_
 
 🔰 *Alawite Liberation Initiative — A.L.I*
@@ -235,7 +251,7 @@ _Management of Diversified Development · $MDD_`,
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [[
-          { text: '🚀 إطلاق البوابة الآمنة', web_app: { url: appUrl } }
+          { text: '🚀 إطلاق البوابة الآمنة', web_app: { url: webAppBtnUrl } }
         ]]
       }
     }

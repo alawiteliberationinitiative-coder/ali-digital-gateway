@@ -5,7 +5,7 @@ import {
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
   Trash2, Ban, Camera, Wallet, Phone, PhoneOff, PhoneIncoming, PhoneMissed,
-  MicOff, Mic,
+  MicOff, Mic, Smartphone,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
@@ -1629,6 +1629,24 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     }
   }
 
+  const [homeAdded, setHomeAdded] = useState(false);
+
+  function handleAddToHomeScreen() {
+    const tg = window.Telegram?.WebApp as (typeof window.Telegram.WebApp & {
+      addToHomeScreen?: () => void;
+      onEvent?: (ev: string, cb: () => void) => void;
+    }) | undefined;
+    if (tg?.addToHomeScreen) {
+      tg.onEvent?.("home_screen_added", () => setHomeAdded(true));
+      tg.addToHomeScreen();
+    } else {
+      // Fallback: copy the direct deep link to clipboard
+      navigator.clipboard.writeText(botDeepLink).catch(() => {});
+      setHomeAdded(true);
+      setTimeout(() => setHomeAdded(false), 2500);
+    }
+  }
+
   const joinDate = new Date(userData.createdAt).toLocaleDateString("ar-SY", { year: "numeric", month: "long", day: "numeric" });
 
   const activities = [
@@ -1935,6 +1953,33 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               دعوة صديق
             </button>
           </div>
+
+          {/* Add to Home Screen row */}
+          <button
+            onClick={handleAddToHomeScreen}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 active:scale-[0.98] transition-all"
+            style={{
+              background: homeAdded ? "rgba(212,175,55,0.12)" : "rgba(212,175,55,0.06)",
+              border: `1px solid ${GOLD}${homeAdded ? "55" : "25"}`,
+            }}
+            dir="rtl">
+            <div className="flex items-center justify-center rounded-xl flex-shrink-0"
+              style={{ width: 36, height: 36, background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>
+              {homeAdded
+                ? <Check className="w-4 h-4" style={{ color: GOLD }} />
+                : <Smartphone className="w-4 h-4" style={{ color: GOLD }} />}
+            </div>
+            <div className="flex-1 text-right">
+              <p className="font-arabic font-bold text-sm" style={{ color: GOLD }}>
+                {homeAdded ? "تم الإضافة!" : "أضف للشاشة الرئيسية"}
+              </p>
+              <p className="font-arabic text-[10px] text-white/35 leading-tight mt-0.5">
+                {homeAdded
+                  ? "يمكنك فتح التطبيق مباشرة من شاشتك"
+                  : "افتح التطبيق مباشرة بدون المرور بالبوت"}
+              </p>
+            </div>
+          </button>
           <ReferralCount telegramId={telegramId} />
           <NetworkSection
             myTelegramId={telegramId}
