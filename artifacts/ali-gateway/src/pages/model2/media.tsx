@@ -775,18 +775,24 @@ function MediaCard({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low") return;
-    if (distanceFromActive > 3) return; // too far — browser handles via preload attr
+    if (distanceFromActive > 3) return;
 
     function triggerLoad() {
-      if (video && (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0)) {
-        video.load();
+      const vid = video!;
+      // NETWORK_EMPTY = never started
+      // NETWORK_IDLE + readyState < 3 = only metadata loaded (preload="metadata")
+      // In both cases we need to call load() to start buffering actual video data
+      if (vid.networkState === HTMLMediaElement.NETWORK_EMPTY ||
+          (distanceFromActive === 0 &&
+           vid.networkState === HTMLMediaElement.NETWORK_IDLE &&
+           vid.readyState < 3)) {
+        vid.load();
       }
     }
 
     if (distanceFromActive <= 1) {
-      triggerLoad(); // immediate
+      triggerLoad();
     } else {
-      // Stagger: give the active card a head start before loading farther cards
       const delay = distanceFromActive === 2 ? 1500 : 3000;
       const t = setTimeout(triggerLoad, delay);
       return () => clearTimeout(t);
@@ -799,66 +805,41 @@ function MediaCard({
     if (video) video.muted = isMuted;
   }, [isMuted]);
 
-  // ── 3. PLAY — buffer-gated to prevent mid-stream stalls on slow networks ────
-  // Strategy:
-  //   high   → play immediately on canplay (classic behaviour)
-  //   medium → wait until ≥2 s of video is buffered ahead, then play
-  //   low    → no playback (guard at the top of the effect)
-  // Sound-first autoplay with muted fallback is preserved.
+  // ── 3. PLAY — canplay → play immediately, muted autoplay fallback ────────────
+  // Simple and reliable: play as soon as the browser has enough data.
+  // In-stream stalls are handled by the buffering overlay (waiting event).
+  // Buffer-gating was removed — it prevented play entirely on 3G networks
+  // where preload="metadata" left the video with 0 s buffered and no load().
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
 
-    let cancelled = false;
-    // Seconds to buffer ahead before starting on slow networks
-    const minBuf = networkState.quality === "medium" ? 2.0 : 0;
+    // If the video stopped downloading (metadata-only preload) restart it now
+    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY ||
+        (video.networkState === HTMLMediaElement.NETWORK_IDLE && video.readyState < 3)) {
+      video.load();
+    }
 
     async function startPlay() {
-      if (cancelled) return;
       const vid = video!;
       vid.muted = isMutedRef.current;
       try { await vid.play(); }
       catch {
-        if (!isMutedRef.current && !cancelled) {
+        // Autoplay with sound blocked → mute and retry
+        if (!isMutedRef.current) {
           vid.muted = true; isMutedRef.current = true; setIsMuted(true);
           vid.play().catch(() => {});
         }
       }
     }
 
-    // Called on every "progress" event — plays once enough is buffered
-    function onProgress() {
-      if (cancelled) return;
-      const buf = video!.buffered;
-      const ahead = buf.length ? buf.end(buf.length - 1) - video!.currentTime : 0;
-      if (ahead >= minBuf) {
-        video!.removeEventListener("progress",      onProgress);
-        video!.removeEventListener("canplaythrough", startPlay);
-        startPlay();
-      }
+    if (video.readyState >= 3) {
+      startPlay();
+    } else {
+      video.addEventListener("canplay", startPlay, { once: true });
+      return () => video.removeEventListener("canplay", startPlay);
     }
-
-    function onReady() {
-      if (cancelled) return;
-      if (minBuf === 0) { startPlay(); return; }
-      // Check current buffer immediately; if not enough, wait for progress events
-      const buf = video!.buffered;
-      const ahead = buf.length ? buf.end(buf.length - 1) - video!.currentTime : 0;
-      if (ahead >= minBuf) { startPlay(); return; }
-      video!.addEventListener("progress",      onProgress);
-      video!.addEventListener("canplaythrough", startPlay, { once: true });
-    }
-
-    if (video.readyState >= 3) onReady();
-    else video.addEventListener("canplay", onReady, { once: true });
-
-    return () => {
-      cancelled = true;
-      video.removeEventListener("canplay",       onReady);
-      video.removeEventListener("progress",      onProgress);
-      video.removeEventListener("canplaythrough", startPlay);
-    };
-  }, [isActive, isVideo, effectiveQuality, userPaused, networkState.quality]);
+  }, [isActive, isVideo, effectiveQuality, userPaused]);
 
 
   // Reset user-pause when card changes
@@ -1478,55 +1459,57 @@ export function MediaSection({
     };
   }, [activeIdx, articles]);
 
-  // ── Active-card detection: scrollend (accurate) + long-debounce fallback ──
+  // ── Active-card detection: IntersectionObserver (reliable in all WebViews) ──
   //
-  // WHY no IntersectionObserver:
-  //   IO fires DURING the snap animation when the old card still has >50%
-  //   intersection — it keeps setting activeIdx to the OLD card, so the
-  //   new card never becomes active and its video never plays.
+  // WHY IntersectionObserver (not scrollend / scroll + debounce):
+  //   Telegram WebView (iOS WKWebView) does NOT support `scrollend`, and
+  //   `scroll` events on overflow containers are unreliable inside Telegram.
+  //   This caused activeIdx to NEVER update — card 0 stayed "active" forever,
+  //   the previous video kept playing and the next one never started.
   //
-  // WHY 400 ms debounce (not 80 ms):
-  //   CSS snap animations take 300–500 ms.  An 80 ms debounce fires mid-flight,
-  //   Math.round(scrollTop/h) gives the wrong index, the old card stays
-  //   "active", audio keeps bleeding and the new video never starts.
+  //   IntersectionObserver fires inside every WebView reliably. We observe
+  //   each card within the scroll container and elect the card with the
+  //   highest intersection ratio (>= 0.5) as the new active card.
+  //
   useEffect(() => {
-    if (articles.length === 0) return;
+    if (articles.length === 0 || !scrollRef.current) return;
 
-    function snapActiveIdx() {
-      const el = scrollRef.current;
-      if (!el) return;
-      const h = el.clientHeight;
-      if (h === 0) return;
-      const idx = Math.round(el.scrollTop / h);
-      setActiveIdx(Math.max(0, Math.min(idx, articles.length - 1)));
-    }
+    // Track the latest intersection ratio for every card by index
+    const ratios = new Array(articles.length).fill(0) as number[];
 
-    const el = scrollRef.current;
-
-    // Primary: scrollend fires exactly once after the snap animation finishes.
-    el?.addEventListener("scrollend", snapActiveIdx, { passive: true });
-
-    // Fallback for browsers / WebViews that don't support scrollend.
-    // 400 ms gives snap animations enough time to complete before we sample
-    // scrollTop, so Math.round() always picks the correct card.
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-    function onScroll() {
-      // Kill audio the instant the user starts scrolling — no waiting for
-      // IntersectionObserver or state updates.
-      scrollRef.current?.querySelectorAll("video").forEach(v => {
-        if (!v.paused) v.pause();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const el  = e.target as HTMLElement;
+        const idx = parseInt(el.dataset.cardIdx ?? "-1", 10);
+        if (idx >= 0 && idx < ratios.length) ratios[idx] = e.intersectionRatio;
       });
-      if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(snapActiveIdx, 400);
-    }
-    el?.addEventListener("scroll", onScroll, { passive: true });
+      // The card most visible AND at least half in view becomes active
+      let best = -1, bestR = 0;
+      ratios.forEach((r, i) => { if (r > bestR) { bestR = r; best = i; } });
+      if (best >= 0 && bestR >= 0.5) setActiveIdx(best);
+    }, {
+      root: scrollRef.current,
+      threshold: [0, 0.25, 0.5, 0.75, 1.0],
+    });
 
-    return () => {
-      el?.removeEventListener("scrollend", snapActiveIdx);
-      el?.removeEventListener("scroll", onScroll);
-      if (scrollTimer) clearTimeout(scrollTimer);
-    };
-  }, [articles]);
+    // One rAF so cardRefs are populated after the first DOM commit
+    const raf = requestAnimationFrame(() => {
+      cardRefs.current.forEach(el => { if (el) io.observe(el); });
+    });
+
+    return () => { cancelAnimationFrame(raf); io.disconnect(); };
+  }, [articles.length]); // re-run only when number of cards changes
+
+  // ── Immediate video pause on scroll — stops audio before IO fires ──────────
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onScroll() {
+      el!.querySelectorAll("video").forEach(v => { if (!v.paused) v.pause(); });
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   // ── Staggered background preload for images ───────────────────────────────
   // Priority order: dist-1 first (immediate), then 2→3→4 with increasing delays.
