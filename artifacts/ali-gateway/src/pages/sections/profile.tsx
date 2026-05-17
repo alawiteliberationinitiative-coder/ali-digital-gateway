@@ -168,32 +168,37 @@ function KeyRow({ label, value, accent }: { label: string; value: string; accent
     });
   }
 
-  const masked = value.replace(/[A-Z0-9]/g, "•");
+  const masked = value.replace(/[A-Za-z0-9]/g, "★");
 
   return (
-    <div className="rounded-xl p-3 mb-2 last:mb-0"
-      style={{ background: "rgba(0,0,0,0.25)", border: `1px solid ${accent}25` }}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="font-arabic text-[11px] font-bold" style={{ color: `${accent}90` }}>{label}</span>
+    <div className="rounded-2xl p-3 mb-2 last:mb-0"
+      style={{
+        background: "linear-gradient(135deg, rgba(212,175,55,0.14) 0%, rgba(0,0,0,0.18) 100%)",
+        border: "1.5px solid rgba(212,175,55,0.45)",
+        boxShadow: "0 2px 12px rgba(212,175,55,0.08), inset 0 1px 0 rgba(255,255,255,0.06)",
+      }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-arabic text-[11px] font-bold" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>{label}</span>
         <div className="flex gap-2">
           <button onClick={() => setRevealed(r => !r)}
-            className="p-1 rounded-lg active:scale-90 transition-transform"
-            style={{ background: `${accent}15` }}>
+            className="p-1.5 rounded-lg active:scale-90 transition-transform"
+            style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.3)" }}>
             {revealed
-              ? <EyeOff className="w-3.5 h-3.5" style={{ color: accent }} />
-              : <Eye className="w-3.5 h-3.5" style={{ color: accent }} />}
+              ? <EyeOff className="w-3.5 h-3.5" style={{ color: "#d4af37" }} />
+              : <Eye className="w-3.5 h-3.5" style={{ color: "#d4af37" }} />}
           </button>
           <button onClick={handleCopy}
-            className="p-1 rounded-lg active:scale-90 transition-transform"
-            style={{ background: copied ? "rgba(34,197,94,0.2)" : `${accent}15` }}>
+            className="p-1.5 rounded-lg active:scale-90 transition-transform"
+            style={{ background: copied ? "rgba(34,197,94,0.2)" : "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.3)" }}>
             {copied
               ? <Check className="w-3.5 h-3.5 text-green-400" />
-              : <Copy className="w-3.5 h-3.5" style={{ color: accent }} />}
+              : <Copy className="w-3.5 h-3.5" style={{ color: "#d4af37" }} />}
           </button>
         </div>
       </div>
       <p className="font-mono text-xs leading-relaxed break-all"
-        style={{ color: revealed ? "#e8e8e8" : `${accent}55`, letterSpacing: revealed ? "0.04em" : "0" }}>
+        style={{ color: revealed ? "#f0f0f0" : "rgba(212,175,55,0.7)", letterSpacing: revealed ? "0.04em" : "0.12em",
+          textShadow: revealed ? "none" : "0 0 6px rgba(212,175,55,0.3)" }}>
         {revealed ? value : masked}
       </p>
     </div>
@@ -1938,7 +1943,8 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
       {/* ── Profile tab ── */}
       {profileTab === "profile" && (
-      <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-4"
+        style={{ background: "linear-gradient(180deg, rgba(0,40,20,0.35) 0%, rgba(0,25,12,0.15) 100%)" }}>
 
         {/* ── HERO ── */}
         <div className="pt-5 pb-2" dir="rtl">
@@ -2012,8 +2018,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 ) : (
                   <motion.div key="id-rank" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="mt-2 flex flex-col gap-0.5">
-                    <span className="font-mono text-xs font-bold tracking-wider" style={{ color: GOLD }}>{userData.aliId}</span>
-                    <span className="font-mono text-[10px] font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</span>
+                    <span className="font-mono text-xs font-black tracking-wider"
+                      style={{ color: GOLD, textShadow: `0 0 14px rgba(212,175,55,0.8), 0 0 6px rgba(212,175,55,0.5)` }}>{userData.aliId}</span>
+                    <span className="font-mono text-[10px] font-bold"
+                      style={{ color: rankInfo.current.color, textShadow: `0 0 8px ${rankInfo.current.color}60` }}>{userData.rank}</span>
                     {/* Pencil fallback when no civicRole */}
                     {!civicRole && (
                       <button onClick={startEdit}
@@ -2089,24 +2097,24 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             onClick={() => setProfileTab("inbox")}
             className="relative flex flex-col items-center justify-center gap-3 py-7 rounded-3xl active:scale-[0.96] transition-all"
             style={{
-              background: "linear-gradient(140deg, rgba(96,165,250,0.18) 0%, rgba(59,130,246,0.07) 100%)",
-              border: "1.5px solid rgba(96,165,250,0.38)",
+              background: "linear-gradient(140deg, rgba(96,165,250,0.28) 0%, rgba(59,130,246,0.12) 100%)",
+              border: "2px solid rgba(147,197,253,0.55)",
               backdropFilter: "blur(16px)",
-              boxShadow: "0 4px 24px rgba(96,165,250,0.12), inset 0 1px 0 rgba(255,255,255,0.1)",
+              boxShadow: "0 4px 28px rgba(96,165,250,0.22), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(135deg, rgba(96,165,250,0.35) 0%, rgba(59,130,246,0.18) 100%)",
-                border: "1.5px solid rgba(147,197,253,0.45)",
-                boxShadow: "0 6px 20px rgba(96,165,250,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+                background: "linear-gradient(135deg, rgba(147,197,253,0.5) 0%, rgba(96,165,250,0.28) 100%)",
+                border: "2px solid rgba(147,197,253,0.65)",
+                boxShadow: "0 6px 24px rgba(96,165,250,0.45), inset 0 1px 0 rgba(255,255,255,0.35)",
               }}>
-              <Mail className="w-7 h-7" style={{ color: "#93c5fd" }} />
+              <Mail className="w-7 h-7" style={{ color: "#dbeafe", filter: "drop-shadow(0 0 8px rgba(147,197,253,0.8))" }} />
             </div>
-            <span className="font-arabic font-black text-sm" style={{ color: "#93c5fd" }}>مراسلاتي</span>
+            <span className="font-arabic font-black text-sm" style={{ color: "#dbeafe", textShadow: "0 0 12px rgba(147,197,253,0.7)" }}>مراسلاتي</span>
             {unreadCount > 0 && (
               <span className="absolute top-2.5 left-2.5 rounded-full font-mono font-black text-white flex items-center justify-center"
                 style={{ background: "#ef4444", minWidth: 20, minHeight: 20, fontSize: 10, padding: "0 4px",
-                  boxShadow: "0 0 10px rgba(239,68,68,0.6)" }}>
+                  boxShadow: "0 0 12px rgba(239,68,68,0.7)" }}>
                 {unreadCount}
               </span>
             )}
@@ -2117,20 +2125,20 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             onClick={() => { setProfileTab("friends"); setFriendProfile(null); }}
             className="flex flex-col items-center justify-center gap-3 py-7 rounded-3xl active:scale-[0.96] transition-all"
             style={{
-              background: "linear-gradient(140deg, rgba(74,222,128,0.18) 0%, rgba(34,197,94,0.07) 100%)",
-              border: "1.5px solid rgba(74,222,128,0.38)",
+              background: "linear-gradient(140deg, rgba(74,222,128,0.28) 0%, rgba(34,197,94,0.12) 100%)",
+              border: "2px solid rgba(134,239,172,0.55)",
               backdropFilter: "blur(16px)",
-              boxShadow: "0 4px 24px rgba(74,222,128,0.12), inset 0 1px 0 rgba(255,255,255,0.1)",
+              boxShadow: "0 4px 28px rgba(74,222,128,0.22), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(135deg, rgba(74,222,128,0.35) 0%, rgba(34,197,94,0.18) 100%)",
-                border: "1.5px solid rgba(134,239,172,0.45)",
-                boxShadow: "0 6px 20px rgba(74,222,128,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+                background: "linear-gradient(135deg, rgba(134,239,172,0.5) 0%, rgba(74,222,128,0.28) 100%)",
+                border: "2px solid rgba(134,239,172,0.65)",
+                boxShadow: "0 6px 24px rgba(74,222,128,0.45), inset 0 1px 0 rgba(255,255,255,0.35)",
               }}>
-              <Users className="w-7 h-7" style={{ color: "#86efac" }} />
+              <Users className="w-7 h-7" style={{ color: "#dcfce7", filter: "drop-shadow(0 0 8px rgba(134,239,172,0.8))" }} />
             </div>
-            <span className="font-arabic font-black text-sm" style={{ color: "#86efac" }}>سجل الأصدقاء</span>
+            <span className="font-arabic font-black text-sm" style={{ color: "#dcfce7", textShadow: "0 0 12px rgba(134,239,172,0.7)" }}>سجل الأصدقاء</span>
           </button>
         </div>
 
@@ -2154,15 +2162,19 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               <Wallet className="w-5 h-5" style={{ color: GOLD }} />
             </div>
             <div className="flex-1 text-right">
-              <p className="text-sm leading-none">محفظتي</p>
+              <p className="text-sm leading-none font-black" style={{ color: GOLD, textShadow: `0 0 14px rgba(212,175,55,0.6)` }}>محفظتي</p>
               <div className="flex items-center justify-end gap-1.5 mt-1.5">
                 <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                  style={{ background: "rgba(247,147,26,0.12)", border: "1px solid rgba(247,147,26,0.3)", color: "#f7931a" }}>₿</span>
+                  style={{ background: "rgba(247,147,26,0.18)", border: "1px solid rgba(247,147,26,0.45)", color: "#f7931a" }}>₿</span>
                 <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                  style={{ background: "rgba(20,241,149,0.1)", border: "1px solid rgba(20,241,149,0.28)", color: "#14f195" }}>◎</span>
+                  style={{ background: "rgba(20,241,149,0.15)", border: "1px solid rgba(20,241,149,0.4)", color: "#14f195" }}>◎</span>
                 <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                  style={{ background: "rgba(98,126,234,0.12)", border: "1px solid rgba(98,126,234,0.3)", color: "#627eea" }}>Ξ</span>
-                <span className="font-mono text-[10px] opacity-45 ml-1">$MDD</span>
+                  style={{ background: "rgba(98,126,234,0.18)", border: "1px solid rgba(98,126,234,0.45)", color: "#627eea" }}>Ξ</span>
+                <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md"
+                  style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)" }}>
+                  <img src="/mdd-token.jpg" className="w-3.5 h-3.5 rounded-full object-cover" style={{ boxShadow: "0 0 6px rgba(212,175,55,0.6)" }} alt="MDD" />
+                  <span className="font-mono text-[10px] font-black" style={{ color: GOLD, textShadow: "0 0 8px rgba(212,175,55,0.7)" }}>$MDD</span>
+                </div>
               </div>
             </div>
             <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
@@ -2176,71 +2188,96 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
                 style={{ overflow: "hidden" }}>
                 <div className="space-y-4 px-4 py-4"
-                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.04),rgba(212,175,55,0.01))" }}>
+                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.09),rgba(5,25,15,0.7))" }}>
 
                   {/* MDD locked balance */}
                   <div className="text-center relative overflow-hidden rounded-2xl px-4 py-5"
-                    style={{ background: "rgba(212,175,55,0.06)", border: `1px solid ${GOLD}25` }}>
+                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.15) 0%,rgba(0,10,5,0.5) 100%)", border: `1.5px solid rgba(212,175,55,0.4)` }}>
                     <motion.div className="absolute inset-0 pointer-events-none"
-                      style={{ background: "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.05) 50%,transparent 65%)" }}
+                      style={{ background: "linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.09) 50%,transparent 70%)" }}
                       animate={{ x: ["-100%", "100%"] }}
                       transition={{ repeat: Infinity, duration: 3.5, ease: "linear", repeatDelay: 2 }} />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">🔒</span>
-                        <div>
-                          <p className="font-mono font-black text-2xl tracking-[0.4em]"
-                            style={{ color: GOLD, textShadow: `0 0 18px ${GOLD}55` }}>••••••</p>
-                          <p className="font-mono font-bold text-sm mt-0.5" style={{ color: `${GOLD}90` }}>$MDD</p>
+                      <div className="flex items-center gap-4">
+                        {/* MDD token coin */}
+                        <div className="relative">
+                          <img src="/mdd-token.jpg" className="w-16 h-16 rounded-full object-cover"
+                            style={{ boxShadow: `0 0 20px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.25), inset 0 0 0 2px rgba(212,175,55,0.6)`,
+                              border: "2px solid rgba(212,175,55,0.7)" }} alt="MDD" />
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{ background: "rgba(0,20,10,0.9)", border: "1.5px solid rgba(212,175,55,0.6)" }}>
+                            <Lock className="w-2.5 h-2.5" style={{ color: GOLD }} />
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono font-black text-3xl tracking-[0.35em]"
+                            style={{ color: GOLD, textShadow: `0 0 22px ${GOLD}70, 0 0 8px ${GOLD}40` }}>★★★★★★</p>
+                          <div className="flex items-center justify-end gap-1.5 mt-1">
+                            <span className="font-mono font-black text-base"
+                              style={{ color: GOLD, textShadow: `0 0 12px ${GOLD}80`, WebkitTextStroke: "0.5px rgba(255,220,100,0.5)" }}>$MDD</span>
+                          </div>
                         </div>
                       </div>
                       <div className="inline-flex items-center gap-2 rounded-xl px-4 py-2"
-                        style={{ background: "rgba(212,175,55,0.1)", border: `1px solid ${GOLD}30` }}>
-                        <Lock className="w-3.5 h-3.5" style={{ color: `${GOLD}70` }} />
-                        <span className="font-arabic text-xs font-bold" style={{ color: `${GOLD}80` }}>تفتح قريبا بعد الايردروب</span>
+                        style={{ background: "rgba(212,175,55,0.15)", border: `1.5px solid rgba(212,175,55,0.45)`,
+                          boxShadow: "0 2px 12px rgba(212,175,55,0.15)" }}>
+                        <Lock className="w-3.5 h-3.5" style={{ color: GOLD }} />
+                        <span className="font-arabic text-xs font-bold" style={{ color: GOLD, textShadow: `0 0 10px ${GOLD}50` }}>تفتح قريبا بعد الايردروب</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Wallet address placeholder */}
                   <div className="rounded-2xl px-4 py-4"
-                    style={{ background: "rgba(212,175,55,0.03)", border: `1px dashed rgba(212,175,55,0.22)` }}>
+                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.1) 0%,rgba(0,10,5,0.45) 100%)", border: `1.5px solid rgba(212,175,55,0.35)` }}>
                     <div className="flex items-center gap-2 mb-3">
-                      <Wallet className="w-3.5 h-3.5" style={{ color: `${GOLD}55` }} />
-                      <p className="font-arabic text-[11px] font-bold" style={{ color: `${GOLD}65` }}>عنوان المحفظة</p>
-                      <span className="font-mono text-[9px] px-2 py-0.5 rounded-full mr-auto"
-                        style={{ background: "rgba(212,175,55,0.1)", color: `${GOLD}55`, border: `1px solid rgba(212,175,55,0.2)` }}>
+                      <Wallet className="w-3.5 h-3.5" style={{ color: GOLD }} />
+                      <p className="font-arabic text-[11px] font-black" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>عنوان المحفظة</p>
+                      <span className="font-mono text-[9px] px-2 py-0.5 rounded-full mr-auto font-bold"
+                        style={{ background: "rgba(212,175,55,0.18)", color: GOLD, border: `1px solid rgba(212,175,55,0.45)` }}>
                         قريباً
                       </span>
                     </div>
                     <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
-                      style={{ background: "rgba(0,0,0,0.2)", border: `1px solid rgba(212,175,55,0.1)` }}>
-                      <Lock className="w-4 h-4 flex-shrink-0" style={{ color: `${GOLD}50` }} />
-                      <span className="font-mono text-[11px] tracking-widest flex-1 text-right" style={{ color: "rgba(212,175,55,0.35)", letterSpacing: "0.2em" }}>
-                        ████████████████████████████████████
+                      style={{ background: "rgba(0,0,0,0.25)", border: `1.5px solid rgba(212,175,55,0.3)` }}>
+                      <Lock className="w-4 h-4 flex-shrink-0" style={{ color: GOLD }} />
+                      <span className="font-mono text-base tracking-widest flex-1 text-center"
+                        style={{ color: "rgba(212,175,55,0.75)", letterSpacing: "0.25em",
+                          textShadow: "0 0 8px rgba(212,175,55,0.4)" }}>
+                        ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★
                       </span>
                     </div>
-                    <p className="font-arabic text-[10px] text-white/20 text-center mt-3">يُفعَّل بعد الإيردروب الرسمي</p>
+                    <p className="font-arabic text-[11px] font-bold text-center mt-3"
+                      style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.35)" }}>يُفعَّل بعد الإيردروب الرسمي</p>
                   </div>
 
                   {/* Account keys */}
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
-                      <p className="font-arabic text-[11px] font-bold text-blue-300/70">مفاتيح الحساب</p>
+                      <Lock className="w-4 h-4" style={{ color: GOLD }} />
+                      <p className="font-arabic text-sm font-black" style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.5)" }}>مفاتيح الحساب</p>
                     </div>
-                    <div className="rounded-xl p-3"
-                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-                      <p className="font-arabic text-red-300/80 text-[11px] leading-5 text-center">
+
+                    {/* Wine-red warning */}
+                    <div className="rounded-2xl p-3.5"
+                      style={{ background: "linear-gradient(135deg,rgba(127,0,40,0.45) 0%,rgba(80,0,20,0.55) 100%)",
+                        border: "2px solid rgba(180,30,60,0.6)", boxShadow: "0 2px 16px rgba(160,0,40,0.3)" }}>
+                      <p className="font-arabic font-black text-sm leading-6 text-center"
+                        style={{ color: "#ff6b8a", textShadow: "0 0 12px rgba(255,60,100,0.5)" }}>
                         ⚠️ لا تشارك هذه المفاتيح مع أي أحد — إنها كلمات سرك الخاصة
                       </p>
                     </div>
-                    <div className="rounded-xl p-3"
-                      style={{ background: "rgba(212,175,55,0.08)", border: "1.5px solid rgba(212,175,55,0.35)" }}>
-                      <p className="font-arabic font-black text-[12px] leading-6 text-center" style={{ color: GOLD }}>
+
+                    {/* Golden info box */}
+                    <div className="rounded-2xl p-3.5"
+                      style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.18) 0%,rgba(0,0,0,0.2) 100%)",
+                        border: "1.5px solid rgba(212,175,55,0.5)", boxShadow: "0 2px 14px rgba(212,175,55,0.12)" }}>
+                      <p className="font-arabic font-black text-[12px] leading-6 text-center"
+                        style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.45)" }}>
                         🔑 فقدان هذه المفاتيح يعني فقدان رصيدك من $MDD يوم الإيردروب — احتفظ بها في مكان آمن
                       </p>
                     </div>
+
                     <KeyRow label="🔐 مفتاح الخزينة — Vault Key"    value={userData.vaultKey}    accent="#60a5fa" />
                     <KeyRow label="🪪 مفتاح الهوية — Identity Key"  value={userData.identityKey} accent="#a78bfa" />
                     <KeyRow label="👑 المفتاح الرئيسي — Master Key"  value={userData.masterKey}   accent={GOLD}    />
@@ -2276,12 +2313,15 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               </motion.span>
             </div>
             <div className="flex-1 text-right">
-              <p className="text-sm">نقاط الولاء</p>
+              <p className="text-sm font-black" style={{
+                color: "#f0f4ff",
+                textShadow: "0 0 12px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.6)"
+              }}>نقاط الولاء</p>
               <div className="flex items-center justify-end gap-1 mt-1">
                 <span className="text-base leading-none">🪙</span>
                 <span className="text-base leading-none">🪙</span>
                 <span className="text-base leading-none">🪙</span>
-                <span className="font-mono text-[10px] opacity-45 ml-1">$MDD</span>
+                <span className="font-mono text-[10px] font-black ml-1" style={{ color: GOLD, textShadow: "0 0 8px rgba(212,175,55,0.6)" }}>$MDD</span>
               </div>
             </div>
             <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
@@ -2295,48 +2335,54 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
                 style={{ overflow: "hidden" }}>
                 <div className="px-4 py-5 space-y-4"
-                  style={{ background: "rgba(34,197,94,0.03)", borderTop: "1px solid rgba(34,197,94,0.15)" }}>
+                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.06) 0%,rgba(5,20,10,0.65) 100%)", borderTop: "1px solid rgba(212,175,55,0.2)" }}>
                   {/* Hero row: shield + points */}
                   <div className="flex items-center gap-3 rounded-2xl px-4 py-3"
-                    style={{ background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.18)" }}>
+                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.12) 0%,rgba(0,10,5,0.4) 100%)", border: "1.5px solid rgba(212,175,55,0.35)" }}>
                     <GoldenShield level={userData.level} size="sm" />
-                    <div className="w-px self-stretch mx-1" style={{ background: "linear-gradient(to bottom, transparent, rgba(212,175,55,0.3), transparent)" }} />
+                    <div className="w-px self-stretch mx-1" style={{ background: "linear-gradient(to bottom, transparent, rgba(212,175,55,0.4), transparent)" }} />
                     <div className="flex-1 min-w-0" dir="rtl">
                       <motion.p className="font-mono font-black text-3xl leading-none"
-                        style={{ color: GREEN, textShadow: `0 0 18px ${GREEN}70` }}
+                        style={{ color: GREEN, textShadow: `0 0 22px ${GREEN}80` }}
                         initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 280 }}>
                         {userData.loyaltyPoints.toLocaleString()}
                       </motion.p>
-                      <p className="font-arabic text-white/40 text-[11px] mt-1">مجموع النقاط المكتسبة</p>
+                      <p className="font-arabic text-[11px] font-bold mt-1"
+                        style={{ color: "#e8f4ff", textShadow: "0 0 8px rgba(255,255,255,0.2)" }}>مجموع النقاط المكتسبة</p>
                       <span className="inline-block mt-2 font-arabic text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                        style={{ background: `${rankInfo.current.color}18`, border: `1px solid ${rankInfo.current.color}40`, color: rankInfo.current.color }}>
+                        style={{ background: `${rankInfo.current.color}25`, border: `1.5px solid ${rankInfo.current.color}55`, color: rankInfo.current.color,
+                          textShadow: `0 0 8px ${rankInfo.current.color}60` }}>
                         {rankInfo.current.name}
                       </span>
                     </div>
                   </div>
                   {/* Statement */}
                   <div className="rounded-xl px-3 py-2.5 text-center"
-                    style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                    <p className="font-arabic text-[11px] leading-5" style={{ color: "rgba(74,222,128,0.8)" }}>
+                    style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.3)" }}>
+                    <p className="font-arabic text-[11px] leading-5 font-bold"
+                      style={{ color: "#e8fff0", textShadow: "0 0 10px rgba(255,255,255,0.2)" }}>
                       ✦ نقاطك هي حصتك من عوائد المنظومة الإعلامية التشاركية ✦
                     </p>
-                    <p className="font-arabic text-[10px] text-white/30 mt-0.5">تُحتسب كـ $MDD بعد الإيردروب الرسمي</p>
+                    <p className="font-arabic text-[10px] mt-0.5 font-bold"
+                      style={{ color: "#d0ffe0" }}>تُحتسب كـ $MDD بعد الإيردروب الرسمي</p>
                   </div>
                   {/* Rank progress */}
                   {rankInfo.next && (
                     <div>
                       <div className="flex justify-between mb-2">
-                        <span className="font-arabic text-[10px]" style={{ color: rankInfo.current.color }}>{rankInfo.current.name}</span>
-                        <span className="font-arabic text-[10px]" style={{ color: rankInfo.next.color }}>{rankInfo.next.name}</span>
+                        <span className="font-arabic text-[10px] font-bold" style={{ color: rankInfo.current.color }}>{rankInfo.current.name}</span>
+                        <span className="font-arabic text-[10px] font-bold" style={{ color: rankInfo.next.color }}>{rankInfo.next.name}</span>
                       </div>
-                      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
                         <motion.div className="h-full rounded-full"
-                          style={{ background: `linear-gradient(90deg,${rankInfo.current.color},${rankInfo.next.color})` }}
+                          style={{ background: `linear-gradient(90deg,${rankInfo.current.color},${rankInfo.next.color})`,
+                            boxShadow: `0 0 10px ${rankInfo.next.color}60` }}
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(rankInfo.progress * 100, 100)}%` }}
                           transition={{ duration: 1.4, ease: "easeOut", delay: 0.3 }} />
                       </div>
-                      <p className="font-arabic text-[10px] text-white/30 mt-1.5 text-center">
+                      <p className="font-arabic text-[10px] font-bold mt-1.5 text-center"
+                        style={{ color: "#c8f0d8" }}>
                         {rankInfo.next.minPts - userData.loyaltyPoints > 0
                           ? `${(rankInfo.next.minPts - userData.loyaltyPoints).toLocaleString()} نقطة للوصول إلى ${rankInfo.next.name}`
                           : "وصلت إلى الرتبة القصوى!"}
@@ -2344,7 +2390,8 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     </div>
                   )}
                   {/* Point sources */}
-                  <p className="font-arabic text-[10px] text-white/35 text-center">مصادر كسب النقاط السيادية</p>
+                  <p className="font-arabic text-xs font-bold text-center"
+                    style={{ color: "#e0f0ff", textShadow: "0 0 8px rgba(255,255,255,0.2)" }}>مصادر كسب النقاط السيادية</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { emoji: "🔬", label: "رصد وتوثيق",     pts: "+5 / شهادة" },
@@ -2352,10 +2399,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       { emoji: "🧠", label: "محرك المعرفة",   pts: "+10 / مستوى" },
                     ].map(it => (
                       <div key={it.label} className="rounded-xl p-2 text-center"
-                        style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                        style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.3)" }}>
                         <div className="text-base mb-0.5">{it.emoji}</div>
-                        <p className="font-arabic text-[9px] text-white/50 leading-tight">{it.label}</p>
-                        <p className="font-mono text-[10px] font-bold" style={{ color: GREEN }}>{it.pts}</p>
+                        <p className="font-arabic text-[9px] font-bold leading-tight" style={{ color: "#d0ffe8" }}>{it.label}</p>
+                        <p className="font-mono text-[10px] font-black" style={{ color: GREEN, textShadow: `0 0 8px ${GREEN}60` }}>{it.pts}</p>
                       </div>
                     ))}
                   </div>
