@@ -255,19 +255,16 @@ function getRankInfo(pts: number) {
 }
 
 // ─── Civic Role Mini Shield ────────────────────────────────────────────────────
-function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefined; size?: "xs" | "sm" | "md" }) {
+function CivicRoleShield({ role, size = "sm", noWrapper = false }: { role: string | null | undefined; size?: "xs" | "sm" | "md"; noWrapper?: boolean }) {
   if (!role) return null;
   const isGuardian = role === "guardian";
   const label = isGuardian ? "حارس الأرض" : "سفير القضية";
   const w = size === "xs" ? 36 : size === "md" ? 64 : 48;
   const h = size === "xs" ? 40 : size === "md" ? 72 : 54;
 
-  return (
-    <div className="inline-flex items-center gap-1.5 rounded-full"
-      style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.45)",
-               padding: size === "xs" ? "2px 7px" : "3px 10px" }}>
-
-      <svg viewBox="0 0 32 36" width={w} height={h} fill="none" xmlns="http://www.w3.org/2000/svg">
+  const shieldSvg = (
+    <svg viewBox="0 0 32 36" width={w} height={h} fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={noWrapper ? { filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.7)) drop-shadow(0 0 22px rgba(212,175,55,0.45)) drop-shadow(0 -1px 6px rgba(255,248,160,0.3))" } : undefined}>
         <defs>
           {/* Shield gradient */}
           <linearGradient id="crs-shield" x1="0" y1="0" x2="0" y2="1">
@@ -442,6 +439,15 @@ function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefine
         )}
       </svg>
 
+  );
+
+  if (noWrapper) return shieldSvg;
+
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full"
+      style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.45)",
+               padding: size === "xs" ? "2px 7px" : "3px 10px" }}>
+      {shieldSvg}
       <span className="font-arabic font-bold"
         style={{ fontSize: size === "xs" ? 10 : 11, color: "#d4af37", lineHeight: 1 }}>
         {label}
@@ -2008,10 +2014,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         <div className="pt-5 pb-2" dir="rtl">
           <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
 
-          {/* Row: avatar (LEFT) + identity info (RIGHT) */}
+          {/* Row: avatar + identity info + shield */}
           <div className="flex items-start gap-3">
 
-            {/* Avatar — golden border only, no wings/swords */}
+            {/* Avatar — golden border, camera button, premium badge */}
             <div className="relative flex-shrink-0" style={{ filter: "drop-shadow(0 0 22px rgba(212,175,55,0.48))" }}>
               <AvatarFrame
                 photoUrl={photoUrl}
@@ -2038,14 +2044,17 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               )}
             </div>
 
-            {/* Identity info */}
+            {/* Identity info — name (fixed) + aliId/rank OR edit form */}
             <div className="flex-1 min-w-0 pt-1">
-              {/* Name row + pencil */}
-              <AnimatePresence>
-                {isEditing ? (
-                  <motion.div key="name-edit"
+              {/* Pseudonym — always visible, no badge, no pencil here */}
+              <h2 className="font-arabic font-black text-white text-lg leading-tight">{pseudonym}</h2>
+
+              {/* aliId + rank (clean vertical) OR edit input when isEditing AND no civicRole */}
+              <AnimatePresence mode="wait">
+                {isEditing && !civicRole ? (
+                  <motion.div key="name-edit-nocivic"
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                    className="space-y-1.5">
+                    className="mt-2 space-y-1.5">
                     <input
                       dir="auto" value={editValue}
                       onChange={e => { setEditValue(e.target.value); setEditError(""); }}
@@ -2071,45 +2080,73 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div key="name-display" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="flex items-center gap-1.5 flex-wrap">
-                    <h2 className="font-arabic font-black text-white text-lg leading-tight">{pseudonym}</h2>
-                    {civicRole && (
-                      <span className="font-arabic text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
-                        style={{
-                          background: civicRole === "guardian" ? "rgba(34,197,94,0.15)" : "rgba(96,165,250,0.15)",
-                          color: civicRole === "guardian" ? "#22c55e" : "#60a5fa",
-                          border: `1px solid ${civicRole === "guardian" ? "rgba(34,197,94,0.3)" : "rgba(96,165,250,0.3)"}`,
-                        }}>
-                        {civicRole === "guardian" ? "حارس الأرض" : "سفير القضية"}
-                      </span>
+                  <motion.div key="id-rank" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="mt-2 flex flex-col gap-0.5">
+                    <span className="font-mono text-xs font-bold tracking-wider" style={{ color: GOLD }}>{userData.aliId}</span>
+                    <span className="font-mono text-[10px] font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</span>
+                    {/* Pencil fallback when no civicRole */}
+                    {!civicRole && (
+                      <button onClick={startEdit}
+                        className="mt-1 self-start flex items-center justify-center rounded-lg active:scale-90 transition-transform"
+                        style={{ width: 24, height: 24, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                        <Pencil className="w-3 h-3" style={{ color: GOLD }} />
+                      </button>
                     )}
-                    <button onClick={startEdit}
-                      className="flex-shrink-0 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
-                      style={{ width: 26, height: 26, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
-                      <Pencil className="w-3 h-3" style={{ color: GOLD }} />
-                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* aliId + membership */}
-              <div className="mt-2 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-arabic text-[9px] text-white/30">رقم العضوية</span>
-                  <span className="font-mono text-xs font-bold tracking-wider" style={{ color: GOLD }}>{userData.aliId}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-arabic text-[9px] text-white/30">الرتبة</span>
-                  <span className="font-mono text-[10px] font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</span>
-                </div>
-              </div>
             </div>
 
-            {/* Civic shield — floated to the RIGHT of the identity info */}
+            {/* Shield column — smaller, no wrapper, 3D glassy; label + pencil (edit) below */}
             {civicRole && (
-              <div className="flex-shrink-0 flex items-center justify-center pt-2 pr-1">
-                <CivicRoleShield role={civicRole} size="md" />
+              <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
+                {/* Shield SVG only — bare, glassy 3D look */}
+                <CivicRoleShield role={civicRole} size="sm" noWrapper />
+
+                {/* Label + pencil OR edit form */}
+                <AnimatePresence mode="wait">
+                  {isEditing ? (
+                    <motion.div key="shield-edit"
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                      className="w-28 space-y-1.5">
+                      <input
+                        dir="auto" value={editValue}
+                        onChange={e => { setEditValue(e.target.value); setEditError(""); }}
+                        onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
+                        maxLength={30} autoFocus
+                        placeholder="اللقب"
+                        className="w-full rounded-lg px-2 py-1 font-mono text-[11px] text-white outline-none placeholder:text-white/25 text-center"
+                        style={{ background: "rgba(255,255,255,0.07)", border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`, caretColor: "#d4af37" }}
+                      />
+                      {editError && <p className="font-arabic text-[9px] text-red-400 text-center">{editError}</p>}
+                      <div className="flex gap-1">
+                        <button onClick={handleSave} disabled={updateMutation.isPending}
+                          className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg font-arabic text-[10px] font-bold active:scale-95 disabled:opacity-60"
+                          style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
+                          {updateMutation.isPending ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                          {updateMutation.isPending ? "..." : "حفظ"}
+                        </button>
+                        <button onClick={cancelEdit} disabled={updateMutation.isPending}
+                          className="px-2 py-1 rounded-lg active:scale-95 disabled:opacity-60"
+                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="shield-label" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="flex items-center gap-1">
+                      <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>
+                        {civicRole === "guardian" ? "حارس الأرض" : "سفير القضية"}
+                      </span>
+                      <button onClick={startEdit}
+                        className="flex items-center justify-center rounded active:scale-90 transition-transform"
+                        style={{ width: 18, height: 18, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                        <Pencil className="w-2.5 h-2.5" style={{ color: GOLD }} />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </div>
