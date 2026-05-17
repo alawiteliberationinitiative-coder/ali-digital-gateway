@@ -762,15 +762,26 @@ function MediaCard({
     }
   }, [isActive, isNeighbor, isVideo, effectiveQuality]);
 
-  // ── 3. PLAY when video is ready (canPlay) and card is active ─────────────
-  // mediaLoaded flips to true inside onCanPlay — guarantees data is available.
+  // ── 3. PLAY — direct DOM event listener avoids React state round-trip ──────
+  // If the video is already buffered (readyState ≥ 3), play immediately.
+  // Otherwise attach a once-listener so we play the moment canplay fires.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !isVideo) return;
-    if (isActive && mediaLoaded && !userPaused && effectiveQuality !== "low") {
-      video.play().catch(() => {/* browser may still block — muted so unlikely */});
+    if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
+
+    function tryPlay() {
+      video!.play().catch(() => {/* muted — should succeed; swallow policy errors */});
     }
-  }, [isActive, mediaLoaded, userPaused, isVideo, effectiveQuality]);
+
+    if (video.readyState >= 3) {
+      // Already have enough data — play straight away
+      tryPlay();
+    } else {
+      // Not ready yet — wait for the canplay event (fires once, then auto-removed)
+      video.addEventListener("canplay", tryPlay, { once: true });
+      return () => video.removeEventListener("canplay", tryPlay);
+    }
+  }, [isActive, isVideo, effectiveQuality, userPaused]);
 
   // Reset user-pause when a new card becomes active (scroll to next/prev)
   useEffect(() => {
@@ -1248,8 +1259,11 @@ export function MediaSection({
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
   // ── Restore scroll to last-seen article (Telegram-channel style) ──────────
+  // IMPORTANT: must depend on `loading` — while loading=true the component returns
+  // a spinner (early return), so scrollRef.current is null. The scroll container
+  // only exists in the DOM after loading=false, so we gate on both.
   useEffect(() => {
-    if (articles.length === 0 || didRestoreRef.current) return;
+    if (loading || articles.length === 0 || didRestoreRef.current) return;
     const savedId = parseInt(localStorage.getItem(LAST_SEEN_KEY) ?? "0", 10);
     if (!savedId) return;
     const targetIdx = articles.findIndex(a => a.id === savedId);
@@ -1259,8 +1273,8 @@ export function MediaSection({
       return;
     }
     didRestoreRef.current = true;
-    // Double-RAF: first frame measures layout, second applies the scroll
-    // so the scroll container has its full height before we compute scrollTop.
+    // Double-RAF: first frame lets browser commit the newly-rendered cards to layout,
+    // second frame reads clientHeight reliably and sets scrollTop.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = scrollRef.current;
       if (!el) return;
@@ -1270,7 +1284,7 @@ export function MediaSection({
       }
       setActiveIdx(targetIdx);
     }));
-  }, [articles]);
+  }, [loading, articles]);
 
   // ── Persist last-seen article id whenever visible card changes ─────────────
   useEffect(() => {
