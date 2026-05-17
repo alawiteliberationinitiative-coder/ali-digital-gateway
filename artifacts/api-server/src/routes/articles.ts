@@ -371,13 +371,13 @@ router.post("/articles", async (req, res): Promise<void> => {
       supabaseUrl:     safeMediaUrl,
     }).then(async (fileId) => {
       if (!fileId) return;
-      // Switch display URL to proxy (Telegram CDN) — Supabase copy is kept as fallback
+      // Store telegramFileId for backup reference ONLY.
+      // mediaUrl stays as the Supabase URL — it is permanent, public, and always
+      // reachable directly. Switching to /api/media/:fileId caused videos to
+      // disappear because getFile fails for files >20 MB on Telegram's Bot API.
       await db
         .update(articlesTable)
-        .set({
-          mediaUrl:       `/api/media/${fileId}`,
-          telegramFileId: fileId,
-        })
+        .set({ telegramFileId: fileId })
         .where(eq(articlesTable.id, article.id));
     }).catch(() => {});
   } else {
