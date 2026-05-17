@@ -726,10 +726,13 @@ function MediaCard({
   // isMuted: start unmuted (prefer sound); tryPlay falls back to muted if browser blocks autoplay
   const [isMuted,         setIsMuted]         = useState(false);
   const isMutedRef = useRef(false); // ref for reading inside async/event callbacks (avoids stale closure)
+  const [bufferPct,      setBufferPct]      = useState(0);     // 0-100: % of video buffered
+  const [autoDowngraded, setAutoDowngraded] = useState(false);  // true = auto-switched to low
   const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playHintTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef      = useRef(true);
   const hasTrackedView  = useRef(false);
+  const stallStartRef   = useRef<number | null>(null); // timestamp when stalling began
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // ── Cleanup on unmount: clear timers to prevent setState after unmount ───
@@ -796,34 +799,66 @@ function MediaCard({
     if (video) video.muted = isMuted;
   }, [isMuted]);
 
-  // ── 3. PLAY — prefer sound; fall back to muted if autoplay policy blocks it ─
+  // ── 3. PLAY — buffer-gated to prevent mid-stream stalls on slow networks ────
+  // Strategy:
+  //   high   → play immediately on canplay (classic behaviour)
+  //   medium → wait until ≥2 s of video is buffered ahead, then play
+  //   low    → no playback (guard at the top of the effect)
+  // Sound-first autoplay with muted fallback is preserved.
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
 
-    async function tryPlay() {
+    let cancelled = false;
+    // Seconds to buffer ahead before starting on slow networks
+    const minBuf = networkState.quality === "medium" ? 2.0 : 0;
+
+    async function startPlay() {
+      if (cancelled) return;
       const vid = video!;
       vid.muted = isMutedRef.current;
-      try {
-        await vid.play();
-      } catch {
-        // Browser/WebView blocked autoplay with sound → mute and retry
-        if (!isMutedRef.current) {
-          vid.muted = true;
-          isMutedRef.current = true;
-          setIsMuted(true);
+      try { await vid.play(); }
+      catch {
+        if (!isMutedRef.current && !cancelled) {
+          vid.muted = true; isMutedRef.current = true; setIsMuted(true);
           vid.play().catch(() => {});
         }
       }
     }
 
-    if (video.readyState >= 3) {
-      tryPlay();
-    } else {
-      video.addEventListener("canplay", tryPlay, { once: true });
-      return () => video.removeEventListener("canplay", tryPlay);
+    // Called on every "progress" event — plays once enough is buffered
+    function onProgress() {
+      if (cancelled) return;
+      const buf = video!.buffered;
+      const ahead = buf.length ? buf.end(buf.length - 1) - video!.currentTime : 0;
+      if (ahead >= minBuf) {
+        video!.removeEventListener("progress",      onProgress);
+        video!.removeEventListener("canplaythrough", startPlay);
+        startPlay();
+      }
     }
-  }, [isActive, isVideo, effectiveQuality, userPaused]);
+
+    function onReady() {
+      if (cancelled) return;
+      if (minBuf === 0) { startPlay(); return; }
+      // Check current buffer immediately; if not enough, wait for progress events
+      const buf = video!.buffered;
+      const ahead = buf.length ? buf.end(buf.length - 1) - video!.currentTime : 0;
+      if (ahead >= minBuf) { startPlay(); return; }
+      video!.addEventListener("progress",      onProgress);
+      video!.addEventListener("canplaythrough", startPlay, { once: true });
+    }
+
+    if (video.readyState >= 3) onReady();
+    else video.addEventListener("canplay", onReady, { once: true });
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener("canplay",       onReady);
+      video.removeEventListener("progress",      onProgress);
+      video.removeEventListener("canplaythrough", startPlay);
+    };
+  }, [isActive, isVideo, effectiveQuality, userPaused, networkState.quality]);
 
 
   // Reset user-pause when card changes
@@ -831,36 +866,68 @@ function MediaCard({
     if (isActive) setUserPaused(false);
   }, [isActive]);
 
-  // ── Buffering detection: show quality panel after 2.5 s of stalling ────────
+  // ── Buffering detection + auto-downgrade on sustained stall ─────────────────
+  // waiting  → show spinner instantly
+  // 3 s stall → open quality panel so user is aware
+  // 6 s total stall → auto-switch to low mode (no video) + set autoDowngraded=true
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     function onWaiting() {
       setIsBuffering(true);
+      if (!stallStartRef.current) stallStartRef.current = Date.now();
+      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
       bufferTimerRef.current = setTimeout(() => {
-        // Only open quality panel automatically on first buffer stall
-        setQualityOpen(prev => prev || true);
-      }, 2500);
-    }
-    function onPlaying() {
-      setIsBuffering(false);
-      if (bufferTimerRef.current) {
-        clearTimeout(bufferTimerRef.current);
-        bufferTimerRef.current = null;
-      }
+        if (!mountedRef.current) return;
+        setQualityOpen(true); // notify user after 3 s
+        const elapsed = stallStartRef.current ? Date.now() - stallStartRef.current : 0;
+        if (elapsed >= 6000) {
+          // Severe stall: auto-switch to low (image-only) mode
+          video.pause();
+          setSelectedQuality("low");
+          setAutoDowngraded(true);
+          stallStartRef.current = null;
+        }
+      }, 3000);
     }
 
-    video.addEventListener("waiting",  onWaiting);
-    video.addEventListener("playing",  onPlaying);
-    video.addEventListener("canplay",  onPlaying);
+    function onPlaying() {
+      setIsBuffering(false);
+      stallStartRef.current = null; // reset on successful play
+      if (bufferTimerRef.current) { clearTimeout(bufferTimerRef.current); bufferTimerRef.current = null; }
+    }
+
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("canplay", onPlaying);
     return () => {
-      video.removeEventListener("waiting",  onWaiting);
-      video.removeEventListener("playing",  onPlaying);
-      video.removeEventListener("canplay",  onPlaying);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("canplay", onPlaying);
       if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
     };
   }, [isVideo]);
+
+  // ── Buffer progress — tracks what % of the video is already downloaded ──────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo || !isActive) return;
+    function update() {
+      const vid = video!;
+      if (!vid.duration || !isFinite(vid.duration)) return;
+      const buf = vid.buffered;
+      if (!buf.length) { setBufferPct(0); return; }
+      setBufferPct(Math.min(100, Math.round((buf.end(buf.length - 1) / vid.duration) * 100)));
+    }
+    video.addEventListener("progress",   update);
+    video.addEventListener("timeupdate", update);
+    update();
+    return () => {
+      video.removeEventListener("progress",   update);
+      video.removeEventListener("timeupdate", update);
+    };
+  }, [isActive, isVideo]);
 
   // ── Tap to play / pause (TikTok style) ────────────────────────────────────
   function handleVideoTap() {
@@ -900,15 +967,18 @@ function MediaCard({
     // play() is handled by effect #3 once onCanPlay fires again
   }
 
-  // Tiered preload attribute based on distance from the active card:
-  //   dist 0-1 → "auto"     : full buffering (current + next card)
-  //   dist 2-3 → "metadata" : only headers/duration, keeps memory low
-  //   dist 4+  → "none"     : no network use until the card comes closer
-  // Low-data mode always uses "none".
+  // Tiered preload based on distance + network quality:
+  //   active (dist 0) → always "auto"
+  //   dist 1 on 4G/Wi-Fi → "auto" (buffer next card ahead of time)
+  //   dist 1 on 3G → "metadata" only (prioritise current card's bandwidth)
+  //   dist 2-3 → "metadata" (just headers, lightweight)
+  //   dist 4+  → "none"
+  //   low-data → always "none"
   const preloadAttr: "auto" | "metadata" | "none" =
-    effectiveQuality === "low"    ? "none"
-    : distanceFromActive <= 1     ? "auto"
-    : distanceFromActive <= 3     ? "metadata"
+    effectiveQuality === "low"                                    ? "none"
+    : distanceFromActive === 0                                    ? "auto"
+    : distanceFromActive === 1 && networkState.quality === "high" ? "auto"
+    : distanceFromActive <= 3                                     ? "metadata"
     : "none";
 
   return (
@@ -935,23 +1005,33 @@ function MediaCard({
             </div>
           )}
 
-          {/* LD mode: no video, show play-in-browser CTA */}
+          {/* LD mode: no video — auto-downgraded or data-saver ── */}
           {isVideo && effectiveQuality === "low" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4"
               style={{ background: CARD_BG[idx % CARD_BG.length] }}>
               <div className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${GOLD}25` }}>
                 <WifiOff size={22} color={`${GOLD}90`} />
               </div>
-              <p className="font-arabic text-white/45 text-xs text-center px-6">
-                تم إيقاف الفيديو لتوفير البيانات
+              <p className="font-arabic text-white/40 text-xs text-center px-8 leading-relaxed">
+                {autoDowngraded
+                  ? "توقّف الفيديو تلقائياً بسبب ضعف الاتصال"
+                  : "تم إيقاف الفيديو للحفاظ على بياناتك"}
               </p>
-              <motion.button whileTap={{ scale: 0.95 }}
-                onClick={() => article.mediaUrl && saveMedia(article.mediaUrl)}
-                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-arabic"
-                style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30`, color: GOLD }}>
-                <Play size={12} />مشاهدة في المتصفح
-              </motion.button>
+              <div className="flex flex-col items-center gap-2.5">
+                <motion.button whileTap={{ scale: 0.95 }}
+                  onClick={() => { setAutoDowngraded(false); applyQuality("medium"); }}
+                  className="flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-arabic font-semibold"
+                  style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}50`, color: GOLD }}>
+                  <Play size={13} fill={GOLD} />تشغيل على أي حال
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.95 }}
+                  onClick={() => article.mediaUrl && saveMedia(article.mediaUrl)}
+                  className="flex items-center gap-1.5 rounded-full px-4 py-2 text-[11px] font-arabic"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.40)" }}>
+                  <ArrowDownToLine size={11} />تحميل للمشاهدة لاحقاً
+                </motion.button>
+              </div>
             </div>
           )}
 
@@ -990,6 +1070,15 @@ function MediaCard({
           {/* ── Tap-to-play/pause transparent overlay ── */}
           {isVideo && effectiveQuality !== "low" && mediaLoaded && (
             <div className="absolute inset-0 z-[5] cursor-pointer" onClick={handleVideoTap} />
+          )}
+
+          {/* ── Buffer progress bar — thin gold stripe at video bottom ── */}
+          {isVideo && isActive && effectiveQuality !== "low" && bufferPct > 0 && bufferPct < 100 && (
+            <div className="absolute bottom-0 left-0 right-0 z-30 h-[2px] pointer-events-none"
+              style={{ background: "rgba(255,255,255,0.07)" }}>
+              <div className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${bufferPct}%`, background: GOLD, opacity: 0.72 }} />
+            </div>
           )}
 
           {/* ── Mute / Unmute button — top-right corner (TikTok style) ── */}
@@ -1032,13 +1121,19 @@ function MediaCard({
       )}
 
 
-      {/* ── Buffering / slow-network spinner overlay ── */}
+      {/* ── Buffering overlay — spinner + buffer % when stalling ── */}
       <AnimatePresence>
         {isVideo && (isBuffering || (!mediaLoaded && isActive)) && effectiveQuality !== "low" && (
           <motion.div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="rounded-full p-4" style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(4px)" }}>
-              <Loader2 size={32} color={GOLD} className="animate-spin" />
+            <div className="flex flex-col items-center gap-2 rounded-2xl px-5 py-4"
+              style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}>
+              <Loader2 size={26} color={GOLD} className="animate-spin" />
+              {isBuffering && bufferPct > 0 && bufferPct < 100 && (
+                <span className="font-arabic text-[11px]" style={{ color: `${GOLD}cc` }}>
+                  جارٍ التحميل {bufferPct}٪
+                </span>
+              )}
             </div>
           </motion.div>
         )}
