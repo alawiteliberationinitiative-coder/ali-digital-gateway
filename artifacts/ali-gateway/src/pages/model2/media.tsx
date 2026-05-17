@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
-  Volume2, VolumeX, Wifi, WifiOff, Play, Pause, Gauge,
+  Wifi, WifiOff, Play, Pause, Gauge,
   Share2, Link2, Check, Eye,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -605,7 +605,6 @@ function MediaCard({
 }) {
   const [mediaLoaded,    setMediaLoaded]    = useState(false);
   const [mediaError,     setMediaError]     = useState(false);
-  const [muted,          setMuted]          = useState(true);
   const [isBuffering,    setIsBuffering]    = useState(false);
   const [qualityOpen,    setQualityOpen]    = useState(false);
   const [shareOpen,      setShareOpen]      = useState(false);
@@ -776,7 +775,7 @@ function MediaCard({
                 opacity:    mediaLoaded ? 1 : 0,
                 transition: "opacity 0.5s ease",
               }}
-              muted={muted}
+              muted
               loop
               playsInline
               preload={preloadAttr}
@@ -899,16 +898,6 @@ function MediaCard({
       {/* ── Right action sidebar ── */}
       <div className="absolute left-3 z-10 flex flex-col items-center"
         style={{ bottom: isCommentOpen ? "62%" : "90px", gap: 0 }}>
-
-        {/* Mute/unmute — separated above action buttons */}
-        {isVideo && mediaLoaded && effectiveQuality !== "low" && (
-          <motion.button whileTap={{ scale: 0.9 }}
-            onClick={() => setMuted(m => !m)}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.15)", marginBottom: 28 }}>
-            {muted ? <VolumeX size={15} color="rgba(255,255,255,0.7)" /> : <Volume2 size={15} color="white" />}
-          </motion.button>
-        )}
 
         {/* Action buttons */}
         <div className="flex flex-col items-center gap-4">
