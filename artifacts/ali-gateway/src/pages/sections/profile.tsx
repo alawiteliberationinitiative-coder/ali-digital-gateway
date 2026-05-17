@@ -5,7 +5,7 @@ import {
   Shield, Star, Lock, Zap, Users, Gift, Pencil, X, Loader2,
   UserPlus, UserCheck, Search, ChevronDown, MessageSquare, Send, Mail,
   Trash2, Ban, Camera, Wallet, Phone, PhoneOff, PhoneIncoming, PhoneMissed,
-  MicOff, Mic, Smartphone,
+  MicOff, Mic,
 } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch, getInitData } from "../../lib/api";
@@ -255,12 +255,12 @@ function getRankInfo(pts: number) {
 }
 
 // ─── Civic Role Mini Shield ────────────────────────────────────────────────────
-function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefined; size?: "sm" | "xs" }) {
+function CivicRoleShield({ role, size = "sm" }: { role: string | null | undefined; size?: "xs" | "sm" | "md" }) {
   if (!role) return null;
   const isGuardian = role === "guardian";
   const label = isGuardian ? "حارس الأرض" : "سفير القضية";
-  const w = size === "xs" ? 36 : 48;
-  const h = size === "xs" ? 40 : 54;
+  const w = size === "xs" ? 36 : size === "md" ? 64 : 48;
+  const h = size === "xs" ? 40 : size === "md" ? 72 : 54;
 
   return (
     <div className="inline-flex items-center gap-1.5 rounded-full"
@@ -1255,7 +1255,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
   const [walletOpen,  setWalletOpen]  = useState(false);
   const [pointsOpen,  setPointsOpen]  = useState(false);
-  const [logOpen,     setLogOpen]     = useState(false);
 
   // ── P2P Call System ──────────────────────────────────────────────────────
   const [callState,    setCallState]    = useState<ActiveCall | null>(null);
@@ -1629,32 +1628,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     }
   }
 
-  const [homeAdded, setHomeAdded] = useState(false);
-
-  function handleAddToHomeScreen() {
-    const tg = window.Telegram?.WebApp as (typeof window.Telegram.WebApp & {
-      addToHomeScreen?: () => void;
-      onEvent?: (ev: string, cb: () => void) => void;
-    }) | undefined;
-    if (tg?.addToHomeScreen) {
-      tg.onEvent?.("home_screen_added", () => setHomeAdded(true));
-      tg.addToHomeScreen();
-    } else {
-      // Fallback: copy the direct deep link to clipboard
-      navigator.clipboard.writeText(botDeepLink).catch(() => {});
-      setHomeAdded(true);
-      setTimeout(() => setHomeAdded(false), 2500);
-    }
-  }
-
-  const joinDate = new Date(userData.createdAt).toLocaleDateString("ar-SY", { year: "numeric", month: "long", day: "numeric" });
-
-  const activities = [
-    ...(userData.level > 1 ? [{ emoji: "🧠", text: `أكملت ${userData.level - 1} مستوى في محرك المعرفة`, sub: `المستوى الحالي: ${userData.level}`, color: GOLD }] : []),
-    ...(userData.loyaltyPoints > 0 ? [{ emoji: "⭐", text: `جمعت ${userData.loyaltyPoints.toLocaleString()} نقطة ولاء`, sub: "من الأسئلة ومشاهدة الإعلانات", color: GREEN }] : []),
-    ...(userData.keysConfirmed ? [{ emoji: "🔐", text: "أكّدت مفاتيح الأمان الثلاثة", sub: "حسابك محمي بالكامل", color: "#60a5fa" }] : []),
-    { emoji: "🌿", text: "انضممت إلى مبادرة التحرير العلوي", sub: joinDate, color: GREEN },
-  ];
 
   return (
     <motion.div
@@ -1740,7 +1713,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               color: profileTab === "inbox" ? "#60a5fa" : "rgba(255,255,255,0.35)",
             }}>
             <Mail className="w-3.5 h-3.5" />
-            الرسائل
+            مراسلاتي
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
                 style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}>
@@ -1933,61 +1906,59 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
       {/* ── Friends tab ── */}
       {profileTab === "friends" && !chatPartner && !friendProfile && (
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-          {/* Compact invite row */}
-          <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
-            style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
-            <div className="flex-1 min-w-0">
-              <p className="font-arabic text-[9px] text-white/30 mb-0.5">كود الدعوة</p>
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Fixed top invite panel */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-2"
+            style={{ borderBottom: "1px solid rgba(34,197,94,0.12)" }}>
+            <p className="font-arabic text-[10px] text-white/35 text-center" dir="rtl">دعوة صديق للانضمام</p>
+            <div className="flex gap-2" dir="rtl">
+              {/* WhatsApp */}
               <button
-                onClick={() => navigator.clipboard.writeText(botDeepLink)}
-                className="flex items-center gap-1 active:opacity-60 transition-opacity">
-                <span className="font-mono text-xs font-bold" style={{ color: GREEN }}>{referralCode}</span>
-                <Copy className="w-3 h-3 opacity-40" style={{ color: GREEN }} />
+                onClick={() => {
+                  const wa = `https://wa.me/?text=${encodeURIComponent(`🔰 A.L.I — مبادرة التحرير العلوي\nانضم إليّ مباشرةً في التطبيق:\n${botDeepLink}`)}`;
+                  window.Telegram?.WebApp?.openLink?.(wa) ?? window.open(wa, "_blank");
+                }}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-2xl active:scale-95 transition-all"
+                style={{ background: "rgba(37,211,102,0.1)", border: "1.5px solid rgba(37,211,102,0.3)" }}>
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.558 4.121 1.533 5.858L0 24l6.335-1.509A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-5.003-1.372l-.36-.213-3.76.896.939-3.658-.234-.375A9.793 9.793 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+                <span className="font-arabic text-[10px] font-bold" style={{ color: "#25D366" }}>واتساب</span>
+              </button>
+
+              {/* Telegram */}
+              <button
+                onClick={openInviteLink}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-2xl active:scale-95 transition-all"
+                style={{ background: "rgba(41,182,246,0.1)", border: "1.5px solid rgba(41,182,246,0.3)" }}>
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#29B6F6"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                <span className="font-arabic text-[10px] font-bold" style={{ color: "#29B6F6" }}>تيليغرام</span>
+              </button>
+
+              {/* Copy link */}
+              <button
+                onClick={() => { navigator.clipboard.writeText(botDeepLink); }}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-2xl active:scale-95 transition-all"
+                style={{ background: `rgba(212,175,55,0.1)`, border: `1.5px solid rgba(212,175,55,0.3)` }}>
+                <Copy className="w-5 h-5" style={{ color: GOLD }} />
+                <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>نسخ الرابط</span>
               </button>
             </div>
-            <button onClick={openInviteLink}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-arabic text-xs font-bold active:scale-95 transition-all flex-shrink-0"
-              style={{ background: "rgba(34,197,94,0.18)", border: `1.5px solid ${GREEN}45`, color: GREEN }}>
-              <Gift className="w-3.5 h-3.5" />
-              دعوة صديق
-            </button>
           </div>
 
-          {/* Add to Home Screen row */}
-          <button
-            onClick={handleAddToHomeScreen}
-            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 active:scale-[0.98] transition-all"
-            style={{
-              background: homeAdded ? "rgba(212,175,55,0.12)" : "rgba(212,175,55,0.06)",
-              border: `1px solid ${GOLD}${homeAdded ? "55" : "25"}`,
-            }}
-            dir="rtl">
-            <div className="flex items-center justify-center rounded-xl flex-shrink-0"
-              style={{ width: 36, height: 36, background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>
-              {homeAdded
-                ? <Check className="w-4 h-4" style={{ color: GOLD }} />
-                : <Smartphone className="w-4 h-4" style={{ color: GOLD }} />}
-            </div>
-            <div className="flex-1 text-right">
-              <p className="font-arabic font-bold text-sm" style={{ color: GOLD }}>
-                {homeAdded ? "تم الإضافة!" : "أضف للشاشة الرئيسية"}
-              </p>
-              <p className="font-arabic text-[10px] text-white/35 leading-tight mt-0.5">
-                {homeAdded
-                  ? "يمكنك فتح التطبيق مباشرة من شاشتك"
-                  : "افتح التطبيق مباشرة بدون المرور بالبوت"}
-              </p>
-            </div>
-          </button>
-          <ReferralCount telegramId={telegramId} />
-          <NetworkSection
-            myTelegramId={telegramId}
-            onMessage={(u) => handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole ?? null, rank: u.rank, level: u.level })}
-            onViewFriend={(u) => setFriendProfile(u)}
-            onCall={(u) => handleInitiateCall(u.telegramId, u.pseudonym)}
-            autoExpand
-          />
+          {/* Scrollable friend list */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <ReferralCount telegramId={telegramId} />
+            <NetworkSection
+              myTelegramId={telegramId}
+              onMessage={(u) => {
+                setProfileTab("inbox");
+                handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole ?? null, rank: u.rank, level: u.level });
+              }}
+              onViewFriend={(u) => setFriendProfile(u)}
+              onCall={(u) => handleInitiateCall(u.telegramId, u.pseudonym)}
+              autoExpand
+            />
+          </div>
         </div>
       )}
 
@@ -1996,164 +1967,140 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
       <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-4">
 
         {/* ── HERO ── */}
-        <div className="flex flex-col items-center pt-6 pb-2 text-center" dir="rtl">
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handlePhotoSelect}
-          />
+        <div className="pt-5 pb-2" dir="rtl">
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
 
-          {/* Avatar */}
-          <div className="relative mb-4" style={{ filter: "drop-shadow(0 0 28px rgba(212,175,55,0.42))" }}>
-            <AvatarFrame
-              photoUrl={photoUrl}
-              initials={initials}
-              civicRole={civicRole}
-              size={120}
-              accent={GOLD}
-              onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
-            />
-            <button
-              onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
-              disabled={uploadingPhoto}
-              className="absolute flex items-center justify-center rounded-full active:scale-90 transition-all"
-              style={{
-                bottom: 2, right: civicRole === "guardian" ? Math.round(120 * 0.44) + 2 : civicRole === "ambassador" ? Math.round(120 * 0.21) + 2 : 2,
-                width: 30, height: 30,
-                background: "rgba(0,20,12,0.88)",
-                border: `1.5px solid ${GOLD}55`,
-                zIndex: 10,
-              }}
-            >
-              {uploadingPhoto
-                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: GOLD }} />
-                : <Camera className="w-4 h-4" style={{ color: GOLD }} />}
-            </button>
-            {user?.is_premium && (
-              <div className="absolute -top-1 flex items-center justify-center"
-                style={{ left: civicRole === "guardian" ? Math.round(120 * 0.44) - 8 : civicRole === "ambassador" ? Math.round(120 * 0.21) - 8 : -8, width: 22, height: 22, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
-                <Star className="w-2.5 h-2.5 text-white" fill="white" />
-              </div>
-            )}
-          </div>
+          {/* Row: avatar (LEFT) + identity info (RIGHT) */}
+          <div className="flex items-start gap-3">
 
-          {/* Name */}
-          <h2 className="font-arabic font-black text-white text-xl leading-tight mb-0.5">{pseudonym}</h2>
-
-          {/* Rank badge */}
-          <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-3"
-            style={{ background: `${rankInfo.current.color}18`, border: `1.5px solid ${rankInfo.current.color}50`, boxShadow: `0 0 16px ${rankInfo.current.color}25` }}>
-            <Shield className="w-3.5 h-3.5" style={{ color: rankInfo.current.color }} />
-            <span className="font-mono font-bold text-xs" style={{ color: rankInfo.current.color }}>
-              {rankInfo.current.name}
-            </span>
-          </div>
-
-          {/* ── Identity mini-card (embedded in hero) ── */}
-          <div className="w-full mb-3" dir="rtl">
-            <div className="rounded-2xl overflow-hidden"
-              style={{ background: "rgba(0,0,0,0.22)", border: `1.5px solid ${GOLD}22` }}>
-              {/* Header */}
-              <div className="flex items-center gap-2 px-3 py-2"
-                style={{ background: "rgba(212,175,55,0.06)", borderBottom: `1px solid ${GOLD}15` }}>
-                <Shield className="w-3.5 h-3.5" style={{ color: GOLD }} />
-                <span className="font-arabic text-xs font-bold" style={{ color: GOLD }}>هوية العضو</span>
-              </div>
-              {/* رقم الهوية | الرتبة */}
-              <div className="grid grid-cols-2">
-                <div className="px-3 py-2.5"
-                  style={{ borderBottom: `1px solid ${GOLD}10`, borderLeft: "1px solid rgba(212,175,55,0.08)" }}>
-                  <p className="font-arabic text-[9px] text-white/35 mb-0.5">رقم الهوية</p>
-                  <p className="font-mono text-[#d4af37] text-xs font-bold tracking-widest">{userData.aliId}</p>
+            {/* Avatar — golden border only, no wings/swords */}
+            <div className="relative flex-shrink-0" style={{ filter: "drop-shadow(0 0 22px rgba(212,175,55,0.48))" }}>
+              <AvatarFrame
+                photoUrl={photoUrl}
+                initials={initials}
+                civicRole={null}
+                size={88}
+                accent={GOLD}
+                onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+              />
+              <button
+                onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="absolute bottom-0 right-0 flex items-center justify-center rounded-full active:scale-90 transition-all"
+                style={{ width: 26, height: 26, background: "rgba(0,20,12,0.9)", border: `1.5px solid ${GOLD}55`, zIndex: 10 }}>
+                {uploadingPhoto
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: GOLD }} />
+                  : <Camera className="w-3.5 h-3.5" style={{ color: GOLD }} />}
+              </button>
+              {user?.is_premium && (
+                <div className="absolute -top-1 -left-1 flex items-center justify-center"
+                  style={{ width: 20, height: 20, background: "linear-gradient(135deg,#7c3aed,#a855f7)", border: "2px solid #001a10", borderRadius: "50%", zIndex: 10 }}>
+                  <Star className="w-2.5 h-2.5 text-white" fill="white" />
                 </div>
-                <div className="px-3 py-2.5"
-                  style={{ borderBottom: `1px solid ${GOLD}10` }}>
-                  <p className="font-arabic text-[9px] text-white/35 mb-0.5">الرتبة</p>
-                  <p className="font-mono text-xs font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</p>
-                </div>
-              </div>
-              {/* Pseudonym with inline pencil edit button */}
-              <div className="px-3 py-2.5">
-                <AnimatePresence>
-                  {isEditing ? (
-                    <motion.div key="id-edit"
-                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }} className="space-y-2">
-                      <input
-                        dir="auto" value={editValue}
-                        onChange={e => { setEditValue(e.target.value); setEditError(""); }}
-                        onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
-                        maxLength={30} autoFocus
-                        placeholder="أدخل الاسم المستعار الجديد"
-                        className="w-full rounded-lg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-white/25"
-                        style={{
-                          background: "rgba(255,255,255,0.07)",
-                          border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`,
-                          caretColor: "#d4af37",
-                        }}
-                      />
-                      {editError && <p className="font-arabic text-[11px] text-red-400">{editError}</p>}
-                      <div className="flex gap-2">
-                        <button onClick={handleSave} disabled={updateMutation.isPending}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
-                          style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
-                          {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                          {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
-                        </button>
-                        <button onClick={cancelEdit} disabled={updateMutation.isPending}
-                          className="px-4 py-2 rounded-lg font-arabic text-xs font-bold active:scale-95 transition-all disabled:opacity-60"
-                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div key="id-display" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                      className="flex items-center justify-between gap-2">
-                      <div className="text-right">
-                        <p className="font-arabic text-[9px] text-white/35 mb-0.5">الاسم المستعار</p>
-                        <p className="font-mono text-white/80 text-sm font-bold">{pseudonym}</p>
-                      </div>
-                      <button onClick={startEdit}
-                        className="flex items-center justify-center rounded-xl flex-shrink-0 active:scale-90 transition-transform"
-                        style={{ width: 30, height: 30, background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.28)" }}>
-                        <Pencil className="w-3.5 h-3.5" style={{ color: GOLD }} />
+              )}
+            </div>
+
+            {/* Identity info */}
+            <div className="flex-1 min-w-0 pt-1">
+              {/* Name row + pencil */}
+              <AnimatePresence>
+                {isEditing ? (
+                  <motion.div key="name-edit"
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                    className="space-y-1.5">
+                    <input
+                      dir="auto" value={editValue}
+                      onChange={e => { setEditValue(e.target.value); setEditError(""); }}
+                      onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
+                      maxLength={30} autoFocus
+                      placeholder="الاسم المستعار الجديد"
+                      className="w-full rounded-lg px-3 py-1.5 font-mono text-sm text-white outline-none placeholder:text-white/25"
+                      style={{ background: "rgba(255,255,255,0.07)", border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`, caretColor: "#d4af37" }}
+                    />
+                    {editError && <p className="font-arabic text-[10px] text-red-400">{editError}</p>}
+                    <div className="flex gap-1.5">
+                      <button onClick={handleSave} disabled={updateMutation.isPending}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-arabic text-xs font-bold active:scale-95 disabled:opacity-60"
+                        style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
+                        {updateMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
                       </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <button onClick={cancelEdit} disabled={updateMutation.isPending}
+                        className="px-3 py-1.5 rounded-lg active:scale-95 disabled:opacity-60"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="name-display" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex items-center gap-1.5 flex-wrap">
+                    <h2 className="font-arabic font-black text-white text-lg leading-tight">{pseudonym}</h2>
+                    {civicRole && (
+                      <span className="font-arabic text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
+                        style={{
+                          background: civicRole === "guardian" ? "rgba(34,197,94,0.15)" : "rgba(96,165,250,0.15)",
+                          color: civicRole === "guardian" ? "#22c55e" : "#60a5fa",
+                          border: `1px solid ${civicRole === "guardian" ? "rgba(34,197,94,0.3)" : "rgba(96,165,250,0.3)"}`,
+                        }}>
+                        {civicRole === "guardian" ? "حارس الأرض" : "سفير القضية"}
+                      </span>
+                    )}
+                    <button onClick={startEdit}
+                      className="flex-shrink-0 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
+                      style={{ width: 26, height: 26, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
+                      <Pencil className="w-3 h-3" style={{ color: GOLD }} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* aliId + membership */}
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-arabic text-[9px] text-white/30">رقم العضوية</span>
+                  <span className="font-mono text-xs font-bold tracking-wider" style={{ color: GOLD }}>{userData.aliId}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-arabic text-[9px] text-white/30">الرتبة</span>
+                  <span className="font-mono text-[10px] font-bold" style={{ color: rankInfo.current.color }}>{userData.rank}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* ── Civic Role Selector + Shield inline ── */}
-          <div className="mt-2 w-full" dir="rtl">
-            <p className="font-arabic text-[11px] text-white/40 mb-2 text-center">الدور المدني (اختياري)</p>
-
-            {/* Role buttons + shield in same row */}
-            <div className="flex gap-2 justify-center flex-wrap items-center">
+          {/* ── Civic Role Selector ── */}
+          <div className="mt-4" dir="rtl">
+            <div className="flex gap-2">
               {[
-                { key: "guardian", label: "حارس الأرض", color: "#22c55e", desc: "🌿" },
-                { key: "ambassador", label: "سفير القضية", color: "#60a5fa", desc: "🕊️" },
+                { key: "guardian",   label: "حارس الأرض",  color: "#22c55e" },
+                { key: "ambassador", label: "سفير القضية", color: "#60a5fa" },
               ].map(opt => (
                 <button key={opt.key}
                   onClick={() => saveCivicRole(civicRole === opt.key ? null : opt.key)}
                   disabled={savingRole}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all active:scale-95 disabled:opacity-60"
-                  style={{
-                    background: civicRole === opt.key ? `${opt.color}18` : "rgba(0,0,0,0.2)",
-                    border: `1.5px solid ${civicRole === opt.key ? opt.color + "60" : "rgba(255,255,255,0.1)"}`,
-                    color: civicRole === opt.key ? opt.color : "rgba(255,255,255,0.35)",
-                  }}>
-                  {opt.desc} {opt.label}
-                  {civicRole === opt.key && <Check className="w-3 h-3 mr-0.5" />}
+                  className="flex-1 py-2.5 rounded-2xl font-arabic text-sm font-bold transition-all active:scale-95 disabled:opacity-60"
+                  style={civicRole === opt.key
+                    ? { background: `${opt.color}15`, border: `1.5px solid ${opt.color}60`, color: opt.color, boxShadow: `0 0 16px ${opt.color}22` }
+                    : { background: "rgba(0,0,0,0.18)", border: "1.5px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.22)", textShadow: "0 1px 6px rgba(0,0,0,0.7)" }
+                  }>
+                  {opt.label}
                 </button>
               ))}
-              {civicRole && <CivicRoleShield role={civicRole} size="sm" />}
             </div>
-
+            {/* Shield/Wings emblem below toggles */}
+            <AnimatePresence>
+              {civicRole && (
+                <motion.div key={civicRole}
+                  initial={{ opacity: 0, scale: 0.82, y: 6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.82, y: 6 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                  className="flex justify-center mt-3">
+                  <CivicRoleShield role={civicRole} size="md" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -2209,31 +2156,28 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     </div>
                   </div>
 
-                  {/* Digital wallet placeholder */}
+                  {/* Wallet address placeholder */}
                   <div className="rounded-2xl px-4 py-4"
                     style={{ background: "rgba(212,175,55,0.03)", border: `1px dashed rgba(212,175,55,0.22)` }}>
                     <div className="flex items-center gap-2 mb-3">
                       <Wallet className="w-3.5 h-3.5" style={{ color: `${GOLD}55` }} />
-                      <p className="font-arabic text-[11px] font-bold" style={{ color: `${GOLD}65` }}>محفظة العملات الرقمية</p>
+                      <p className="font-arabic text-[11px] font-bold" style={{ color: `${GOLD}65` }}>عنوان المحفظة</p>
                       <span className="font-mono text-[9px] px-2 py-0.5 rounded-full mr-auto"
                         style={{ background: "rgba(212,175,55,0.1)", color: `${GOLD}55`, border: `1px solid rgba(212,175,55,0.2)` }}>
                         قريباً
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      {[{ label: "عنوان الإيداع", icon: "📥" }, { label: "عنوان السحب", icon: "📤" }].map(item => (
-                        <div key={item.label} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
-                          style={{ background: "rgba(0,0,0,0.2)", border: `1px solid rgba(212,175,55,0.1)` }}>
-                          <span className="text-sm">{item.icon}</span>
-                          <p className="font-arabic text-[11px] text-white/30 flex-1">{item.label}</p>
-                          <span className="font-mono text-[10px] text-white/12 tracking-widest">••••••••••</span>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                      style={{ background: "rgba(0,0,0,0.2)", border: `1px solid rgba(212,175,55,0.1)` }}>
+                      <Lock className="w-4 h-4 flex-shrink-0" style={{ color: `${GOLD}50` }} />
+                      <span className="font-mono text-[11px] tracking-widest flex-1 text-right" style={{ color: "rgba(212,175,55,0.35)", letterSpacing: "0.2em" }}>
+                        ████████████████████████████████████
+                      </span>
                     </div>
-                    <p className="font-arabic text-[10px] text-white/20 text-center mt-3">تُفعَّل بعد الإيردروب الرسمي</p>
+                    <p className="font-arabic text-[10px] text-white/20 text-center mt-3">يُفعَّل بعد الإيردروب الرسمي</p>
                   </div>
 
-                  {/* Account keys – moved here */}
+                  {/* Account keys */}
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
                       <Lock className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
@@ -2243,6 +2187,12 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
                       <p className="font-arabic text-red-300/80 text-[11px] leading-5 text-center">
                         ⚠️ لا تشارك هذه المفاتيح مع أي أحد — إنها كلمات سرك الخاصة
+                      </p>
+                    </div>
+                    <div className="rounded-xl p-3"
+                      style={{ background: "rgba(212,175,55,0.08)", border: "1.5px solid rgba(212,175,55,0.35)" }}>
+                      <p className="font-arabic font-black text-[12px] leading-6 text-center" style={{ color: GOLD }}>
+                        🔑 فقدان هذه المفاتيح يعني فقدان رصيدك من $MDD يوم الإيردروب — احتفظ بها في مكان آمن
                       </p>
                     </div>
                     <KeyRow label="🔐 مفتاح الخزينة — Vault Key"    value={userData.vaultKey}    accent="#60a5fa" />
@@ -2333,7 +2283,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                   <p className="font-arabic text-[10px] text-white/35 text-center">مصادر كسب النقاط السيادية</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { emoji: "🔬", label: "الرصد الميداني", pts: "+5 / شهادة" },
+                      { emoji: "🔬", label: "رصد وتوثيق",     pts: "+5 / شهادة" },
                       { emoji: "🏆", label: "مسابقات ثقافية", pts: "+5 / سؤال" },
                       { emoji: "🧠", label: "محرك المعرفة",   pts: "+10 / مستوى" },
                     ].map(it => (
@@ -2345,52 +2295,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       </div>
                     ))}
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ── Card 3: سجل المساهمات ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(167,139,250,0.22)", background: "rgba(0,0,0,0.25)" }}>
-          <button
-            onClick={() => setLogOpen(p => !p)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
-            style={{
-              background: logOpen ? "rgba(167,139,250,0.1)" : "transparent",
-              borderBottom: logOpen ? "1px solid rgba(167,139,250,0.18)" : "none",
-              color: logOpen ? "#a78bfa" : "rgba(167,139,250,0.4)",
-            }}>
-            <span className="text-base">📋</span>
-            <div className="flex-1 text-right">
-              <p className="text-sm">سجل المساهمات</p>
-            </div>
-            <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-              style={{ transform: logOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
-          </button>
-
-          <AnimatePresence>
-            {logOpen && (
-              <motion.div key="log-content"
-                initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-                style={{ overflow: "hidden" }}>
-                <div style={{ borderTop: "1px solid rgba(167,139,250,0.12)" }}>
-                  {[
-                    { icon: "🔬", label: "وثائق مرفوعة للأرشيف",       value: "—", hint: "عبر تبويب الرصد" },
-                    { icon: "📊", label: "إحصائيات تمت المشاركة بها",   value: "—", hint: "عبر تبويب الرصد" },
-                    { icon: "🏆", label: "مسابقات ثقافية مُنجزة",       value: userData.level > 1 ? `${userData.level - 1}` : "—", hint: "عبر مركز ADAR" },
-                  ].map((row, i, arr) => (
-                    <div key={row.label} className="flex items-center gap-3 px-4 py-3"
-                      style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                      <span className="text-base flex-shrink-0">{row.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-arabic text-[11px] text-white/60">{row.label}</p>
-                        <p className="font-arabic text-[9px] text-white/25">{row.hint}</p>
-                      </div>
-                      <span className="font-mono text-sm font-bold" style={{ color: GREEN }}>{row.value}</span>
-                    </div>
-                  ))}
                 </div>
               </motion.div>
             )}
