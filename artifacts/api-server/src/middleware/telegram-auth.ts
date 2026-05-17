@@ -6,6 +6,7 @@ declare global {
   namespace Express {
     interface Request {
       telegramId?: string;
+      isPremium?:  boolean;
     }
   }
 }
@@ -42,8 +43,19 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
           if (ageSecs < 3600) {
             const userStr = params.get("user");
             if (userStr) {
-              const user = JSON.parse(userStr) as { id: number };
-              req.telegramId = String(user.id);
+              const user = JSON.parse(userStr) as {
+                id: number;
+                is_bot?: boolean;
+                is_premium?: boolean;
+              };
+              if (user.is_bot) {
+                logger.warn({ telegramId: String(user.id) }, "bot account blocked at auth");
+                // Leave req.telegramId undefined → protected routes return 401
+                next();
+                return;
+              }
+              req.telegramId  = String(user.id);
+              req.isPremium   = user.is_premium ?? false;
               next();
               return;
             }
