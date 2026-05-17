@@ -563,7 +563,6 @@ function ReelCard({
   isDeleting, isAdmin, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   onEditComment, onDeleteComment, onLikeComment,
-  cardRef, videoRef,
   networkQuality,
   globalMuted, onToggleMute,
 }: {
@@ -577,8 +576,6 @@ function ReelCard({
   onEditComment: (commentId: number, newText: string) => void;
   onDeleteComment: (commentId: number) => void;
   onLikeComment: (commentId: number) => void;
-  cardRef: (el: HTMLDivElement | null) => void;
-  videoRef: (el: HTMLVideoElement | null) => void;
   networkQuality: VideoQuality;
   globalMuted: boolean;
   onToggleMute: () => void;
@@ -605,12 +602,6 @@ function ReelCard({
   const bufTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localVideoRef  = useRef<HTMLVideoElement | null>(null);
-
-  // Combine external ref + local ref
-  const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
-    localVideoRef.current = el;
-    videoRef(el);
-  }, [videoRef]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -782,7 +773,7 @@ function ReelCard({
           {/* Video element */}
           {isVideo ? (
             <video
-              ref={setVideoRef}
+              ref={localVideoRef}
               src={article.mediaUrl}
               className="w-full h-full object-contain"
               style={{
@@ -1084,8 +1075,9 @@ export function MediaSection({
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const scrollRef         = useRef<HTMLDivElement>(null);
-  const cardRefs          = useRef<(HTMLDivElement | null)[]>([]);
-  const videoRefs         = useRef<(HTMLVideoElement | null)[]>([]);
+  // pendingIdxRef: tracks the most recent activateCard call so stale canplay
+  // callbacks from a previous card don't start playing a superseded card.
+  const pendingIdxRef     = useRef(-1);
   const activeIdxRef      = useRef(0);           // always in sync with activeIdx
   const globalMutedRef    = useRef(false);        // always in sync with globalMuted
   const didRestoreRef     = useRef(false);
@@ -1098,48 +1090,60 @@ export function MediaSection({
   useEffect(() => { articlesRef.current = articles; }, [articles]);
 
   // ── Core: activate a card by index ────────────────────────────────────────
-  // This is the single source of truth for play/pause.
-  // It works DIRECTLY on video DOM elements — no re-render needed for audio.
+  // Uses querySelectorAll on the live DOM — immune to React ref thrashing.
+  // pendingIdxRef prevents stale canplay callbacks from a previous activation
+  // from playing a card that has already been superseded by a newer swipe.
   const activateCard = useCallback((idx: number) => {
-    const arts = articlesRef.current;
-    if (idx < 0 || idx >= arts.length) return;
+    const container = scrollRef.current;
+    const arts      = articlesRef.current;
+    if (!container || idx < 0 || idx >= arts.length) return;
 
-    // 1. Pause ALL videos immediately (no audio bleed)
-    videoRefs.current.forEach((v, i) => {
-      if (!v) return;
-      if (i !== idx) {
-        v.pause();
-        v.currentTime = 0; // reset so next view starts from beginning
-      }
+    // Mark this as the latest pending activation (cancels previous canplay waits)
+    pendingIdxRef.current = idx;
+
+    // ── 1. Pause ALL videos via live DOM query (no ref issues) ──
+    container.querySelectorAll<HTMLVideoElement>("video").forEach(v => {
+      if (!v.paused) v.pause();
+      v.currentTime = 0;
     });
 
-    // 2. Play the target video
-    const target = videoRefs.current[idx];
+    // ── 2. Find and play the target video via data attribute ──
+    const targetCard  = container.querySelector<HTMLElement>(`[data-reel-idx="${idx}"]`);
+    const target      = targetCard?.querySelector<HTMLVideoElement>("video");
+
     if (target && isVideoUrl(arts[idx]?.mediaUrl ?? "")) {
-      target.muted = globalMutedRef.current;
-      // Ensure it's loaded
+      // Ensure the element starts loading if it hasn't yet
       if (target.networkState === HTMLMediaElement.NETWORK_EMPTY ||
           (target.networkState === HTMLMediaElement.NETWORK_IDLE && target.readyState < 3)) {
         target.load();
       }
-      const tryPlay = () => {
-        target.muted = globalMutedRef.current;
-        target.play().catch(() => {
-          // Blocked with sound → mute and retry
-          target.muted = true;
+
+      function tryPlay() {
+        // If a newer activation has occurred, abort
+        if (pendingIdxRef.current !== idx) return;
+        target!.muted = globalMutedRef.current;
+        target!.play().catch(() => {
+          if (pendingIdxRef.current !== idx) return;
+          // Autoplay with sound blocked → mute and retry (always works)
+          target!.muted = true;
           globalMutedRef.current = true;
           setGlobalMuted(true);
-          target.play().catch(() => {});
+          target!.play().catch(() => {});
         });
-      };
+      }
+
       if (target.readyState >= 3) {
         tryPlay();
       } else {
         target.addEventListener("canplay", tryPlay, { once: true });
+        // Safety: if canplay never fires (e.g. stalled), retry after 2 s
+        setTimeout(() => {
+          if (pendingIdxRef.current === idx && target.paused) tryPlay();
+        }, 2000);
       }
     }
 
-    // 3. Update React state (for UI buttons/overlays only)
+    // ── 3. Update React state (UI only — play/pause already done above) ──
     setActiveIdx(idx);
     activeIdxRef.current = idx;
   }, []);
@@ -1162,13 +1166,19 @@ export function MediaSection({
       if (idx !== activeIdxRef.current) activateCard(idx);
     }
 
+    // Helper: pause every video in the container via live DOM query (no ref issues)
+    function pauseAll() {
+      el.querySelectorAll<HTMLVideoElement>("video").forEach(v => { if (!v.paused) v.pause(); });
+    }
+
     // Strategy 1: touchend + 400ms (CSS snap animation takes ~300ms)
     let touchEndTimer: ReturnType<typeof setTimeout> | null = null;
     function onTouchStart() {
-      // Pause all videos the moment the user lifts — prevents audio during swipe
-      videoRefs.current.forEach(v => { if (v && !v.paused) v.pause(); });
+      // Pause all the moment the user starts swiping — zero audio bleed
+      pauseAll();
     }
     function onTouchEnd() {
+      pauseAll(); // pause again on lift in case touchstart was missed
       if (touchEndTimer) clearTimeout(touchEndTimer);
       touchEndTimer = setTimeout(commit, 400);
     }
@@ -1182,8 +1192,7 @@ export function MediaSection({
     // Strategy 3: scroll debounce 650ms (fallback for mouse wheel / programmatic)
     let scrollTimer: ReturnType<typeof setTimeout> | null = null;
     function onScroll() {
-      // Pause all during scroll
-      videoRefs.current.forEach(v => { if (v && !v.paused) v.pause(); });
+      pauseAll();
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(commit, 650);
     }
@@ -1410,9 +1419,13 @@ export function MediaSection({
     setGlobalMuted(m => {
       const next = !m;
       globalMutedRef.current = next;
-      // Apply immediately to the active video
-      const v = videoRefs.current[activeIdxRef.current];
-      if (v) v.muted = next;
+      // Apply immediately to the active video via DOM query (no ref issues)
+      const container = scrollRef.current;
+      if (container) {
+        const targetCard = container.querySelector<HTMLElement>(`[data-reel-idx="${activeIdxRef.current}"]`);
+        const v = targetCard?.querySelector<HTMLVideoElement>("video");
+        if (v) v.muted = next;
+      }
       return next;
     });
   }, []);
@@ -1475,8 +1488,6 @@ export function MediaSection({
             onEditComment={(commentId, newText) => handleEditComment(article.id, commentId, newText)}
             onDeleteComment={(commentId) => handleDeleteComment(article.id, commentId)}
             onLikeComment={(commentId) => handleLikeComment(article.id, commentId)}
-            cardRef={el => { cardRefs.current[idx] = el; }}
-            videoRef={el => { videoRefs.current[idx] = el; }}
             networkQuality={networkState.quality}
             globalMuted={globalMuted}
             onToggleMute={handleToggleMute}
