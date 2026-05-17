@@ -1063,7 +1063,7 @@ function MediaCard({
           )}
 
           {/* ── Mute / Unmute button — top-right corner (TikTok style) ── */}
-          {isVideo && mediaLoaded && effectiveQuality !== "low" && (
+          {isVideo && effectiveQuality !== "low" && (
             <motion.button
               className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.18)" }}
@@ -1492,13 +1492,15 @@ export function MediaSection({
       threshold: [0, 0.25, 0.5, 0.75, 1.0],
     });
 
-    // One rAF so cardRefs are populated after the first DOM commit
-    const raf = requestAnimationFrame(() => {
-      cardRefs.current.forEach(el => { if (el) io.observe(el); });
-    });
+    // refs (cardRefs) are committed before effects run — observe directly
+    cardRefs.current.forEach(el => { if (el) io.observe(el); });
 
-    return () => { cancelAnimationFrame(raf); io.disconnect(); };
-  }, [articles.length]); // re-run only when number of cards changes
+    return () => io.disconnect();
+  // IMPORTANT: depend on the full articles array, not just .length.
+  // When FALLBACK articles (N items) are replaced by real articles (also N items),
+  // articles.length stays the same but the DOM elements change. Without this,
+  // the IO keeps watching detached old elements and activeIdx never updates.
+  }, [articles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Immediate video pause on scroll — stops audio before IO fires ──────────
   useEffect(() => {
