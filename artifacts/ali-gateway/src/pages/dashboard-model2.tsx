@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, lazy, Suspense, memo } from "react";
+import React, { useState, useCallback, useEffect, lazy, Suspense, memo } from "react";
 import { useLocation } from "wouter";
 import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, FileText, Radio, Archive, Star } from "lucide-react";
+import { Play, FileText, Radio, Archive, Star, MessageSquare, Phone } from "lucide-react";
 
 // ── Lazy-loaded tab sections ──────────────────────────────────────────────────
 const MediaSection         = lazy(() => import("./model2/media").then(m => ({ default: m.MediaSection })));
@@ -21,7 +21,7 @@ const HEADER_H  = 68;   // px — must never change to prevent layout shift
 const TABBAR_H  = 64;   // px — must never change
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
-type Tab = "media" | "reports" | "field" | "docs" | "earn";
+type Tab = "media" | "reports" | "field" | "docs" | "earn" | "messages" | "calls";
 type TabIcon = (props: { size?: number; color?: string }) => JSX.Element | null;
 
 const TABS: { id: Tab; label: string; Icon: TabIcon }[] = [
@@ -113,19 +113,35 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ── Coming-soon placeholder ────────────────────────────────────────────────────
+function ComingSoonSection({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-4" dir="rtl">
+      <div className="w-20 h-20 rounded-full flex items-center justify-center"
+        style={{ background: `${GOLD}10`, border: `1.5px solid ${GOLD}25` }}>
+        {icon}
+      </div>
+      <p className="font-arabic font-bold text-lg" style={{ color: GOLD }}>{label}</p>
+      <p className="font-arabic text-white/40 text-sm">قريباً</p>
+    </div>
+  );
+}
+
 // ── Header (fixed height = HEADER_H px, never shifts) ────────────────────────
 const Model2Header = memo(function Model2Header({
   userData,
-  activeTab,
   onOpenProfile,
+  onOpenMessages,
+  onOpenCalls,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
-  activeTab: Tab;
-  onOpenProfile: () => void;
+  onOpenProfile:  () => void;
+  onOpenMessages: () => void;
+  onOpenCalls:    () => void;
 }) {
   return (
     <div
-      className="flex-shrink-0 flex items-center gap-3 px-4"
+      className="flex-shrink-0 flex items-stretch"
       style={{
         height: HEADER_H,
         background: "rgba(2,14,4,0.97)",
@@ -136,50 +152,49 @@ const Model2Header = memo(function Model2Header({
         zIndex: 20,
       }}>
 
-      {/* User avatar with level badge */}
+      {/* ── Zone 1: Profile (avatar + name) ── tap → profile */}
       <button
         onClick={onOpenProfile}
-        className="relative flex-shrink-0 active:scale-90 transition-transform"
+        className="flex items-center gap-2.5 px-4 active:bg-white/5 transition-colors min-w-0"
+        style={{ flex: "1 1 0" }}
         aria-label="الملف الشخصي">
-        <AliEmblem className="w-10 h-10" animate={false} />
-        <span
-          className="absolute -bottom-1 -left-1 font-mono text-[8px] font-black px-1 rounded-full"
-          style={{ background: GOLD, color: "#001a10", lineHeight: "14px" }}>
-          {userData.level}
-        </span>
+        <AliEmblem className="w-10 h-10 flex-shrink-0" animate={false} />
+        <div className="min-w-0 text-right" dir="rtl">
+          <p className="font-arabic font-bold text-sm text-white/90 truncate leading-tight">
+            {userData.pseudonym}
+          </p>
+          <p className="font-mono text-[10px] leading-tight" style={{ color: "rgba(255,255,255,0.35)" }}>
+            {userData.aliId}
+          </p>
+        </div>
       </button>
 
-      {/* Name + shield + rank — flex-1 to stay stable */}
-      <div className="flex-1 min-w-0" dir="rtl">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <button onClick={onOpenProfile}
-            className="font-arabic font-bold text-sm text-white/90 truncate active:opacity-70">
-            {userData.pseudonym}
-          </button>
-          {/* Golden shield badge */}
-          <span className="text-[13px] flex-shrink-0" title="درع المبادرة الذهبي">🛡</span>
-          <span
-            className="font-mono text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
-            style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}35`, color: GOLD }}>
-            LVL {userData.level}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-          <span className="font-mono">{userData.aliId}</span>
-          <span>·</span>
-          <span className="font-arabic">{userData.loyaltyPoints.toLocaleString()} نقطة</span>
-        </div>
-      </div>
+      {/* ── Zone 2: Messages (center) ── tap → messages */}
+      <button
+        onClick={onOpenMessages}
+        className="flex items-center justify-center active:bg-white/5 transition-colors flex-shrink-0"
+        style={{ width: 76 }}
+        aria-label="الرسائل">
+        <MessageSquare size={26} color="rgba(255,255,255,0.60)" />
+      </button>
 
-      {/* Adar logo — always visible, sized to fill the header height */}
-      <div className="flex-shrink-0 relative" style={{ width: 52, height: 52 }}>
+      {/* ── Zone 3: Calls + ADAR logo ── tap → calls */}
+      <button
+        onClick={onOpenCalls}
+        className="flex items-center justify-center gap-2.5 px-4 active:bg-white/5 transition-colors flex-shrink-0"
+        aria-label="المكالمات">
+        <Phone size={26} color="rgba(255,255,255,0.60)" />
         <img
           src="/adar-logo.png"
           alt="ADAR"
-          className="w-full h-full rounded-full object-cover"
-          style={{ border: `1.5px solid ${GOLD}55`, boxShadow: `0 0 16px ${GOLD}35` }}
+          className="rounded-full object-cover flex-shrink-0"
+          style={{
+            width: 44, height: 44,
+            border: `1.5px solid ${GOLD}55`,
+            boxShadow: `0 0 12px ${GOLD}30`,
+          }}
         />
-      </div>
+      </button>
     </div>
   );
 });
@@ -340,8 +355,9 @@ export default function DashboardModel2() {
           {/* ── Fixed header — height never changes ── */}
           <Model2Header
             userData={userData}
-            activeTab={activeTab}
             onOpenProfile={() => setShowProfile(true)}
+            onOpenMessages={() => setActiveTab("messages")}
+            onOpenCalls={() => setActiveTab("calls")}
           />
 
           {/* ── Tab content area — fills remaining space ── */}
@@ -355,11 +371,13 @@ export default function DashboardModel2() {
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}>
                 <Suspense fallback={<TabLoading />}>
-                  {activeTab === "media"   && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
-                  {activeTab === "reports" && <ReportsSection      telegramId={telegramId} />}
-                  {activeTab === "field"   && <FieldMonitorSection telegramId={telegramId} />}
-                  {activeTab === "docs"    && <DocumentationSection telegramId={telegramId} />}
-                  {activeTab === "earn"    && <EarnSection         telegramId={telegramId} />}
+                  {activeTab === "media"    && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
+                  {activeTab === "reports"  && <ReportsSection      telegramId={telegramId} />}
+                  {activeTab === "field"    && <FieldMonitorSection telegramId={telegramId} />}
+                  {activeTab === "docs"     && <DocumentationSection telegramId={telegramId} />}
+                  {activeTab === "earn"     && <EarnSection         telegramId={telegramId} />}
+                  {activeTab === "messages" && <ComingSoonSection icon={<MessageSquare size={40} color={GOLD} />} label="الرسائل" />}
+                  {activeTab === "calls"    && <ComingSoonSection icon={<Phone          size={40} color={GOLD} />} label="المكالمات" />}
                 </Suspense>
               </motion.div>
             </AnimatePresence>

@@ -824,32 +824,6 @@ function MediaCard({
         </div>
       )}
 
-      {/* ── Category + quality badge (top-right) ── */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
-        <span className="font-arabic text-[10px] px-3 py-1 rounded-full font-bold"
-          style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}35`, color: GOLD }}>
-          {isVideo ? "فيديو" : "إخباري"}
-        </span>
-
-        {/* Quality badge — tappable to open quality panel */}
-        {isVideo && (
-          <motion.button whileTap={{ scale: 0.9 }}
-            onClick={() => setQualityOpen(o => !o)}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-mono font-bold"
-            style={{
-              background:  effectiveQuality === "high"   ? "rgba(74,222,128,0.15)"
-                         : effectiveQuality === "medium" ? `${GOLD}15`
-                         :                                 "rgba(248,113,113,0.15)",
-              border:      effectiveQuality === "high"   ? "1px solid rgba(74,222,128,0.35)"
-                         : effectiveQuality === "medium" ? `1px solid ${GOLD}35`
-                         :                                 "1px solid rgba(248,113,113,0.35)",
-              color:       QUALITY_META[effectiveQuality].dotColor,
-            }}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: QUALITY_META[effectiveQuality].dotColor }} />
-            {meta.badge}
-          </motion.button>
-        )}
-      </div>
 
       {/* ── Buffering spinner overlay (center) ── */}
       <AnimatePresence>
