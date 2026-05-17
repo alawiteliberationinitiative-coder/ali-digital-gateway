@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, sql, and, usersTable, articlesTable, articleLikesTable, articleCommentsTable } from "@workspace/db";
+import { db, eq, sql, and, usersTable, articlesTable, articleLikesTable, articleCommentsTable, commentLikesTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
 import { sendArticleToChannel, archiveMediaToTelegram } from "../lib/telegram-notify.js";
 
@@ -28,6 +28,8 @@ router.get("/articles", async (_req, res): Promise<void> => {
         authorPseudonym: articlesTable.authorPseudonym,
         authorAliId:     articlesTable.authorAliId,
         viewCount:       articlesTable.viewCount,
+        downloadCount:   articlesTable.downloadCount,
+        shareCount:      articlesTable.shareCount,
         createdAt:       articlesTable.createdAt,
         updatedAt:       articlesTable.updatedAt,
       })
@@ -437,14 +439,47 @@ router.post("/articles/:id/like", async (req, res): Promise<void> => {
   }
 });
 
-// ── GET /api/articles/:id/comments ────────────────────────────────────────────
-router.get("/articles/:id/comments", async (req, res): Promise<void> => {
+// ── POST /api/articles/:id/download ──────────────────────────────────────────
+router.post("/articles/:id/download", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
   try {
+    await db.update(articlesTable)
+      .set({ downloadCount: sql`${articlesTable.downloadCount} + 1` })
+      .where(eq(articlesTable.id, id));
+    const [row] = await db.select({ downloadCount: articlesTable.downloadCount }).from(articlesTable).where(eq(articlesTable.id, id));
+    res.json({ downloadCount: row?.downloadCount ?? 0 });
+  } catch { res.json({ downloadCount: 0 }); }
+});
+
+// ── POST /api/articles/:id/share ─────────────────────────────────────────────
+router.post("/articles/:id/share", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  try {
+    await db.update(articlesTable)
+      .set({ shareCount: sql`${articlesTable.shareCount} + 1` })
+      .where(eq(articlesTable.id, id));
+    const [row] = await db.select({ shareCount: articlesTable.shareCount }).from(articlesTable).where(eq(articlesTable.id, id));
+    res.json({ shareCount: row?.shareCount ?? 0 });
+  } catch { res.json({ shareCount: 0 }); }
+});
+
+// ── GET /api/articles/:id/comments ────────────────────────────────────────────
+// Returns comments with like counts + whether current user liked each one.
+router.get("/articles/:id/comments", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  const myId = req.telegramId ?? "";
+  try {
     const rows = await db.select().from(articleCommentsTable)
       .where(eq(articleCommentsTable.articleId, id));
-    res.json(rows);
+    // Attach like counts + liked status for each comment
+    const enriched = await Promise.all(rows.map(async c => {
+      const likes = await db.select().from(commentLikesTable).where(eq(commentLikesTable.commentId, c.id));
+      return { ...c, likeCount: likes.length, likedByMe: myId ? likes.some(l => l.telegramId === myId) : false };
+    }));
+    res.json(enriched);
   } catch {
     res.json([]);
   }
@@ -469,6 +504,52 @@ router.post("/articles/:id/comments", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err }, "comment insert failed");
     res.status(500).json({ error: "فشل حفظ التعليق" });
+  }
+});
+
+// ── PUT /api/articles/:id/comments/:commentId — edit own comment ──────────────
+router.put("/articles/:id/comments/:commentId", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const commentId = Number(req.params.commentId);
+  if (isNaN(commentId)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  const { text } = req.body as { text?: string };
+  if (!text?.trim()) { res.status(400).json({ error: "التعليق لا يمكن أن يكون فارغاً" }); return; }
+  if (text.length > 1000) { res.status(400).json({ error: "التعليق طويل جداً" }); return; }
+  try {
+    const [comment] = await db.select().from(articleCommentsTable).where(eq(articleCommentsTable.id, commentId));
+    if (!comment) { res.status(404).json({ error: "التعليق غير موجود" }); return; }
+    if (comment.telegramId !== telegramId) { res.status(403).json({ error: "يمكنك تعديل تعليقاتك فقط" }); return; }
+    const [updated] = await db.update(articleCommentsTable)
+      .set({ text: text.trim(), updatedAt: new Date() })
+      .where(eq(articleCommentsTable.id, commentId))
+      .returning();
+    res.json(updated);
+  } catch (err) {
+    req.log.error({ err }, "comment update failed");
+    res.status(500).json({ error: "فشل تعديل التعليق" });
+  }
+});
+
+// ── POST /api/articles/:id/comments/:commentId/like — toggle comment like ─────
+router.post("/articles/:id/comments/:commentId/like", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const commentId = Number(req.params.commentId);
+  if (isNaN(commentId)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  try {
+    const existing = await db.select().from(commentLikesTable)
+      .where(and(eq(commentLikesTable.commentId, commentId), eq(commentLikesTable.telegramId, telegramId)));
+    if (existing.length > 0) {
+      await db.delete(commentLikesTable).where(and(eq(commentLikesTable.commentId, commentId), eq(commentLikesTable.telegramId, telegramId)));
+    } else {
+      await db.insert(commentLikesTable).values({ commentId, telegramId });
+    }
+    const all = await db.select().from(commentLikesTable).where(eq(commentLikesTable.commentId, commentId));
+    res.json({ liked: existing.length === 0, likeCount: all.length });
+  } catch (err) {
+    req.log.error({ err }, "comment like failed");
+    res.status(500).json({ error: "فشل تسجيل الإعجاب" });
   }
 });
 

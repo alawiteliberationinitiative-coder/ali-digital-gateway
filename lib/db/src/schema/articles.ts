@@ -12,7 +12,9 @@ export const articlesTable = pgTable("ali_articles", {
   authorTelegramId: text("author_telegram_id").notNull(),
   authorPseudonym: text("author_pseudonym").notNull(),
   authorAliId: text("author_ali_id").notNull(),
-  viewCount: integer("view_count").notNull().default(0),
+  viewCount:     integer("view_count").notNull().default(0),
+  downloadCount: integer("download_count").notNull().default(0),
+  shareCount:    integer("share_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

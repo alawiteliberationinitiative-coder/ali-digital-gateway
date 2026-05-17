@@ -4,7 +4,7 @@ import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Wifi, WifiOff, Play, Pause, Gauge,
-  Share2, Link2, Check, Eye,
+  Share2, Link2, Check, Eye, Pencil,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -19,6 +19,8 @@ interface Article {
   authorPseudonym: string;
   authorAliId: string;
   viewCount?: number;
+  downloadCount?: number;
+  shareCount?: number;
   createdAt: string;
 }
 
@@ -27,7 +29,11 @@ function formatViews(n: number): string {
   if (n >= 1_000)     return `${(n / 1_000).toFixed(n % 1_000 < 100 ? 1 : 0)}K`;
   return String(n);
 }
-interface CommentData { id: number; text: string; ts: number; pseudonym?: string }
+interface CommentData {
+  id: number; text: string; ts: number;
+  pseudonym?: string; likeCount?: number;
+  likedByMe?: boolean; isOwn?: boolean;
+}
 
 type VideoQuality = "high" | "medium" | "low";
 
@@ -577,11 +583,104 @@ function ComposeSheet({
   );
 }
 
+// ── CommentRow ────────────────────────────────────────────────────────────────
+function CommentRow({ comment, isOwn, isAdmin, articleId, onEdit, onDelete, onLike }: {
+  comment:   CommentData;
+  isOwn:     boolean;
+  isAdmin:   boolean;
+  articleId: number;
+  onEdit:   (commentId: number, newText: string) => void;
+  onDelete: (commentId: number) => void;
+  onLike:   (commentId: number) => void;
+}) {
+  const [editMode, setEditMode] = useState(false);
+  const [draft,    setDraft]    = useState(comment.text);
+  return (
+    <div className="flex gap-2" dir="rtl">
+      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+        style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
+      <div className="flex-1 min-w-0">
+        {/* header row */}
+        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+          <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>
+            {comment.pseudonym || "عضو"}
+          </span>
+          {isOwn && !editMode && (
+            <span className="font-arabic text-[9px] text-white/30">(أنت)</span>
+          )}
+        </div>
+        {/* body */}
+        {editMode ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              className="flex-1 rounded-xl px-3 py-1.5 text-sm font-arabic text-white/80 outline-none"
+              style={{ background: "rgba(255,255,255,0.09)", border: `1px solid ${GOLD}30` }}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === "Enter" && draft.trim()) {
+                  onEdit(comment.id, draft.trim());
+                  setEditMode(false);
+                }
+                if (e.key === "Escape") { setDraft(comment.text); setEditMode(false); }
+              }}
+            />
+            <motion.button whileTap={{ scale: 0.9 }}
+              onClick={() => { if (draft.trim()) { onEdit(comment.id, draft.trim()); setEditMode(false); } }}
+              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: `${GOLD}25`, border: `1px solid ${GOLD}50` }}>
+              <Check size={12} color={GOLD} />
+            </motion.button>
+            <button onClick={() => { setDraft(comment.text); setEditMode(false); }}
+              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.07)" }}>
+              <X size={12} color="rgba(255,255,255,0.5)" />
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-2xl rounded-tr-sm px-3 py-2 text-xs"
+            style={{ background: isOwn ? `${GOLD}09` : "rgba(255,255,255,0.06)", border: isOwn ? `1px solid ${GOLD}18` : "none" }}>
+            <p className="font-arabic text-white/80 leading-relaxed">{comment.text}</p>
+          </div>
+        )}
+        {/* action row */}
+        {!editMode && (
+          <div className="flex items-center gap-3 mt-1.5 px-1">
+            {/* Like comment */}
+            <motion.button whileTap={{ scale: 1.3 }} onClick={() => onLike(comment.id)}
+              className="flex items-center gap-1">
+              <Heart size={11} color={GOLD} fill={comment.likedByMe ? GOLD : "none"}
+                style={{ filter: `drop-shadow(0 0 2px ${GOLD}70)` }} />
+              {(comment.likeCount ?? 0) > 0 && (
+                <span className="font-mono text-[9px]" style={{ color: GOLD }}>{comment.likeCount}</span>
+              )}
+            </motion.button>
+            {/* Edit (own only) */}
+            {isOwn && (
+              <motion.button whileTap={{ scale: 1.2 }} onClick={() => setEditMode(true)}>
+                <Pencil size={11} color="rgba(255,255,255,0.35)" />
+              </motion.button>
+            )}
+            {/* Delete (own or admin) */}
+            {(isOwn || isAdmin) && (
+              <motion.button whileTap={{ scale: 1.2 }} onClick={() => onDelete(comment.id)}>
+                <Trash2 size={11} color="rgba(239,68,68,0.55)" />
+              </motion.button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
   article, idx, isActive, liked, likeCount, articleComments, isCommentOpen,
-  isDeleting, isAdmin, saved, downloadCount, shareCount, commentText,
+  isDeleting, isAdmin, myTelegramId, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
+  onEditComment, onDeleteComment, onLikeComment,
   cardRef, networkState,
 }: {
   article:         Article;
@@ -593,6 +692,7 @@ function MediaCard({
   isCommentOpen:   boolean;
   isDeleting:      boolean;
   isAdmin:         boolean;
+  myTelegramId:    string;
   saved:           boolean;
   downloadCount:   number;
   shareCount:      number;
@@ -604,6 +704,9 @@ function MediaCard({
   onShare:             () => void;
   onAddComment:        () => void;
   onCommentTextChange: (v: string) => void;
+  onEditComment:   (commentId: number, newText: string) => void;
+  onDeleteComment: (commentId: number) => void;
+  onLikeComment:   (commentId: number) => void;
   cardRef:         (el: HTMLDivElement | null) => void;
   networkState:    NetworkState;
 }) {
@@ -1022,14 +1125,16 @@ function MediaCard({
               {articleComments.length === 0
                 ? <p className="font-arabic text-white/30 text-sm text-center py-6">لا توجد تعليقات بعد</p>
                 : articleComments.map(c => (
-                    <div key={c.id} className="flex gap-2">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
-                        style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
-                      <div className="rounded-2xl rounded-tr-sm px-3 py-2 text-xs flex-1"
-                        style={{ background: "rgba(255,255,255,0.06)" }}>
-                        <p className="font-arabic text-white/80 leading-relaxed">{c.text}</p>
-                      </div>
-                    </div>
+                    <CommentRow
+                      key={c.id}
+                      comment={c}
+                      isOwn={c.isOwn ?? false}
+                      isAdmin={isAdmin}
+                      articleId={article.id}
+                      onEdit={onEditComment}
+                      onDelete={onDeleteComment}
+                      onLike={onLikeComment}
+                    />
                   ))}
             </div>
             <div className="flex items-center gap-2 px-3 py-3 border-t flex-shrink-0"
@@ -1099,11 +1204,16 @@ export function MediaSection({
             ]);
             setLikes(p => ({ ...p, [id]: lr.liked }));
             setLikeCounts(p => ({ ...p, [id]: lr.count }));
-            const mapped = (cr as Array<{ id: number; text: string; createdAt: string; pseudonym: string }>).map(c => ({
-              id: c.id,
-              text: c.text,
+            const article = list.find(a => a.id === id);
+            setDownloadCounts(p => ({ ...p, [id]: article?.downloadCount ?? 0 }));
+            setShareCounts(p => ({ ...p, [id]: article?.shareCount ?? 0 }));
+            const mapped = (cr as Array<{ id: number; text: string; createdAt: string; pseudonym: string; telegramId: string; likeCount: number; likedByMe: boolean }>).map(c => ({
+              id: c.id, text: c.text,
               ts: new Date(c.createdAt).getTime(),
               pseudonym: c.pseudonym,
+              likeCount: c.likeCount ?? 0,
+              likedByMe: c.likedByMe ?? false,
+              isOwn: c.telegramId === telegramId,
             }));
             setComments(p => ({ ...p, [id]: mapped }));
           } catch { /* ignore — fallback to 0 */ }
@@ -1181,14 +1291,20 @@ export function MediaSection({
       })
       .catch(() => {});
   }, []);
-  const handleShare     = useCallback((id: number) => setShareCounts(c => ({ ...c, [id]: (c[id] ?? 0) + 1 })), []);
+  const handleShare     = useCallback((id: number) => {
+    setShareCounts(c => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+    if (id > 0) apiFetch(`/api/articles/${id}/share`, { method: "POST" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.shareCount !== undefined) setShareCounts(c => ({ ...c, [id]: d.shareCount })); })
+      .catch(() => {});
+  }, []);
   const toggleComment = useCallback((id: number) => setOpenCard(p => p === id ? null : id), []);
   const addComment    = useCallback((id: number) => {
     const text = commentText.trim();
     if (!text) return;
     // Optimistic local add
     const tmpId = -Date.now();
-    setComments(p => ({ ...p, [id]: [...(p[id] ?? []), { id: tmpId, text, ts: Date.now(), pseudonym: "" }] }));
+    setComments(p => ({ ...p, [id]: [...(p[id] ?? []), { id: tmpId, text, ts: Date.now(), pseudonym: "", isOwn: true, likeCount: 0, likedByMe: false }] }));
     setCommentText("");
     // Persist to API
     apiFetch(`/api/articles/${id}/comments`, {
@@ -1203,7 +1319,7 @@ export function MediaSection({
           setComments(p => ({
             ...p,
             [id]: (p[id] ?? []).map(c => c.id === tmpId
-              ? { id: saved.id, text: saved.text, ts: new Date(saved.createdAt).getTime(), pseudonym: saved.pseudonym }
+              ? { id: saved.id, text: saved.text, ts: new Date(saved.createdAt).getTime(), pseudonym: saved.pseudonym, isOwn: true, likeCount: 0, likedByMe: false }
               : c
             ),
           }));
@@ -1227,6 +1343,41 @@ export function MediaSection({
     saveMedia(article.mediaUrl);
     setSavedIds(p => new Set([...p, article.id]));
     setDownloadCounts(c => ({ ...c, [article.id]: (c[article.id] ?? 0) + 1 }));
+    if (article.id > 0) apiFetch(`/api/articles/${article.id}/download`, { method: "POST" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.downloadCount !== undefined) setDownloadCounts(c => ({ ...c, [article.id]: d.downloadCount })); })
+      .catch(() => {});
+  }, []);
+
+  const handleEditComment = useCallback((articleId: number, commentId: number, newText: string) => {
+    setComments(p => ({ ...p, [articleId]: (p[articleId] ?? []).map(c => c.id === commentId ? { ...c, text: newText } : c) }));
+    apiFetch(`/api/articles/${articleId}/comments/${commentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: newText }),
+    }).catch(() => {});
+  }, []);
+
+  const handleDeleteComment = useCallback((articleId: number, commentId: number) => {
+    setComments(p => ({ ...p, [articleId]: (p[articleId] ?? []).filter(c => c.id !== commentId) }));
+    apiFetch(`/api/articles/${articleId}/comments/${commentId}`, { method: "DELETE" }).catch(() => {});
+  }, []);
+
+  const handleLikeComment = useCallback((articleId: number, commentId: number) => {
+    setComments(p => ({
+      ...p,
+      [articleId]: (p[articleId] ?? []).map(c => c.id === commentId
+        ? { ...c, likedByMe: !c.likedByMe, likeCount: (c.likeCount ?? 0) + (c.likedByMe ? -1 : 1) }
+        : c),
+    }));
+    apiFetch(`/api/articles/${articleId}/comments/${commentId}/like`, { method: "POST" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) setComments(p => ({
+          ...p,
+          [articleId]: (p[articleId] ?? []).map(c => c.id === commentId ? { ...c, likedByMe: d.liked, likeCount: d.likeCount } : c),
+        }));
+      }).catch(() => {});
   }, []);
   const handlePublished = useCallback((article: Article) => {
     // Newest articles go at the bottom (ascending order)
@@ -1260,6 +1411,7 @@ export function MediaSection({
             isCommentOpen={openCard === article.id}
             isDeleting={deletingId === article.id}
             isAdmin={isAdmin}
+            myTelegramId={telegramId ?? ""}
             saved={savedIds.has(article.id)}
             downloadCount={downloadCounts[article.id] ?? 0}
             shareCount={shareCounts[article.id] ?? 0}
@@ -1271,6 +1423,9 @@ export function MediaSection({
             onShare={() => handleShare(article.id)}
             onAddComment={() => addComment(article.id)}
             onCommentTextChange={setCommentText}
+            onEditComment={(commentId, newText) => handleEditComment(article.id, commentId, newText)}
+            onDeleteComment={(commentId) => handleDeleteComment(article.id, commentId)}
+            onLikeComment={(commentId) => handleLikeComment(article.id, commentId)}
             cardRef={el => { cardRefs.current[idx] = el; }}
             networkState={networkState}
           />

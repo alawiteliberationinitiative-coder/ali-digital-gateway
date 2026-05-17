@@ -15,4 +15,12 @@ export const articleCommentsTable = pgTable("article_comments", {
   pseudonym:  text("pseudonym").notNull(),
   text:       text("text").notNull(),
   createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const commentLikesTable = pgTable("comment_likes", {
+  id:         serial("id").primaryKey(),
+  commentId:  integer("comment_id").notNull().references(() => articleCommentsTable.id, { onDelete: "cascade" }),
+  telegramId: text("telegram_id").notNull(),
+  createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => ({ uniq: unique().on(t.commentId, t.telegramId) }));
