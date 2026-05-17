@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Wifi, WifiOff, Play, Pause, Gauge,
   Share2, Link2, Check, Eye, Pencil,
+  Volume2, VolumeX,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -121,6 +122,7 @@ function formatDateTime(iso: string) {
   } catch { return ""; }
 }
 const LAST_SEEN_KEY = "ali_last_seen_article";
+const MUTED_KEY     = "ali_video_muted";
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url);
 }
@@ -677,7 +679,8 @@ function CommentRow({ comment, isOwn, isAdmin, articleId, onEdit, onDelete, onLi
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article, idx, isActive, isNeighbor, liked, likeCount, articleComments, isCommentOpen,
+  article, idx, isActive, isNeighbor, globalMuted,
+  liked, likeCount, articleComments, isCommentOpen,
   isDeleting, isAdmin, myTelegramId, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   onEditComment, onDeleteComment, onLikeComment,
@@ -687,6 +690,7 @@ function MediaCard({
   idx:             number;
   isActive:        boolean;
   isNeighbor:      boolean;
+  globalMuted:     boolean;
   liked:           boolean;
   likeCount:       number;
   articleComments: CommentData[];
@@ -711,14 +715,13 @@ function MediaCard({
   cardRef:         (el: HTMLDivElement | null) => void;
   networkState:    NetworkState;
 }) {
-  const [mediaLoaded,     setMediaLoaded]     = useState(false);
-  const [mediaError,      setMediaError]      = useState(false);
-  const [isBuffering,     setIsBuffering]     = useState(false);
-  const [qualityOpen,     setQualityOpen]     = useState(false);
-  const [shareOpen,       setShareOpen]       = useState(false);
-  const [userPaused,      setUserPaused]      = useState(false);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [playHint,        setPlayHint]        = useState<"play" | "pause" | null>(null);
+  const [mediaLoaded,  setMediaLoaded]  = useState(false);
+  const [mediaError,   setMediaError]   = useState(false);
+  const [isBuffering,  setIsBuffering]  = useState(false);
+  const [qualityOpen,  setQualityOpen]  = useState(false);
+  const [shareOpen,    setShareOpen]    = useState(false);
+  const [userPaused,   setUserPaused]   = useState(false);
+  const [playHint,     setPlayHint]     = useState<"play" | "pause" | null>(null);
   const [localViews,      setLocalViews]      = useState(article.viewCount ?? 0);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
@@ -763,18 +766,13 @@ function MediaCard({
     }
   }, [isActive, isNeighbor, isVideo, effectiveQuality]);
 
-  // ── 3. PLAY — direct DOM listener; catches browser autoplay-policy rejection ─
+  // ── 3. PLAY — muted videos autoplay without policy issues ────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
 
     function tryPlay() {
-      video!.play().then(() => {
-        setAutoplayBlocked(false);
-      }).catch(() => {
-        // Browser blocked unmuted autoplay — show tap-to-play button
-        setAutoplayBlocked(true);
-      });
+      video!.play().catch(() => {});
     }
 
     if (video.readyState >= 3) {
@@ -785,12 +783,9 @@ function MediaCard({
     }
   }, [isActive, isVideo, effectiveQuality, userPaused]);
 
-  // Reset user-pause + autoplayBlocked when card changes
+  // Reset user-pause when card changes
   useEffect(() => {
-    if (isActive) {
-      setUserPaused(false);
-      setAutoplayBlocked(false);
-    }
+    if (isActive) setUserPaused(false);
   }, [isActive]);
 
   // ── Buffering detection: show quality panel after 2.5 s of stalling ────────
@@ -872,6 +867,7 @@ function MediaCard({
   return (
     <div
       ref={cardRef}
+      data-card-idx={idx}
       className="relative flex flex-col overflow-hidden"
       style={{ height: "100%", scrollSnapAlign: "start", scrollSnapStop: "always", flexShrink: 0, background: CARD_BG[idx % CARD_BG.length] }}>
 
@@ -924,7 +920,7 @@ function MediaCard({
               }}
               loop
               playsInline
-              autoPlay={isActive && effectiveQuality !== "low" && !userPaused}
+              muted={globalMuted}
               preload={preloadAttr}
               onCanPlay={() => setMediaLoaded(true)}
               onError={() => setMediaError(true)}
@@ -975,7 +971,7 @@ function MediaCard({
 
       {/* ── Buffering / slow-network spinner overlay ── */}
       <AnimatePresence>
-        {isVideo && (isBuffering || (!mediaLoaded && isActive)) && effectiveQuality !== "low" && !autoplayBlocked && (
+        {isVideo && (isBuffering || (!mediaLoaded && isActive)) && effectiveQuality !== "low" && (
           <motion.div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="rounded-full p-4" style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(4px)" }}>
@@ -985,27 +981,6 @@ function MediaCard({
         )}
       </AnimatePresence>
 
-      {/* ── Autoplay blocked: tap-to-play overlay ── */}
-      <AnimatePresence>
-        {isVideo && autoplayBlocked && isActive && !userPaused && effectiveQuality !== "low" && (
-          <motion.div
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 cursor-pointer"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => {
-              setAutoplayBlocked(false);
-              const video = videoRef.current;
-              if (video) video.play().catch(() => {});
-            }}>
-            <div className="w-20 h-20 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: `2px solid ${GOLD}60` }}>
-              <Play size={34} color={GOLD} fill={GOLD} style={{ marginLeft: 4 }} />
-            </div>
-            <span className="font-arabic text-white/80 text-sm" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
-              اضغط للتشغيل
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Quality panel ── */}
       <AnimatePresence>
@@ -1242,6 +1217,10 @@ export function MediaSection({
   const [deletingId,  setDeletingId]  = useState<number | null>(null);
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
+  const [globalMuted, setGlobalMuted] = useState<boolean>(() => {
+    // Default: muted — autoplay always works; user can unmute with the button
+    return localStorage.getItem(MUTED_KEY) !== "false";
+  });
   const cardRefs          = useRef<(HTMLDivElement | null)[]>([]);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const didRestoreRef     = useRef(false);   // prevent double restore
@@ -1374,9 +1353,12 @@ export function MediaSection({
     const el = scrollRef.current;
     el?.addEventListener("scrollend", snapActiveIdx, { passive: true });
 
-    // Fallback debounced scroll for browsers without scrollend
+    // Fallback debounced scroll for browsers without scrollend.
+    // ALSO: immediately pause all videos on scroll start to prevent audio bleed.
     let scrollTimer: ReturnType<typeof setTimeout> | null = null;
     function onScroll() {
+      // ── TikTok trick: kill audio the instant user starts scrolling ──
+      scrollRef.current?.querySelectorAll("video").forEach(v => { if (!v.paused) v.pause(); });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(snapActiveIdx, 80);
     }
@@ -1537,6 +1519,7 @@ export function MediaSection({
             idx={idx}
             isActive={idx === activeIdx}
             isNeighbor={idx === activeIdx - 1 || idx === activeIdx + 1}
+            globalMuted={globalMuted}
             liked={!!likes[article.id]}
             likeCount={likeCounts[article.id] ?? 0}
             articleComments={comments[article.id] ?? []}
@@ -1563,6 +1546,34 @@ export function MediaSection({
           />
         ))}
       </div>
+
+      {/* ── Global mute / unmute button (TikTok style) ── */}
+      <motion.button
+        whileTap={{ scale: 0.88 }}
+        onClick={() => {
+          const next = !globalMuted;
+          setGlobalMuted(next);
+          localStorage.setItem(MUTED_KEY, String(next));
+          // Apply immediately to the currently playing video
+          const video = scrollRef.current?.querySelector<HTMLVideoElement>(
+            `[data-card-idx="${activeIdx}"] video`
+          );
+          if (video) {
+            video.muted = next;
+            if (!next && video.paused) video.play().catch(() => {});
+          }
+        }}
+        className="absolute z-30 flex items-center justify-center rounded-full"
+        style={{
+          top: 16, left: 16, width: 40, height: 40,
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(6px)",
+          border: `1.5px solid ${GOLD}50`,
+        }}>
+        {globalMuted
+          ? <VolumeX  size={18} color={GOLD} />
+          : <Volume2  size={18} color={GOLD} />}
+      </motion.button>
 
       {/* ── Admin FAB "+" ── */}
       {isAdmin && (
