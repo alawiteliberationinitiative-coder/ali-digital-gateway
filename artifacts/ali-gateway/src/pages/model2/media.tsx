@@ -4,7 +4,7 @@ import {
   Heart, MessageCircle, Send, X, ChevronDown,
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Wifi, WifiOff, Play, Pause, Gauge,
-  Share2, Link2, Check, Eye, Pencil,
+  Share2, Link2, Check, Eye, Pencil, Volume2, VolumeX,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -722,6 +722,9 @@ function MediaCard({
   const [localViews,      setLocalViews]      = useState(article.viewCount ?? 0);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
+  // isMuted: start unmuted (prefer sound); tryPlay falls back to muted if browser blocks autoplay
+  const [isMuted,         setIsMuted]         = useState(false);
+  const isMutedRef = useRef(false); // ref for reading inside async/event callbacks (avoids stale closure)
   const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playHintTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef      = useRef(true);
@@ -774,13 +777,31 @@ function MediaCard({
     }
   }, [isActive, isNeighbor, isVideo, effectiveQuality]);
 
-  // ── 3. PLAY — muted videos always autoplay without policy issues ──────────
+  // ── 3a. Keep video.muted in sync with isMuted state ─────────────────────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) video.muted = isMuted;
+  }, [isMuted]);
+
+  // ── 3. PLAY — prefer sound; fall back to muted if autoplay policy blocks it ─
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
 
-    function tryPlay() {
-      video!.play().catch(() => {});
+    async function tryPlay() {
+      const vid = video!;
+      vid.muted = isMutedRef.current;
+      try {
+        await vid.play();
+      } catch {
+        // Browser/WebView blocked autoplay with sound → mute and retry
+        if (!isMutedRef.current) {
+          vid.muted = true;
+          isMutedRef.current = true;
+          setIsMuted(true);
+          vid.play().catch(() => {});
+        }
+      }
     }
 
     if (video.readyState >= 3) {
@@ -952,6 +973,23 @@ function MediaCard({
           {/* ── Tap-to-play/pause transparent overlay ── */}
           {isVideo && effectiveQuality !== "low" && mediaLoaded && (
             <div className="absolute inset-0 z-[5] cursor-pointer" onClick={handleVideoTap} />
+          )}
+
+          {/* ── Mute / Unmute button — top-right corner (TikTok style) ── */}
+          {isVideo && mediaLoaded && effectiveQuality !== "low" && (
+            <motion.button
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.18)" }}
+              whileTap={{ scale: 0.85 }}
+              onClick={() => {
+                const next = !isMutedRef.current;
+                isMutedRef.current = next;
+                setIsMuted(next);
+              }}>
+              {isMuted
+                ? <VolumeX size={16} color="white" />
+                : <Volume2 size={16} color="white" />}
+            </motion.button>
           )}
 
           {/* ── Center play/pause hint (TikTok style) ── */}
