@@ -742,21 +742,35 @@ function MediaCard({
   const effectiveQuality: VideoQuality = selectedQuality ?? networkState.quality;
   const meta = QUALITY_META[effectiveQuality];
 
-  // ── Video play/pause — useLayoutEffect fires synchronously with DOM ────────
-  // This prevents the ~50-100ms window where old video keeps playing on scroll
+  // ── 1. IMMEDIATE PAUSE via useLayoutEffect — stops audio before next paint ─
+  // Only handles pause so we don't call play() before data is ready.
   useLayoutEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo) return;
-    if (isActive && effectiveQuality !== "low" && !userPaused) {
-      // If browser hasn't started loading yet, kick it off first
-      if (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0) {
-        video.load();
-      }
-      video.play().catch(() => {/* autoplay policy — user must interact */});
-    } else {
+    if (!isActive || effectiveQuality === "low" || userPaused) {
       video.pause();
     }
   }, [isActive, effectiveQuality, isVideo, userPaused]);
+
+  // ── 2. Start LOADING when card becomes active or neighbor ─────────────────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo || effectiveQuality === "low") return;
+    if ((isActive || isNeighbor) &&
+        (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0)) {
+      video.load();
+    }
+  }, [isActive, isNeighbor, isVideo, effectiveQuality]);
+
+  // ── 3. PLAY when video is ready (canPlay) and card is active ─────────────
+  // mediaLoaded flips to true inside onCanPlay — guarantees data is available.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo) return;
+    if (isActive && mediaLoaded && !userPaused && effectiveQuality !== "low") {
+      video.play().catch(() => {/* browser may still block — muted so unlikely */});
+    }
+  }, [isActive, mediaLoaded, userPaused, isVideo, effectiveQuality]);
 
   // Reset user-pause when a new card becomes active (scroll to next/prev)
   useEffect(() => {
@@ -824,11 +838,12 @@ function MediaCard({
       video.pause();
       return;
     }
-    // Force reload with new preload hint
+    // Force reload with new preload hint; reset mediaLoaded so effect #3 re-triggers play
     const t = video.currentTime;
+    setMediaLoaded(false);
     video.load();
     video.currentTime = t;
-    if (isActive) video.play().catch(() => {});
+    // play() is handled by effect #3 once onCanPlay fires again
   }
 
   // Preload attribute: active or neighbor cards always get "auto" to pre-buffer.
@@ -1238,12 +1253,23 @@ export function MediaSection({
     const savedId = parseInt(localStorage.getItem(LAST_SEEN_KEY) ?? "0", 10);
     if (!savedId) return;
     const targetIdx = articles.findIndex(a => a.id === savedId);
-    if (targetIdx <= 0) return;
+    if (targetIdx < 0) return;          // < 0 only — index 0 is valid
+    if (targetIdx === 0) {              // first card already shown, just mark done
+      didRestoreRef.current = true;
+      return;
+    }
     didRestoreRef.current = true;
-    requestAnimationFrame(() => {
-      cardRefs.current[targetIdx]?.scrollIntoView({ behavior: "instant" });
+    // Double-RAF: first frame measures layout, second applies the scroll
+    // so the scroll container has its full height before we compute scrollTop.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const cardH = el.clientHeight;
+      if (cardH > 0) {
+        el.scrollTop = targetIdx * cardH;
+      }
       setActiveIdx(targetIdx);
-    });
+    }));
   }, [articles]);
 
   // ── Persist last-seen article id whenever visible card changes ─────────────
