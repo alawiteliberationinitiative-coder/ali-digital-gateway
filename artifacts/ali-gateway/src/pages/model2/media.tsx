@@ -726,7 +726,7 @@ function MediaCard({
     <div
       ref={cardRef}
       className="relative flex flex-col overflow-hidden"
-      style={{ height: "100%", scrollSnapAlign: "start", flexShrink: 0, background: CARD_BG[idx % CARD_BG.length] }}>
+      style={{ height: "100%", scrollSnapAlign: "start", scrollSnapStop: "always", flexShrink: 0, background: CARD_BG[idx % CARD_BG.length] }}>
 
       {/* ambient glow */}
       <div className="absolute inset-0 pointer-events-none"
