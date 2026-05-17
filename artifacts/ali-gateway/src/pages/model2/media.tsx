@@ -716,7 +716,6 @@ function ReelCard({
 
   return (
     <div
-      ref={cardRef}
       data-reel-idx={idx}
       className="relative overflow-hidden flex-shrink-0"
       style={{
