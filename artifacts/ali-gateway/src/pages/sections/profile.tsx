@@ -828,30 +828,35 @@ function InboxView({ myTelegramId, onOpenChat, autoOpenPartnerId }: { myTelegram
             return (
               <button key={conv.partnerId}
                 onClick={() => onOpenChat({ telegramId: conv.partnerId, pseudonym: conv.pseudonym, aliId: conv.aliId, civicRole: conv.civicRole, rank: conv.rank, level: conv.level })}
-                className="w-full flex items-center gap-3 rounded-xl px-3 py-3 active:bg-white/5 transition-colors"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                {/* Avatar with unread dot */}
-                <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-mono font-black text-sm"
-                    style={{ background: `${rc}18`, border: `1.5px solid ${rc}30`, color: rc }}>
-                    {conv.pseudonym.slice(0, 2).toUpperCase()}
-                  </div>
-                  {conv.unread > 0 && (
-                    <div className="absolute -top-1 -left-1 rounded-full flex items-center justify-center font-mono font-black text-[9px] text-white"
-                      style={{ background: "#ef4444", minWidth: 16, minHeight: 16, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.6)" }}>
-                      {conv.unread}
+                className="w-full flex items-center gap-2.5 rounded-2xl px-3 py-2.5 active:scale-[0.98] transition-all"
+                style={{ background: "rgba(0,0,0,0.25)", border: "1.5px solid rgba(212,175,55,0.22)", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+                {/* LEFT: avatar circle + gold-bordered identity frame */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-mono font-black text-sm"
+                      style={{ background: `${rc}18`, border: `1.5px solid ${rc}40`, color: rc }}>
+                      {conv.pseudonym.slice(0, 2).toUpperCase()}
                     </div>
-                  )}
+                    {conv.unread > 0 && (
+                      <div className="absolute -top-1 -right-1 rounded-full flex items-center justify-center font-mono font-black text-[9px] text-white"
+                        style={{ background: "#ef4444", minWidth: 16, minHeight: 16, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.6)", zIndex: 1 }}>
+                        {conv.unread}
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-xl px-2.5 py-1.5"
+                    style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.32)", minWidth: 76 }}>
+                    <p className="font-arabic text-[11px] font-bold text-white leading-tight">{conv.pseudonym}</p>
+                    <p className="font-mono text-[9px] leading-tight" style={{ color: GOLD }}>{conv.aliId}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0 text-right">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-arabic text-xs font-bold text-white/80 truncate">{conv.pseudonym}</span>
-                      {conv.civicRole && <CivicRoleShield role={conv.civicRole} size="xs" />}
-                    </div>
-                    <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{formatMsgTime(conv.lastAt)}</span>
-                  </div>
-                  <p className="font-arabic text-[11px] text-white/40 truncate text-right">
+                {/* CENTER: timestamp */}
+                <div className="flex-1 flex justify-center">
+                  <span className="font-mono text-[9px] text-white/30">{formatMsgTime(conv.lastAt)}</span>
+                </div>
+                {/* RIGHT: last message preview */}
+                <div className="flex-shrink-0 max-w-[82px]">
+                  <p className="font-arabic text-[11px] text-white/40 truncate">
                     {conv.isMine ? "أنت: " : ""}{conv.lastMessage}
                   </p>
                 </div>
@@ -1233,7 +1238,7 @@ function CopyableUsername({ username }: { username: string }) {
 }
 
 // ─── Main Profile Section ─────────────────────────────────────────────────────
-export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string; initialTab?: "profile" | "inbox" | "friends"; onOpenCommunity?: (spaceId: number) => void }) {
+export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string; initialTab?: "profile" | "inbox" | "friends" | "calls"; onOpenCommunity?: (spaceId: number) => void }) {
   const { user } = useTelegram();
   const queryClient = useQueryClient();
   const telegramId  = userData.telegramId;
@@ -1249,12 +1254,13 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const updateMutation = useUpdatePseudonym();
 
   // Tabs + chat state
-  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox" | "friends">(initialTab ?? (initialChatPartnerId ? "inbox" : "profile"));
+  const [profileTab,   setProfileTab]   = useState<"profile" | "inbox" | "friends" | "calls">(initialTab ?? (initialChatPartnerId ? "inbox" : "profile"));
   const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
   const [unreadCount,  setUnreadCount]  = useState(0);
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
   const [walletOpen,  setWalletOpen]  = useState(false);
   const [pointsOpen,  setPointsOpen]  = useState(false);
+  const [showCallContacts, setShowCallContacts] = useState(false);
 
   // ── P2P Call System ──────────────────────────────────────────────────────
   const [callState,    setCallState]    = useState<ActiveCall | null>(null);
@@ -1650,41 +1656,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Messages icon — badge = unread count */}
-            <button
-              onClick={() => setProfileTab("inbox")}
-              className="relative w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.3)" }}>
-              <MessageSquare className="w-4 h-4 text-blue-400" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
-                  style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)", zIndex: 1 }}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </button>
-            {/* Call icon — pulsing ring when there is an active/ringing call */}
-            <button
-              className="relative w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
-              style={{
-                background: callState?.status === "ringing" ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.1)",
-                border: `1px solid ${callState?.status === "ringing" ? "rgba(34,197,94,0.6)" : "rgba(34,197,94,0.3)"}`,
-              }}>
-              {callState?.status === "ringing"
-                ? <motion.div
-                    animate={{ scale: [1, 1.18, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.7 }}>
-                    <PhoneIncoming className="w-4 h-4 text-green-400" />
-                  </motion.div>
-                : <Phone className="w-4 h-4 text-green-400" />}
-              {callState?.status === "ringing" && (
-                <motion.span
-                  className="absolute inset-0 rounded-xl"
-                  animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.5)", "0 0 0 6px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
-                  transition={{ repeat: Infinity, duration: 1.4 }}
-                />
-              )}
-            </button>
             {/* Points pill */}
             <div className="flex items-center gap-1 rounded-full px-3 py-1"
               style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
@@ -1729,7 +1700,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               color: profileTab === "friends" ? "#4ade80" : "rgba(255,255,255,0.35)",
             }}>
             <Users className="w-3.5 h-3.5" />
-            الأصدقاء
+            سجل الأصدقاء
           </button>
         </div>
       </div>
@@ -1962,6 +1933,73 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         </div>
       )}
 
+      {/* ── Calls tab ── */}
+      {profileTab === "calls" && !chatPartner && !friendProfile && (
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          {/* Fixed: جهات الاتصال button */}
+          <div className="flex-shrink-0 px-4 py-3" dir="rtl"
+            style={{ borderBottom: "1px solid rgba(34,197,94,0.12)" }}>
+            <button
+              onClick={() => setShowCallContacts(p => !p)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-arabic font-bold text-sm active:scale-95 transition-all"
+              style={{
+                background: showCallContacts ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.08)",
+                border: `1.5px solid ${showCallContacts ? "rgba(34,197,94,0.5)" : "rgba(34,197,94,0.25)"}`,
+                color: "#4ade80",
+              }}>
+              <Phone className="w-4 h-4" />
+              جهات الاتصال
+            </button>
+          </div>
+
+          {/* Call history list */}
+          <div className="flex-1 overflow-y-auto px-4 py-6" dir="rtl">
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(34,197,94,0.08)", border: "1.5px solid rgba(34,197,94,0.2)" }}>
+                <Phone className="w-7 h-7 text-green-400/50" />
+              </div>
+              <p className="font-arabic text-white/35 text-sm">لا سجل مكالمات بعد</p>
+              <p className="font-arabic text-white/20 text-xs">اضغط «جهات الاتصال» لبدء مكالمة مع صديق</p>
+            </div>
+          </div>
+
+          {/* Contacts slide-over */}
+          <AnimatePresence>
+            {showCallContacts && (
+              <motion.div
+                className="absolute inset-0 z-10 flex flex-col overflow-hidden"
+                style={{ background: "linear-gradient(160deg,#001a10 0%,#002b1b 55%,#001208 100%)" }}
+                initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 320, damping: 32 }}>
+                <div className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-3" dir="rtl"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <button onClick={() => setShowCallContacts(false)}
+                    className="p-2 rounded-xl active:scale-95 transition-transform"
+                    style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}>
+                    <ChevronRight className="w-5 h-5 text-[#d4af37]" />
+                  </button>
+                  <span className="font-arabic font-bold text-white/80 text-base">جهات الاتصال</span>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-3">
+                  <NetworkSection
+                    myTelegramId={telegramId}
+                    onMessage={(u) => {
+                      setShowCallContacts(false);
+                      setProfileTab("inbox");
+                      handleOpenChat({ telegramId: u.telegramId, pseudonym: u.pseudonym, aliId: u.aliId, civicRole: u.civicRole ?? null, rank: u.rank, level: u.level });
+                    }}
+                    onViewFriend={(u) => { setShowCallContacts(false); setFriendProfile(u); }}
+                    onCall={(u) => { setShowCallContacts(false); handleInitiateCall(u.telegramId, u.pseudonym); }}
+                    autoExpand
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* ── Profile tab ── */}
       {profileTab === "profile" && (
       <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-4">
@@ -2067,40 +2105,13 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ── Civic Role Selector ── */}
-          <div className="mt-4" dir="rtl">
-            <div className="flex gap-2">
-              {[
-                { key: "guardian",   label: "حارس الأرض",  color: "#22c55e" },
-                { key: "ambassador", label: "سفير القضية", color: "#60a5fa" },
-              ].map(opt => (
-                <button key={opt.key}
-                  onClick={() => saveCivicRole(civicRole === opt.key ? null : opt.key)}
-                  disabled={savingRole}
-                  className="flex-1 py-2.5 rounded-2xl font-arabic text-sm font-bold transition-all active:scale-95 disabled:opacity-60"
-                  style={civicRole === opt.key
-                    ? { background: `${opt.color}15`, border: `1.5px solid ${opt.color}60`, color: opt.color, boxShadow: `0 0 16px ${opt.color}22` }
-                    : { background: "rgba(0,0,0,0.18)", border: "1.5px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.22)", textShadow: "0 1px 6px rgba(0,0,0,0.7)" }
-                  }>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {/* Shield/Wings emblem below toggles */}
-            <AnimatePresence>
-              {civicRole && (
-                <motion.div key={civicRole}
-                  initial={{ opacity: 0, scale: 0.82, y: 6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.82, y: 6 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                  className="flex justify-center mt-3">
-                  <CivicRoleShield role={civicRole} size="md" />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Civic shield — floated to the RIGHT of the identity info */}
+            {civicRole && (
+              <div className="flex-shrink-0 flex items-center justify-center pt-2 pr-1">
+                <CivicRoleShield role={civicRole} size="md" />
+              </div>
+            )}
           </div>
         </div>
 

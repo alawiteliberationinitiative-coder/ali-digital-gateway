@@ -380,6 +380,7 @@ export default function DashboardModel2() {
   const [activeTab,    setActiveTab]    = useState<Tab>("media");
   const [welcomeDone,  setWelcomeDone]  = useState(false);
   const [showProfile,  setShowProfile]  = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<"profile" | "inbox" | "friends" | "calls">("profile");
 
   // Timeout guard for missing telegramId
   const [noAuthReady, setNoAuthReady] = useState(false);
@@ -402,7 +403,7 @@ export default function DashboardModel2() {
     if (isError) setLocation("/");
   }, [isError, setLocation]);
 
-  const handleCloseProfile = useCallback(() => setShowProfile(false), []);
+  const handleCloseProfile = useCallback(() => { setShowProfile(false); setProfileInitialTab("profile"); }, []);
 
   // صلاحية الأدمن: تُحدَّد من telegramId أو من دور المستخدم
   const isAdmin = !!telegramId && (
@@ -440,9 +441,9 @@ export default function DashboardModel2() {
           {/* ── Fixed header — height never changes ── */}
           <Model2Header
             userData={userData}
-            onOpenProfile={() => setShowProfile(true)}
-            onOpenMessages={() => setActiveTab("messages")}
-            onOpenCalls={() => setActiveTab("calls")}
+            onOpenProfile={() => { setProfileInitialTab("profile"); setShowProfile(true); }}
+            onOpenMessages={() => { setProfileInitialTab("inbox"); setShowProfile(true); }}
+            onOpenCalls={() => { setProfileInitialTab("calls"); setShowProfile(true); }}
             onOpenAbout={() => setActiveTab("about")}
           />
 
@@ -486,7 +487,7 @@ export default function DashboardModel2() {
                     onBack={handleCloseProfile}
                     userData={userData}
                     initialChatPartnerId={undefined}
-                    initialTab="profile"
+                    initialTab={profileInitialTab}
                     onOpenCommunity={() => {}}
                   />
                 </Suspense>
