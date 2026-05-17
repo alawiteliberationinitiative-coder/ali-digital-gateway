@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Send, X, ChevronDown,
@@ -677,7 +677,7 @@ function CommentRow({ comment, isOwn, isAdmin, articleId, onEdit, onDelete, onLi
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article, idx, isActive, liked, likeCount, articleComments, isCommentOpen,
+  article, idx, isActive, isNeighbor, liked, likeCount, articleComments, isCommentOpen,
   isDeleting, isAdmin, myTelegramId, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   onEditComment, onDeleteComment, onLikeComment,
@@ -686,6 +686,7 @@ function MediaCard({
   article:         Article;
   idx:             number;
   isActive:        boolean;
+  isNeighbor:      boolean;
   liked:           boolean;
   likeCount:       number;
   articleComments: CommentData[];
@@ -741,13 +742,19 @@ function MediaCard({
   const effectiveQuality: VideoQuality = selectedQuality ?? networkState.quality;
   const meta = QUALITY_META[effectiveQuality];
 
-  // ── Video play/pause by active state + user override ──────────────────────
-  useEffect(() => {
-    if (!videoRef.current || !isVideo) return;
+  // ── Video play/pause — useLayoutEffect fires synchronously with DOM ────────
+  // This prevents the ~50-100ms window where old video keeps playing on scroll
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo) return;
     if (isActive && effectiveQuality !== "low" && !userPaused) {
-      videoRef.current.play().catch(() => {/* autoplay policy */});
+      // If browser hasn't started loading yet, kick it off first
+      if (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0) {
+        video.load();
+      }
+      video.play().catch(() => {/* autoplay policy — user must interact */});
     } else {
-      videoRef.current.pause();
+      video.pause();
     }
   }, [isActive, effectiveQuality, isVideo, userPaused]);
 
@@ -824,10 +831,12 @@ function MediaCard({
     if (isActive) video.play().catch(() => {});
   }
 
-  // Preload attribute based on quality + active state
-  const preloadAttr = effectiveQuality === "high" ? "auto"
-    : effectiveQuality === "medium" ? (isActive ? "auto" : "metadata")
-    : "none";
+  // Preload attribute: active or neighbor cards always get "auto" to pre-buffer.
+  // Low quality always "none". Others "metadata" to keep headers light.
+  const preloadAttr: "auto" | "metadata" | "none" =
+    effectiveQuality === "low" ? "none"
+    : (isActive || isNeighbor)  ? "auto"
+    : "metadata";
 
   return (
     <div
@@ -880,12 +889,14 @@ function MediaCard({
               style={{
                 display:    effectiveQuality === "low" ? "none" : "block",
                 opacity:    mediaLoaded ? 1 : 0,
-                transition: "opacity 0.5s ease",
+                transition: "opacity 0.35s ease",
               }}
               loop
+              muted
               playsInline
+              autoPlay={isActive && effectiveQuality !== "low" && !userPaused}
               preload={preloadAttr}
-              onLoadedData={() => setMediaLoaded(true)}
+              onCanPlay={() => setMediaLoaded(true)}
               onError={() => setMediaError(true)}
             />
           ) : (
@@ -1043,18 +1054,14 @@ function MediaCard({
         </div>{/* end action buttons */}
       </div>{/* end sidebar */}
 
-      {/* ── MD-quality: tap-to-play overlay ── */}
+      {/* ── Loading spinner for active video before canPlay ── */}
       <AnimatePresence>
-        {isVideo && isActive && effectiveQuality === "medium" && !mediaLoaded && (
-          <motion.div className="absolute inset-0 z-15 flex items-center justify-center"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ background: "rgba(0,0,0,0.35)" }}>
-            <motion.button whileTap={{ scale: 0.9 }}
-              onClick={() => videoRef.current?.play().catch(() => {})}
-              className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.25)" }}>
-              <Play size={26} color="white" fill="white" />
-            </motion.button>
+        {isVideo && isActive && effectiveQuality !== "low" && !mediaLoaded && !isBuffering && (
+          <motion.div className="absolute inset-0 z-[15] flex items-center justify-center pointer-events-none"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3 }}>
+            <div className="rounded-full p-3" style={{ background: "rgba(0,0,0,0.45)" }}>
+              <Loader2 size={28} color="rgba(255,255,255,0.7)" className="animate-spin" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1184,6 +1191,7 @@ export function MediaSection({
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
   const cardRefs      = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollRef     = useRef<HTMLDivElement>(null);
   // Prevents re-running the restore scroll after the initial mount
   const didRestoreRef = useRef(false);
 
@@ -1246,19 +1254,49 @@ export function MediaSection({
     }
   }, [activeIdx, articles]);
 
-  // ── IntersectionObserver ───────────────────────────────────────────────────
+  // ── Active-card detection: IntersectionObserver + scrollend fallback ─────
   useEffect(() => {
     if (articles.length === 0) return;
+
+    // Helper: pick the most-centered card using scroll position math
+    function snapActiveIdx() {
+      const el = scrollRef.current;
+      if (!el) return;
+      const h = el.clientHeight;
+      if (h === 0) return;
+      const idx = Math.round(el.scrollTop / h);
+      setActiveIdx(Math.max(0, Math.min(idx, articles.length - 1)));
+    }
+
+    // IntersectionObserver catches normal scrolling (threshold 0.5 = majority visible)
     const observer = new IntersectionObserver(entries => {
       for (const e of entries) {
-        if (e.isIntersecting) {
+        if (e.intersectionRatio >= 0.5) {
           const i = cardRefs.current.indexOf(e.target as HTMLDivElement);
           if (i !== -1) setActiveIdx(i);
         }
       }
-    }, { threshold: 0.55 });
+    }, { threshold: 0.5 });
     cardRefs.current.forEach(el => { if (el) observer.observe(el); });
-    return () => observer.disconnect();
+
+    // scrollend fires once after the snap animation settles — most reliable
+    const el = scrollRef.current;
+    el?.addEventListener("scrollend", snapActiveIdx, { passive: true });
+
+    // Fallback debounced scroll for browsers without scrollend
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    function onScroll() {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(snapActiveIdx, 80);
+    }
+    el?.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      el?.removeEventListener("scrollend", snapActiveIdx);
+      el?.removeEventListener("scroll", onScroll);
+      if (scrollTimer) clearTimeout(scrollTimer);
+    };
   }, [articles]);
 
   // ── Preload images for next 2 cards ───────────────────────────────────────
@@ -1396,7 +1434,9 @@ export function MediaSection({
   return (
     <div className="h-full relative">
 
-      <div className="h-full overflow-y-scroll"
+      <div
+        ref={scrollRef}
+        className="h-full overflow-y-scroll"
         style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
 
         {articles.map((article, idx) => (
@@ -1405,6 +1445,7 @@ export function MediaSection({
             article={article}
             idx={idx}
             isActive={idx === activeIdx}
+            isNeighbor={idx === activeIdx - 1 || idx === activeIdx + 1}
             liked={!!likes[article.id]}
             likeCount={likeCounts[article.id] ?? 0}
             articleComments={comments[article.id] ?? []}
