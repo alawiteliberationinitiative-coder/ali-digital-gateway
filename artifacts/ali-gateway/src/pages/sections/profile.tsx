@@ -565,150 +565,108 @@ function NetworkSection({ myTelegramId, onMessage, onViewFriend, autoExpand, onC
     return () => clearTimeout(t);
   }, [query, showSearch]);
 
-  const mutualCount = friends.filter(f => f.isMutual).length;
   const displayList = showSearch ? searchRes : friends;
 
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.025)", border: "1.5px solid rgba(96,165,250,0.18)", backdropFilter: "blur(20px)" }}>
-
-      {/* Stats Row */}
-      <div className="flex items-center gap-0 divide-x divide-white/5" dir="rtl">
-        <button onClick={() => { setExpanded(true); setShowSearch(false); }}
-          className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
-          <p className="font-mono font-black text-2xl" style={{ color: "#60a5fa", textShadow: "0 0 12px rgba(96,165,250,0.4)" }}>
-            {friends.length}
-          </p>
-          <p className="font-arabic text-[10px] text-white/40 mt-0.5">أصدقاء</p>
-        </button>
-
-        <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
-
-        <button onClick={() => { setExpanded(true); setShowSearch(false); }}
-          className="flex-1 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
-          <p className="font-mono font-black text-2xl" style={{ color: "#4ade80", textShadow: "0 0 12px rgba(74,222,128,0.4)" }}>
-            {mutualCount}
-          </p>
-          <p className="font-arabic text-[10px] text-white/40 mt-0.5">متبادل</p>
-        </button>
-
-        <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.06)" }} />
-
-        <button onClick={() => { setShowSearch(p => !p); setExpanded(true); }}
-          className="px-4 flex flex-col items-center py-4 active:bg-white/5 transition-colors">
-          <Search className="w-5 h-5 text-white/30" />
-          <p className="font-arabic text-[10px] text-white/30 mt-0.5">بحث</p>
-        </button>
-
-        <button onClick={() => setExpanded(p => !p)}
-          className="px-3 self-stretch flex items-center active:bg-white/5 transition-colors">
-          <ChevronDown className={`w-4 h-4 text-white/25 transition-transform ${expanded ? "rotate-180" : ""}`} />
+    <div className="space-y-3">
+      {/* Friend count + search bar */}
+      <div className="flex items-center gap-3" dir="rtl">
+        <div className="flex items-center gap-2 rounded-2xl px-4 py-2.5"
+          style={{ background: "rgba(96,165,250,0.08)", border: "1.5px solid rgba(96,165,250,0.25)" }}>
+          <Users className="w-4 h-4" style={{ color: "#60a5fa" }} />
+          <span className="font-mono font-black text-lg" style={{ color: "#60a5fa" }}>{friends.length}</span>
+          <span className="font-arabic text-xs text-white/40">صديق</span>
+        </div>
+        <button onClick={() => { setShowSearch(p => !p); if (!expanded) setExpanded(true); }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl active:scale-95 transition-all"
+          style={{ background: showSearch ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)",
+            border: `1.5px solid ${showSearch ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.08)"}` }}>
+          <Search className="w-4 h-4 text-white/40" />
+          <span className="font-arabic text-xs text-white/40">بحث</span>
         </button>
       </div>
 
-      {/* Expandable Panel */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div key="panel"
-            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-            style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      {/* Search input */}
+      {showSearch && (
+        <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
+          style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)" }}>
+          <Search className="w-4 h-4 text-white/25 flex-shrink-0" />
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="ابحث بالاسم المستعار أو رقم الهوية..."
+            className="flex-1 bg-transparent font-arabic text-sm text-white/75 outline-none placeholder:text-white/20"
+            dir="rtl" autoFocus />
+          {query && <button onClick={() => { setQuery(""); setSearchRes([]); }} className="text-white/30"><X className="w-3.5 h-3.5" /></button>}
+        </div>
+      )}
 
-            {showSearch && (
-              <div className="px-4 pt-3 pb-2">
-                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                  style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)" }}>
-                  <Search className="w-4 h-4 text-white/25 flex-shrink-0" />
-                  <input value={query} onChange={e => setQuery(e.target.value)}
-                    placeholder="ابحث بالاسم المستعار أو رقم الهوية..."
-                    className="flex-1 bg-transparent font-arabic text-sm text-white/75 outline-none placeholder:text-white/20"
-                    dir="rtl" autoFocus />
-                  {query && <button onClick={() => { setQuery(""); setSearchRes([]); }} className="text-white/30"><X className="w-3.5 h-3.5" /></button>}
-                </div>
-              </div>
-            )}
-
-            <div className="px-4 pb-4 space-y-2 max-h-64 overflow-y-auto">
-              {loadingList && !showSearch ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-white/30" />
-                </div>
-              ) : displayList.length === 0 ? (
-                <p className="font-arabic text-xs text-white/20 text-center py-6">
-                  {showSearch && query.length < 2 ? "اكتب للبحث..." : showSearch ? "لا نتائج" : "لا أصدقاء بعد — أرسل دعوة لتبدأ!"}
-                </p>
-              ) : (
-                displayList.map(u => (
-                  <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
-                    isMutual={"isMutual" in u ? (u as FriendUser).isMutual : false}
-                    onMessage={onMessage} onViewProfile={onViewFriend} onCall={onCall} />
-                ))
-              )}
-            </div>
-          </motion.div>
+      {/* Friend list */}
+      <div className="space-y-2">
+        {loadingList && !showSearch ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+          </div>
+        ) : displayList.length === 0 ? (
+          <p className="font-arabic text-xs text-white/20 text-center py-8">
+            {showSearch && query.length < 2 ? "اكتب للبحث..." : showSearch ? "لا نتائج" : "لا أصدقاء بعد — أرسل دعوة لتبدأ!"}
+          </p>
+        ) : (
+          displayList.map(u => (
+            <NetUserRow key={u.telegramId} user={u} myTelegramId={myTelegramId}
+              isMutual={"isMutual" in u ? (u as FriendUser).isMutual : false}
+              onMessage={onMessage} onViewProfile={onViewFriend} onCall={onCall} />
+          ))
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, isMutual, onCall }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void; isMutual?: boolean; onCall?: (u: NetUser) => void }) {
+function NetUserRow({ user, myTelegramId, onMessage, onViewProfile, onCall }: { user: NetUser; myTelegramId: string; onMessage?: (u: NetUser) => void; onViewProfile?: (u: NetUser) => void; isMutual?: boolean; onCall?: (u: NetUser) => void }) {
   const RANKS: Record<string, string> = {
     Initiate: "#94a3b8", Guardian: "#22c55e", Sentinel: "#3b82f6",
     Champion: "#a855f7", Sovereign: "#d4af37", Legendary: "#f97316",
   };
   const rankColor = RANKS[user.rank] ?? "#94a3b8";
-  const roleLabel = user.civicRole === "guardian" ? "حارس الأرض" : user.civicRole === "ambassador" ? "سفير القضية" : null;
 
   return (
-    <div className="rounded-xl px-2.5 py-2"
-      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}
+    <div className="rounded-2xl px-3 py-3"
+      style={{ background: "rgba(212,175,55,0.04)", border: "1px solid rgba(212,175,55,0.18)", backdropFilter: "blur(8px)" }}
       dir="rtl">
       <div className="flex items-center gap-3">
+        {/* Avatar */}
         <button
           onClick={() => onViewProfile ? onViewProfile(user) : undefined}
           disabled={!onViewProfile}
-          className="w-9 h-9 rounded-full flex items-center justify-center font-mono font-black text-sm flex-shrink-0 active:scale-90 transition-transform"
-          style={{ background: `${rankColor}18`, border: `1.5px solid ${rankColor}30`, color: rankColor, cursor: onViewProfile ? "pointer" : "default" }}>
+          className="w-11 h-11 rounded-full flex items-center justify-center font-mono font-black text-base flex-shrink-0 active:scale-90 transition-transform"
+          style={{ background: `${rankColor}18`, border: `2px solid ${rankColor}40`, color: rankColor, cursor: onViewProfile ? "pointer" : "default",
+            boxShadow: `0 0 12px ${rankColor}15` }}>
           {user.pseudonym.slice(0, 2).toUpperCase()}
         </button>
+
+        {/* Identity */}
         <button onClick={() => onViewProfile ? onViewProfile(user) : undefined} disabled={!onViewProfile}
           className="flex-1 min-w-0 text-right active:opacity-70 transition-opacity"
           style={{ cursor: onViewProfile ? "pointer" : "default" }}>
-          <p className="font-arabic text-xs font-bold text-white/80 truncate">{user.pseudonym}</p>
-          <div className="flex items-center justify-end gap-1.5 mt-0.5 flex-wrap-reverse">
-            {roleLabel && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-md font-arabic text-[9px] font-bold flex-shrink-0"
-                style={{ background: "rgba(212,175,55,0.13)", border: "1px solid rgba(212,175,55,0.4)", color: GOLD }}>
-                {user.civicRole === "guardian" ? "⚔" : "🕊"} {roleLabel}
-              </span>
-            )}
-            <p className="font-mono text-[9px] text-white/30 truncate">{user.aliId} · LVL {user.level}</p>
-          </div>
+          <p className="font-arabic text-sm font-bold text-white/90 truncate">{user.pseudonym}</p>
+          <p className="font-mono text-[10px] mt-0.5" style={{ color: `${GOLD}70` }}>{user.aliId}</p>
         </button>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {isMutual && (
-            <span className="font-arabic text-[10px] font-bold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5"
-              style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.28)", color: "#4ade80" }}>
-              🤝 صديق
-            </span>
-          )}
-          {onCall && isMutual && myTelegramId !== user.telegramId && (
+
+        {/* Action buttons — large & tap-friendly */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onCall && myTelegramId !== user.telegramId && (
             <button onClick={() => onCall(user)}
-              className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
-              style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80" }}>
-              <Phone className="w-3 h-3" />
+              className="w-11 h-11 flex items-center justify-center rounded-2xl active:scale-90 transition-all"
+              style={{ background: "rgba(34,197,94,0.14)", border: "1.5px solid rgba(34,197,94,0.4)", boxShadow: "0 2px 10px rgba(34,197,94,0.15)" }}>
+              <Phone className="w-5 h-5 text-green-400" />
             </button>
           )}
           {onMessage && myTelegramId !== user.telegramId && (
             <button onClick={() => onMessage(user)}
-              className="flex items-center gap-0.5 px-2 py-1 rounded-xl font-arabic text-[10px] font-bold active:scale-90 transition-all"
-              style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: GOLD }}>
-              <MessageSquare className="w-3 h-3" />
-              مراسلة
+              className="w-11 h-11 flex items-center justify-center rounded-2xl active:scale-90 transition-all"
+              style={{ background: "rgba(212,175,55,0.14)", border: `1.5px solid rgba(212,175,55,0.4)`, boxShadow: `0 2px 10px rgba(212,175,55,0.15)` }}>
+              <MessageSquare className="w-5 h-5" style={{ color: GOLD }} />
             </button>
           )}
-          <ProfileFollowButton targetTelegramId={user.telegramId} myTelegramId={myTelegramId} />
         </div>
       </div>
     </div>
@@ -1670,45 +1628,17 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </div>
         </div>
 
-        {/* ── Tab bar ── */}
-        <div className="flex px-4 pb-2 gap-2" dir="rtl">
-          <button onClick={() => setProfileTab("profile")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
-            style={{
-              background: profileTab === "profile" ? "rgba(212,175,55,0.12)" : "transparent",
-              border: `1px solid ${profileTab === "profile" ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)"}`,
-              color: profileTab === "profile" ? GOLD : "rgba(255,255,255,0.35)",
-            }}>
-            <Shield className="w-3.5 h-3.5" />
-            ملفي
-          </button>
-          <button onClick={() => setProfileTab("inbox")}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
-            style={{
-              background: profileTab === "inbox" ? "rgba(96,165,250,0.12)" : "transparent",
-              border: `1px solid ${profileTab === "inbox" ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.08)"}`,
-              color: profileTab === "inbox" ? "#60a5fa" : "rgba(255,255,255,0.35)",
-            }}>
-            <Mail className="w-3.5 h-3.5" />
-            مراسلاتي
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 rounded-full font-mono font-black text-white flex items-center justify-center"
-                style={{ background: "#ef4444", minWidth: 16, minHeight: 16, fontSize: 9, padding: "0 3px", boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-          <button onClick={() => { setProfileTab("friends"); setFriendProfile(null); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
-            style={{
-              background: profileTab === "friends" ? "rgba(74,222,128,0.12)" : "transparent",
-              border: `1px solid ${profileTab === "friends" ? "rgba(74,222,128,0.4)" : "rgba(255,255,255,0.08)"}`,
-              color: profileTab === "friends" ? "#4ade80" : "rgba(255,255,255,0.35)",
-            }}>
-            <Users className="w-3.5 h-3.5" />
-            سجل الأصدقاء
-          </button>
-        </div>
+        {/* ── Tab bar — only "ملفي" pill; inbox/friends open via large cards ── */}
+        {(profileTab === "inbox" || profileTab === "friends" || profileTab === "calls") && (
+          <div className="flex px-4 pb-2" dir="rtl">
+            <button onClick={() => setProfileTab("profile")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-arabic text-xs font-bold transition-all"
+              style={{ background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.25)", color: GOLD }}>
+              <ChevronRight className="w-3.5 h-3.5" />
+              رجوع
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Hidden audio element for remote call audio */}
@@ -1886,9 +1816,9 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         <div className="flex-1 flex flex-col overflow-hidden">
 
           {/* Fixed top invite panel */}
-          <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-2"
-            style={{ borderBottom: "1px solid rgba(34,197,94,0.12)" }}>
-            <p className="font-arabic text-[10px] text-white/35 text-center" dir="rtl">دعوة صديق للانضمام</p>
+          <div className="flex-shrink-0 px-4 pt-3 pb-3 space-y-3"
+            style={{ borderBottom: "1px solid rgba(34,197,94,0.15)" }}>
+            <p className="font-arabic text-base font-black text-center" style={{ color: GOLD }} dir="rtl">🤝 دعوة صديق للانضمام</p>
             <div className="flex gap-2" dir="rtl">
               {/* WhatsApp */}
               <button
@@ -2152,20 +2082,88 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </div>
         </div>
 
+        {/* ── Large nav cards: مراسلاتي + سجل الأصدقاء ── */}
+        <div className="grid grid-cols-2 gap-3" dir="rtl">
+          {/* مراسلاتي */}
+          <button
+            onClick={() => setProfileTab("inbox")}
+            className="relative flex flex-col items-center justify-center gap-3 py-7 rounded-3xl active:scale-[0.96] transition-all"
+            style={{
+              background: "linear-gradient(140deg, rgba(96,165,250,0.18) 0%, rgba(59,130,246,0.07) 100%)",
+              border: "1.5px solid rgba(96,165,250,0.38)",
+              backdropFilter: "blur(16px)",
+              boxShadow: "0 4px 24px rgba(96,165,250,0.12), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, rgba(96,165,250,0.35) 0%, rgba(59,130,246,0.18) 100%)",
+                border: "1.5px solid rgba(147,197,253,0.45)",
+                boxShadow: "0 6px 20px rgba(96,165,250,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+              }}>
+              <Mail className="w-7 h-7" style={{ color: "#93c5fd" }} />
+            </div>
+            <span className="font-arabic font-black text-sm" style={{ color: "#93c5fd" }}>مراسلاتي</span>
+            {unreadCount > 0 && (
+              <span className="absolute top-2.5 left-2.5 rounded-full font-mono font-black text-white flex items-center justify-center"
+                style={{ background: "#ef4444", minWidth: 20, minHeight: 20, fontSize: 10, padding: "0 4px",
+                  boxShadow: "0 0 10px rgba(239,68,68,0.6)" }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* سجل الأصدقاء */}
+          <button
+            onClick={() => { setProfileTab("friends"); setFriendProfile(null); }}
+            className="flex flex-col items-center justify-center gap-3 py-7 rounded-3xl active:scale-[0.96] transition-all"
+            style={{
+              background: "linear-gradient(140deg, rgba(74,222,128,0.18) 0%, rgba(34,197,94,0.07) 100%)",
+              border: "1.5px solid rgba(74,222,128,0.38)",
+              backdropFilter: "blur(16px)",
+              boxShadow: "0 4px 24px rgba(74,222,128,0.12), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, rgba(74,222,128,0.35) 0%, rgba(34,197,94,0.18) 100%)",
+                border: "1.5px solid rgba(134,239,172,0.45)",
+                boxShadow: "0 6px 20px rgba(74,222,128,0.28), inset 0 1px 0 rgba(255,255,255,0.25)",
+              }}>
+              <Users className="w-7 h-7" style={{ color: "#86efac" }} />
+            </div>
+            <span className="font-arabic font-black text-sm" style={{ color: "#86efac" }}>سجل الأصدقاء</span>
+          </button>
+        </div>
+
         {/* ── Card 1: محفظتي (Wallet) ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(212,175,55,0.28)", background: "rgba(0,0,0,0.25)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{
+          border: "1.5px solid rgba(212,175,55,0.35)",
+          background: "linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(0,0,0,0.3) 60%, rgba(212,175,55,0.04) 100%)",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 4px 24px rgba(212,175,55,0.08), inset 0 1px 0 rgba(255,255,255,0.06)",
+        }}>
           <button
             onClick={() => setWalletOpen(p => !p)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
+            className="w-full flex items-center gap-3 px-4 py-4 font-arabic font-bold transition-all active:scale-[0.98]"
             style={{
-              background: walletOpen ? "rgba(212,175,55,0.12)" : "transparent",
               borderBottom: walletOpen ? `1px solid rgba(212,175,55,0.2)` : "none",
-              color: walletOpen ? GOLD : "rgba(212,175,55,0.5)",
+              color: walletOpen ? GOLD : "rgba(212,175,55,0.65)",
             }}>
-            <Wallet className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(212,175,55,0.15)", border: "1.5px solid rgba(212,175,55,0.35)",
+                boxShadow: "0 2px 10px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.1)" }}>
+              <Wallet className="w-5 h-5" style={{ color: GOLD }} />
+            </div>
             <div className="flex-1 text-right">
               <p className="text-sm leading-none">محفظتي</p>
-              <p className="font-mono text-[10px] opacity-55 mt-0.5">$MDD · مفاتيح الحساب</p>
+              <div className="flex items-center justify-end gap-1.5 mt-1.5">
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ background: "rgba(247,147,26,0.12)", border: "1px solid rgba(247,147,26,0.3)", color: "#f7931a" }}>₿</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ background: "rgba(20,241,149,0.1)", border: "1px solid rgba(20,241,149,0.28)", color: "#14f195" }}>◎</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ background: "rgba(98,126,234,0.12)", border: "1px solid rgba(98,126,234,0.3)", color: "#627eea" }}>Ξ</span>
+                <span className="font-mono text-[10px] opacity-45 ml-1">$MDD</span>
+              </div>
             </div>
             <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
               style={{ transform: walletOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
@@ -2255,18 +2253,36 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         </div>
 
         {/* ── Card 2: نقاط الولاء ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1.5px solid rgba(34,197,94,0.25)", background: "rgba(0,0,0,0.25)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{
+          border: "1.5px solid rgba(212,175,55,0.32)",
+          background: "linear-gradient(135deg, rgba(212,175,55,0.07) 0%, rgba(0,0,0,0.28) 60%, rgba(34,197,94,0.04) 100%)",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 4px 24px rgba(212,175,55,0.07), inset 0 1px 0 rgba(255,255,255,0.06)",
+        }}>
           <button
             onClick={() => setPointsOpen(p => !p)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 font-arabic font-bold transition-all active:scale-[0.98]"
+            className="w-full flex items-center gap-3 px-4 py-4 font-arabic font-bold transition-all active:scale-[0.98]"
             style={{
-              background: pointsOpen ? "rgba(34,197,94,0.1)" : "transparent",
-              borderBottom: pointsOpen ? "1px solid rgba(34,197,94,0.18)" : "none",
-              color: pointsOpen ? GREEN : "rgba(74,222,128,0.4)",
+              borderBottom: pointsOpen ? "1px solid rgba(212,175,55,0.18)" : "none",
+              color: pointsOpen ? GOLD : "rgba(212,175,55,0.6)",
             }}>
-            <Star className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(212,175,55,0.15)", border: "1.5px solid rgba(212,175,55,0.38)",
+                boxShadow: "0 2px 10px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+              <motion.span className="text-xl"
+                animate={{ rotate: [0, 8, -8, 0], scale: [1, 1.12, 1.12, 1] }}
+                transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut", repeatDelay: 2 }}>
+                ⭐
+              </motion.span>
+            </div>
             <div className="flex-1 text-right">
               <p className="text-sm">نقاط الولاء</p>
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className="text-base leading-none">🪙</span>
+                <span className="text-base leading-none">🪙</span>
+                <span className="text-base leading-none">🪙</span>
+                <span className="font-mono text-[10px] opacity-45 ml-1">$MDD</span>
+              </div>
             </div>
             <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
               style={{ transform: pointsOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
