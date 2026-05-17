@@ -1,5 +1,6 @@
 import { createHmac } from "crypto";
 import type { Request, Response, NextFunction } from "express";
+import { logger } from "../lib/logger.js";
 
 declare global {
   namespace Express {
@@ -46,11 +47,15 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
               next();
               return;
             }
+          } else {
+            logger.warn({ ageSecs }, "telegram initData expired");
           }
+        } else {
+          logger.warn({ url: req.url }, "telegram initData signature mismatch");
         }
       }
-    } catch {
-      // ignore parse errors; req.telegramId remains undefined
+    } catch (err) {
+      logger.warn({ err }, "telegram initData parse error");
     }
   }
 

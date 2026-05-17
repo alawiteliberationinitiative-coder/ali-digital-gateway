@@ -543,10 +543,13 @@ function InviteModal({ spaceId, myTelegramId, canInvite, onClose }: {
       .then(data => { setFriends(data); setLoading(false); });
   }, [myTelegramId]);
 
+  const latestSearchRef = useRef("");
   const doSearch = useCallback(async (q: string) => {
+    latestSearchRef.current = q;
     if (q.length < 2) { setSearchResults([]); return; }
     const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`);
-    if (res.ok) setSearchResults(await res.json());
+    // Discard stale results if a newer query was issued while this fetch was in flight
+    if (res.ok && latestSearchRef.current === q) setSearchResults(await res.json());
   }, [myTelegramId]);
 
   useEffect(() => {

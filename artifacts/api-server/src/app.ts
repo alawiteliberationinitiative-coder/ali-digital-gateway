@@ -64,15 +64,32 @@ app.use(
 app.use(verifyTelegram as express.RequestHandler);
 
 // ── Strict limiters on write / reward endpoints ──────────────────────────────
-app.use("/api/users/register",       strictLimiter);
-app.use("/api/ads/challenge",        strictLimiter);
-app.use("/api/ads/reward",           strictLimiter);
-app.use("/api/quiz/complete-level",  strictLimiter);
-app.use("/api/docs/submit",          strictLimiter);
-app.use("/api/docs/upload-file",     strictLimiter);
-app.use("/api/spaces/:id/signals",   strictLimiter);
+app.use("/api/users/register",           strictLimiter);
+app.use("/api/ads/challenge",            strictLimiter);
+app.use("/api/ads/reward",               strictLimiter);
+app.use("/api/quiz/complete-level",      strictLimiter);
+app.use("/api/docs/submit",              strictLimiter);
+app.use("/api/docs/upload-file",         strictLimiter);
+app.use("/api/spaces/:id/signals",       strictLimiter);
+// Prevent view/like/comment botting
+app.use("/api/articles/:id/view",        strictLimiter);
+app.use("/api/articles/:id/like",        strictLimiter);
+app.use("/api/articles/:id/comments",    strictLimiter);
 
 // ── API router ───────────────────────────────────────────────────────────────
 app.use("/api", router);
+
+// ── Global error handler — catches unhandled async throws in Express 5 ───────
+// Must have 4 parameters for Express to treat it as error middleware.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  (req as express.Request & { log?: { error: (...a: unknown[]) => void } }).log?.error(
+    { err, url: req.url, method: req.method },
+    "Unhandled server error"
+  );
+  if (!res.headersSent) {
+    res.status(500).json({ error: "خطأ في الخادم — يرجى المحاولة لاحقاً" });
+  }
+});
 
 export default app;

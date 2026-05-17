@@ -3,7 +3,7 @@ import { registerUploadToken } from "../lib/upload-tokens.js";
 
 const router = Router();
 
-const MAX_BASE64_BYTES = 6 * 1024 * 1024; // 6 MB max payload
+const MAX_BINARY_BYTES = 4 * 1024 * 1024; // 4 MB max actual binary size
 
 router.post("/docs/upload-file", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
@@ -24,7 +24,10 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
     return;
   }
 
-  if (Buffer.byteLength(base64, "utf8") > MAX_BASE64_BYTES) {
+  // Strip data-URI prefix before measuring — base64 encodes 3 bytes as 4 chars
+  const cleanB64   = base64.replace(/^data:[^;]+;base64,/, "");
+  const binarySize = Math.ceil(cleanB64.length * 0.75);
+  if (binarySize > MAX_BINARY_BYTES) {
     res.status(413).json({ error: "الملف كبير جداً — الحد الأقصى 4 ميغابايت" });
     return;
   }

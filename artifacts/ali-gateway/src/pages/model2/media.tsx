@@ -724,8 +724,19 @@ function MediaCard({
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
   const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playHintTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef      = useRef(true);
   const hasTrackedView  = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ── Cleanup on unmount: clear timers to prevent setState after unmount ───
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (playHintTimer.current)  clearTimeout(playHintTimer.current);
+      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+    };
+  }, []);
 
   // ── Track view once when card first becomes active ───────────────────────
   useEffect(() => {
