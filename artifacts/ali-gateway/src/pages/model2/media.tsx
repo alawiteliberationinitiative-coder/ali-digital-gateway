@@ -677,17 +677,18 @@ function CommentRow({ comment, isOwn, isAdmin, articleId, onEdit, onDelete, onLi
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article, idx, isActive, isNeighbor,
+  article, idx, isActive, distanceFromActive,
   liked, likeCount, articleComments, isCommentOpen,
   isDeleting, isAdmin, myTelegramId, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   onEditComment, onDeleteComment, onLikeComment,
   cardRef, networkState,
 }: {
-  article:         Article;
-  idx:             number;
-  isActive:        boolean;
-  isNeighbor:      boolean;
+  article:             Article;
+  idx:                 number;
+  isActive:            boolean;
+  /** Absolute distance from the active card. 0 = active, 1 = next/prev, 2+ = further away. */
+  distanceFromActive:  number;
   liked:           boolean;
   likeCount:       number;
   articleComments: CommentData[];
@@ -767,15 +768,27 @@ function MediaCard({
     }
   }, [isActive, effectiveQuality, isVideo, userPaused]);
 
-  // ── 2. Start LOADING when card becomes active or neighbor ─────────────────
+  // ── 2. Start LOADING — immediate for dist 0-1, staggered for dist 2-3 ───────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low") return;
-    if ((isActive || isNeighbor) &&
-        (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0)) {
-      video.load();
+    if (distanceFromActive > 3) return; // too far — browser handles via preload attr
+
+    function triggerLoad() {
+      if (video && (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0)) {
+        video.load();
+      }
     }
-  }, [isActive, isNeighbor, isVideo, effectiveQuality]);
+
+    if (distanceFromActive <= 1) {
+      triggerLoad(); // immediate
+    } else {
+      // Stagger: give the active card a head start before loading farther cards
+      const delay = distanceFromActive === 2 ? 1500 : 3000;
+      const t = setTimeout(triggerLoad, delay);
+      return () => clearTimeout(t);
+    }
+  }, [distanceFromActive, isVideo, effectiveQuality]);
 
   // ── 3a. Keep video.muted in sync with isMuted state ─────────────────────
   useEffect(() => {
@@ -887,12 +900,16 @@ function MediaCard({
     // play() is handled by effect #3 once onCanPlay fires again
   }
 
-  // Preload attribute: active or neighbor cards always get "auto" to pre-buffer.
-  // Low quality always "none". Others "metadata" to keep headers light.
+  // Tiered preload attribute based on distance from the active card:
+  //   dist 0-1 → "auto"     : full buffering (current + next card)
+  //   dist 2-3 → "metadata" : only headers/duration, keeps memory low
+  //   dist 4+  → "none"     : no network use until the card comes closer
+  // Low-data mode always uses "none".
   const preloadAttr: "auto" | "metadata" | "none" =
-    effectiveQuality === "low" ? "none"
-    : (isActive || isNeighbor)  ? "auto"
-    : "metadata";
+    effectiveQuality === "low"    ? "none"
+    : distanceFromActive <= 1     ? "auto"
+    : distanceFromActive <= 3     ? "metadata"
+    : "none";
 
   return (
     <div
@@ -1416,15 +1433,25 @@ export function MediaSection({
     };
   }, [articles]);
 
-  // ── Preload images for next 2 cards ───────────────────────────────────────
+  // ── Staggered background preload for images ───────────────────────────────
+  // Priority order: dist-1 first (immediate), then 2→3→4 with increasing delays.
+  // Videos are handled by the <video preload> attribute + Effect 2 in MediaCard.
   useEffect(() => {
-    if (networkState.quality === "low") return; // don't preload on weak networks
-    articles.slice(activeIdx, activeIdx + 3).forEach(a => {
-      if (a.mediaUrl && !isVideoUrl(a.mediaUrl)) {
+    if (networkState.quality === "low") return;
+    // [distance, delay-ms]: give the active card a clear head start
+    const schedule: [number, number][] = [[1, 0], [2, 800], [3, 1800], [4, 3200]];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    schedule.forEach(([dist, delay]) => {
+      const a = articles[activeIdx + dist];
+      if (!a?.mediaUrl || isVideoUrl(a.mediaUrl)) return;
+      const url = a.mediaUrl;
+      const t = setTimeout(() => {
         const img = new window.Image();
-        img.src = a.mediaUrl;
-      }
+        img.src = url;
+      }, delay);
+      timers.push(t);
     });
+    return () => timers.forEach(clearTimeout);
   }, [activeIdx, articles, networkState.quality]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -1562,7 +1589,7 @@ export function MediaSection({
             article={article}
             idx={idx}
             isActive={idx === activeIdx}
-            isNeighbor={idx === activeIdx - 1 || idx === activeIdx + 1}
+            distanceFromActive={Math.abs(idx - activeIdx)}
             liked={!!likes[article.id]}
             likeCount={likeCounts[article.id] ?? 0}
             articleComments={comments[article.id] ?? []}
