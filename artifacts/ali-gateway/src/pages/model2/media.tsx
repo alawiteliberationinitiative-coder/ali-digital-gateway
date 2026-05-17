@@ -918,7 +918,6 @@ function MediaCard({
                 transition: "opacity 0.35s ease",
               }}
               loop
-              muted
               playsInline
               autoPlay={isActive && effectiveQuality !== "low" && !userPaused}
               preload={preloadAttr}
