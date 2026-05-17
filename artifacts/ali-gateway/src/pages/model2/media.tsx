@@ -579,25 +579,29 @@ function ComposeSheet({
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article, idx, isActive, liked, articleComments, isCommentOpen,
-  isDeleting, isAdmin, saved, commentText,
-  onLike, onToggleComment, onDelete, onSave, onAddComment, onCommentTextChange,
+  article, idx, isActive, liked, likeCount, articleComments, isCommentOpen,
+  isDeleting, isAdmin, saved, downloadCount, shareCount, commentText,
+  onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   cardRef, networkState,
 }: {
   article:         Article;
   idx:             number;
   isActive:        boolean;
   liked:           boolean;
+  likeCount:       number;
   articleComments: CommentData[];
   isCommentOpen:   boolean;
   isDeleting:      boolean;
   isAdmin:         boolean;
   saved:           boolean;
+  downloadCount:   number;
+  shareCount:      number;
   commentText:     string;
   onLike:              () => void;
   onToggleComment:     () => void;
   onDelete:            () => void;
   onSave:              () => void;
+  onShare:             () => void;
   onAddComment:        () => void;
   onCommentTextChange: (v: string) => void;
   cardRef:         (el: HTMLDivElement | null) => void;
@@ -878,43 +882,59 @@ function MediaCard({
         {/* Like */}
         <motion.button whileTap={{ scale: 1.35 }} onClick={onLike} className="flex flex-col items-center gap-1">
           <div className="w-11 h-11 rounded-full flex items-center justify-center"
-            style={{ background: liked ? `${GOLD}20` : "rgba(255,255,255,0.08)", border: `1px solid ${liked ? GOLD + "55" : "rgba(255,255,255,0.15)"}` }}>
-            <Heart size={20} color={liked ? GOLD : "white"} fill={liked ? GOLD : "none"} />
+            style={{
+              background: liked ? `${GOLD}25` : "rgba(255,255,255,0.08)",
+              border: `1px solid ${GOLD}${liked ? "70" : "35"}`,
+              boxShadow: liked ? `0 0 10px ${GOLD}40` : "none",
+              transition: "all 0.25s",
+            }}>
+            <Heart size={20} color={GOLD} fill={liked ? GOLD : "none"} style={{ filter: `drop-shadow(0 0 3px ${GOLD}80)` }} />
           </div>
-          <span className="text-white/60 text-[10px] font-mono">{liked ? 1 : 0}</span>
+          <span className="font-mono text-[10px]" style={{ color: GOLD }}>{likeCount}</span>
         </motion.button>
 
         {/* Comment */}
         <motion.button whileTap={{ scale: 1.2 }} onClick={onToggleComment} className="flex flex-col items-center gap-1">
           <div className="w-11 h-11 rounded-full flex items-center justify-center"
-            style={{ background: isCommentOpen ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.08)", border: `1px solid ${isCommentOpen ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.15)"}` }}>
-            <MessageCircle size={20} color={isCommentOpen ? "#60a5fa" : "white"} />
+            style={{
+              background: isCommentOpen ? `${GOLD}20` : "rgba(255,255,255,0.08)",
+              border: `1px solid ${GOLD}${isCommentOpen ? "65" : "35"}`,
+              boxShadow: isCommentOpen ? `0 0 10px ${GOLD}35` : "none",
+              transition: "all 0.25s",
+            }}>
+            <MessageCircle size={20} color={GOLD} fill={isCommentOpen ? `${GOLD}30` : "none"} style={{ filter: `drop-shadow(0 0 3px ${GOLD}70)` }} />
           </div>
-          <span className="text-white/60 text-[10px] font-mono">{articleComments.length}</span>
+          <span className="font-mono text-[10px]" style={{ color: GOLD }}>{articleComments.length}</span>
         </motion.button>
 
         {/* Download */}
         {article.mediaUrl && (
           <motion.button whileTap={{ scale: 1.2 }} onClick={onSave} className="flex flex-col items-center gap-1">
             <div className="w-11 h-11 rounded-full flex items-center justify-center"
-              style={{ background: saved ? `${GOLD}20` : "rgba(255,255,255,0.08)", border: `1px solid ${saved ? GOLD + "55" : "rgba(255,255,255,0.15)"}`, transition: "all 0.25s" }}>
-              <ArrowDownToLine size={20} color={saved ? GOLD : "white"} />
+              style={{
+                background: saved ? `${GOLD}25` : "rgba(255,255,255,0.08)",
+                border: `1px solid ${GOLD}${saved ? "70" : "35"}`,
+                boxShadow: saved ? `0 0 10px ${GOLD}40` : "none",
+                transition: "all 0.25s",
+              }}>
+              <ArrowDownToLine size={20} color={GOLD} style={{ filter: `drop-shadow(0 0 3px ${GOLD}70)` }} />
             </div>
-            <span className="text-[10px] font-arabic" style={{ color: saved ? GOLD : "rgba(255,255,255,0.45)" }}>
-              {saved ? "تم ✓" : "تنزيل"}
-            </span>
+            <span className="font-mono text-[10px]" style={{ color: GOLD }}>{downloadCount}</span>
           </motion.button>
         )}
 
         {/* Share */}
-        <motion.button whileTap={{ scale: 1.2 }} onClick={() => setShareOpen(o => !o)} className="flex flex-col items-center gap-1">
+        <motion.button whileTap={{ scale: 1.2 }} onClick={() => { setShareOpen(o => !o); onShare(); }} className="flex flex-col items-center gap-1">
           <div className="w-11 h-11 rounded-full flex items-center justify-center"
-            style={{ background: shareOpen ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.08)", border: `1px solid ${shareOpen ? "rgba(168,85,247,0.4)" : "rgba(255,255,255,0.15)"}`, transition: "all 0.25s" }}>
-            <Share2 size={20} color={shareOpen ? "#a855f7" : "white"} />
+            style={{
+              background: shareOpen ? `${GOLD}20` : "rgba(255,255,255,0.08)",
+              border: `1px solid ${GOLD}${shareOpen ? "65" : "35"}`,
+              boxShadow: shareOpen ? `0 0 10px ${GOLD}35` : "none",
+              transition: "all 0.25s",
+            }}>
+            <Share2 size={20} color={GOLD} fill={shareOpen ? `${GOLD}25` : "none"} style={{ filter: `drop-shadow(0 0 3px ${GOLD}70)` }} />
           </div>
-          <span className="text-[10px] font-arabic" style={{ color: shareOpen ? "#a855f7" : "rgba(255,255,255,0.45)" }}>
-            مشاركة
-          </span>
+          <span className="font-mono text-[10px]" style={{ color: GOLD }}>{shareCount}</span>
         </motion.button>
 
         </div>{/* end action buttons */}
@@ -1047,7 +1067,10 @@ export function MediaSection({
 
   const [articles,    setArticles]    = useState<Article[]>([]);
   const [loading,     setLoading]     = useState(true);
-  const [likes,       setLikes]       = useState<Record<number, boolean>>({});
+  const [likes,          setLikes]          = useState<Record<number, boolean>>({});
+  const [likeCounts,     setLikeCounts]     = useState<Record<number, number>>({});
+  const [downloadCounts, setDownloadCounts] = useState<Record<number, number>>({});
+  const [shareCounts,    setShareCounts]    = useState<Record<number, number>>({});
   const [comments,    setComments]    = useState<Record<number, CommentData[]>>({});
   const [openCard,    setOpenCard]    = useState<number | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -1118,7 +1141,14 @@ export function MediaSection({
   }, [activeIdx, articles, networkState.quality]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const toggleLike    = useCallback((id: number) => setLikes(p => ({ ...p, [id]: !p[id] })), []);
+  const toggleLike    = useCallback((id: number) => {
+    setLikes(p => {
+      const nowLiked = !p[id];
+      setLikeCounts(c => ({ ...c, [id]: (c[id] ?? 0) + (nowLiked ? 1 : -1) }));
+      return { ...p, [id]: nowLiked };
+    });
+  }, []);
+  const handleShare     = useCallback((id: number) => setShareCounts(c => ({ ...c, [id]: (c[id] ?? 0) + 1 })), []);
   const toggleComment = useCallback((id: number) => setOpenCard(p => p === id ? null : id), []);
   const addComment    = useCallback((id: number) => {
     const text = commentText.trim();
@@ -1138,6 +1168,7 @@ export function MediaSection({
     if (!article.mediaUrl) return;
     saveMedia(article.mediaUrl);
     setSavedIds(p => new Set([...p, article.id]));
+    setDownloadCounts(c => ({ ...c, [article.id]: (c[article.id] ?? 0) + 1 }));
   }, []);
   const handlePublished = useCallback((article: Article) => {
     // Newest articles go at the bottom (ascending order)
@@ -1166,16 +1197,20 @@ export function MediaSection({
             idx={idx}
             isActive={idx === activeIdx}
             liked={!!likes[article.id]}
+            likeCount={likeCounts[article.id] ?? 0}
             articleComments={comments[article.id] ?? []}
             isCommentOpen={openCard === article.id}
             isDeleting={deletingId === article.id}
             isAdmin={isAdmin}
             saved={savedIds.has(article.id)}
+            downloadCount={downloadCounts[article.id] ?? 0}
+            shareCount={shareCounts[article.id] ?? 0}
             commentText={openCard === article.id ? commentText : ""}
             onLike={() => toggleLike(article.id)}
             onToggleComment={() => toggleComment(article.id)}
             onDelete={() => handleDelete(article.id)}
             onSave={() => handleSave(article)}
+            onShare={() => handleShare(article.id)}
             onAddComment={() => addComment(article.id)}
             onCommentTextChange={setCommentText}
             cardRef={el => { cardRefs.current[idx] = el; }}

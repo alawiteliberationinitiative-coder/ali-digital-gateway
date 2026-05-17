@@ -300,21 +300,32 @@ const Model2TabBar = memo(function Model2TabBar({
             key={id}
             onClick={() => onTabChange(id)}
             whileTap={{ scale: 0.85 }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 relative"
-            style={{ color: active ? GOLD : "rgba(255,255,255,0.32)" }}>
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 relative overflow-hidden">
 
-            {/* Active top-edge indicator — layout-animated */}
+            {/* Active: royal green glowing glass background pill */}
             {active && (
               <motion.div
-                layoutId="m2-tab-indicator"
-                className="absolute top-0 left-1.5 right-1.5 rounded-b-full"
-                style={{ height: 2, background: GOLD }}
+                layoutId="m2-tab-active-bg"
+                className="absolute inset-x-1 inset-y-1.5 rounded-xl"
+                style={{
+                  background: "linear-gradient(160deg, rgba(0,80,30,0.72) 0%, rgba(0,50,18,0.55) 100%)",
+                  border: "1px solid rgba(0,200,80,0.35)",
+                  boxShadow: "0 0 14px rgba(0,180,70,0.45), 0 0 4px rgba(0,220,90,0.3), inset 0 1px 0 rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(8px)",
+                }}
                 transition={{ type: "spring", stiffness: 420, damping: 38 }}
               />
             )}
 
-            <Icon size={18} color={active ? GOLD : "rgba(255,255,255,0.32)"} />
-            <span className="font-arabic text-[9px] font-medium leading-none" dir="rtl">{label}</span>
+            <div className="relative z-10 flex flex-col items-center gap-0.5">
+              <Icon
+                size={18}
+                color={GOLD}
+                fill={active ? GOLD : `${GOLD}55`}
+                style={{ filter: active ? `drop-shadow(0 0 5px ${GOLD}cc)` : `drop-shadow(0 0 2px ${GOLD}60)` }}
+              />
+              <span className="font-arabic text-[9px] font-medium leading-none" style={{ color: active ? GOLD : `${GOLD}80` }} dir="rtl">{label}</span>
+            </div>
           </motion.button>
         );
       })}
