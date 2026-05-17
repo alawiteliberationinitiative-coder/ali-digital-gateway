@@ -5,7 +5,6 @@ import {
   Plus, Trash2, Image, Loader2, ArrowDownToLine,
   Wifi, WifiOff, Play, Pause, Gauge,
   Share2, Link2, Check, Eye, Pencil,
-  Volume2, VolumeX,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -122,7 +121,6 @@ function formatDateTime(iso: string) {
   } catch { return ""; }
 }
 const LAST_SEEN_KEY = "ali_last_seen_article";
-const MUTED_KEY     = "ali_video_muted";
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url);
 }
@@ -679,7 +677,7 @@ function CommentRow({ comment, isOwn, isAdmin, articleId, onEdit, onDelete, onLi
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
 function MediaCard({
-  article, idx, isActive, isNeighbor, globalMuted,
+  article, idx, isActive, isNeighbor,
   liked, likeCount, articleComments, isCommentOpen,
   isDeleting, isAdmin, myTelegramId, saved, downloadCount, shareCount, commentText,
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
@@ -690,7 +688,6 @@ function MediaCard({
   idx:             number;
   isActive:        boolean;
   isNeighbor:      boolean;
-  globalMuted:     boolean;
   liked:           boolean;
   likeCount:       number;
   articleComments: CommentData[];
@@ -783,17 +780,6 @@ function MediaCard({
     }
   }, [isActive, isVideo, effectiveQuality, userPaused]);
 
-  // ── 4. Sync video.muted directly — React's muted prop only sets defaultMuted
-  //    and doesn't update video.muted reactively after mount. ────────────────
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = globalMuted;
-    // If active card just got unmuted and the video is paused, restart it
-    if (!globalMuted && isActive && !userPaused && isVideo && effectiveQuality !== "low") {
-      video.play().catch(() => {});
-    }
-  }, [globalMuted, isActive, isVideo, effectiveQuality, userPaused]);
 
   // Reset user-pause when card changes
   useEffect(() => {
@@ -932,7 +918,6 @@ function MediaCard({
               }}
               loop
               playsInline
-              muted={globalMuted}
               preload={preloadAttr}
               onCanPlay={() => setMediaLoaded(true)}
               onError={() => setMediaError(true)}
@@ -1229,10 +1214,6 @@ export function MediaSection({
   const [deletingId,  setDeletingId]  = useState<number | null>(null);
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
-  const [globalMuted, setGlobalMuted] = useState<boolean>(() => {
-    // Default: muted — autoplay always works; user can unmute with the button
-    return localStorage.getItem(MUTED_KEY) !== "false";
-  });
   const cardRefs          = useRef<(HTMLDivElement | null)[]>([]);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const didRestoreRef     = useRef(false);   // prevent double restore
@@ -1533,7 +1514,6 @@ export function MediaSection({
             idx={idx}
             isActive={idx === activeIdx}
             isNeighbor={idx === activeIdx - 1 || idx === activeIdx + 1}
-            globalMuted={globalMuted}
             liked={!!likes[article.id]}
             likeCount={likeCounts[article.id] ?? 0}
             articleComments={comments[article.id] ?? []}
@@ -1560,34 +1540,6 @@ export function MediaSection({
           />
         ))}
       </div>
-
-      {/* ── Global mute / unmute button (TikTok style) ── */}
-      <motion.button
-        whileTap={{ scale: 0.88 }}
-        onClick={() => {
-          const next = !globalMuted;
-          setGlobalMuted(next);
-          localStorage.setItem(MUTED_KEY, String(next));
-          // Apply immediately to the currently playing video
-          const video = scrollRef.current?.querySelector<HTMLVideoElement>(
-            `[data-card-idx="${activeIdx}"] video`
-          );
-          if (video) {
-            video.muted = next;
-            if (!next && video.paused) video.play().catch(() => {});
-          }
-        }}
-        className="absolute z-30 flex items-center justify-center rounded-full"
-        style={{
-          top: 16, left: 16, width: 40, height: 40,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(6px)",
-          border: `1.5px solid ${GOLD}50`,
-        }}>
-        {globalMuted
-          ? <VolumeX  size={18} color={GOLD} />
-          : <Volume2  size={18} color={GOLD} />}
-      </motion.button>
 
       {/* ── Admin FAB "+" ── */}
       {isAdmin && (
