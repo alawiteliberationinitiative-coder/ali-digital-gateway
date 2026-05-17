@@ -711,14 +711,15 @@ function MediaCard({
   cardRef:         (el: HTMLDivElement | null) => void;
   networkState:    NetworkState;
 }) {
-  const [mediaLoaded,    setMediaLoaded]    = useState(false);
-  const [mediaError,     setMediaError]     = useState(false);
-  const [isBuffering,    setIsBuffering]    = useState(false);
-  const [qualityOpen,    setQualityOpen]    = useState(false);
-  const [shareOpen,      setShareOpen]      = useState(false);
-  const [userPaused,     setUserPaused]     = useState(false);
-  const [playHint,       setPlayHint]       = useState<"play" | "pause" | null>(null);
-  const [localViews,     setLocalViews]     = useState(article.viewCount ?? 0);
+  const [mediaLoaded,     setMediaLoaded]     = useState(false);
+  const [mediaError,      setMediaError]      = useState(false);
+  const [isBuffering,     setIsBuffering]     = useState(false);
+  const [qualityOpen,     setQualityOpen]     = useState(false);
+  const [shareOpen,       setShareOpen]       = useState(false);
+  const [userPaused,      setUserPaused]      = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [playHint,        setPlayHint]        = useState<"play" | "pause" | null>(null);
+  const [localViews,      setLocalViews]      = useState(article.viewCount ?? 0);
   // selectedQuality: null = use auto (from network), or user override
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality | null>(null);
   const bufferTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -762,30 +763,34 @@ function MediaCard({
     }
   }, [isActive, isNeighbor, isVideo, effectiveQuality]);
 
-  // ── 3. PLAY — direct DOM event listener avoids React state round-trip ──────
-  // If the video is already buffered (readyState ≥ 3), play immediately.
-  // Otherwise attach a once-listener so we play the moment canplay fires.
+  // ── 3. PLAY — direct DOM listener; catches browser autoplay-policy rejection ─
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
 
     function tryPlay() {
-      video!.play().catch(() => {/* muted — should succeed; swallow policy errors */});
+      video!.play().then(() => {
+        setAutoplayBlocked(false);
+      }).catch(() => {
+        // Browser blocked unmuted autoplay — show tap-to-play button
+        setAutoplayBlocked(true);
+      });
     }
 
     if (video.readyState >= 3) {
-      // Already have enough data — play straight away
       tryPlay();
     } else {
-      // Not ready yet — wait for the canplay event (fires once, then auto-removed)
       video.addEventListener("canplay", tryPlay, { once: true });
       return () => video.removeEventListener("canplay", tryPlay);
     }
   }, [isActive, isVideo, effectiveQuality, userPaused]);
 
-  // Reset user-pause when a new card becomes active (scroll to next/prev)
+  // Reset user-pause + autoplayBlocked when card changes
   useEffect(() => {
-    if (isActive) setUserPaused(false);
+    if (isActive) {
+      setUserPaused(false);
+      setAutoplayBlocked(false);
+    }
   }, [isActive]);
 
   // ── Buffering detection: show quality panel after 2.5 s of stalling ────────
@@ -968,14 +973,36 @@ function MediaCard({
       )}
 
 
-      {/* ── Buffering spinner overlay (center) ── */}
+      {/* ── Buffering / slow-network spinner overlay ── */}
       <AnimatePresence>
-        {isVideo && isBuffering && effectiveQuality !== "low" && (
+        {isVideo && (isBuffering || (!mediaLoaded && isActive)) && effectiveQuality !== "low" && !autoplayBlocked && (
           <motion.div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="rounded-full p-3" style={{ background: "rgba(0,0,0,0.45)" }}>
-              <Loader2 size={28} color="rgba(255,255,255,0.7)" className="animate-spin" />
+            <div className="rounded-full p-4" style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(4px)" }}>
+              <Loader2 size={32} color={GOLD} className="animate-spin" />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Autoplay blocked: tap-to-play overlay ── */}
+      <AnimatePresence>
+        {isVideo && autoplayBlocked && isActive && !userPaused && effectiveQuality !== "low" && (
+          <motion.div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 cursor-pointer"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => {
+              setAutoplayBlocked(false);
+              const video = videoRef.current;
+              if (video) video.play().catch(() => {});
+            }}>
+            <div className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: `2px solid ${GOLD}60` }}>
+              <Play size={34} color={GOLD} fill={GOLD} style={{ marginLeft: 4 }} />
+            </div>
+            <span className="font-arabic text-white/80 text-sm" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+              اضغط للتشغيل
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1215,10 +1242,10 @@ export function MediaSection({
   const [deletingId,  setDeletingId]  = useState<number | null>(null);
   const [savedIds,    setSavedIds]    = useState<Set<number>>(new Set());
   const [activeIdx,   setActiveIdx]   = useState(0);
-  const cardRefs      = useRef<(HTMLDivElement | null)[]>([]);
-  const scrollRef     = useRef<HTMLDivElement>(null);
-  // Prevents re-running the restore scroll after the initial mount
-  const didRestoreRef = useRef(false);
+  const cardRefs          = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollRef         = useRef<HTMLDivElement>(null);
+  const didRestoreRef     = useRef(false);   // prevent double restore
+  const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load articles then hydrate likes & comments from API ──────────────────
   const loadArticles = useCallback(() => {
@@ -1257,40 +1284,65 @@ export function MediaSection({
   }, []);
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
-  // ── Restore scroll to last-seen article (Telegram-channel style) ──────────
-  // IMPORTANT: must depend on `loading` — while loading=true the component returns
-  // a spinner (early return), so scrollRef.current is null. The scroll container
-  // only exists in the DOM after loading=false, so we gate on both.
+  // ── Restore scroll to last-seen article ──────────────────────────────────
+  // Priority: DB (per-user) → localStorage (fast cache) → idx 0
+  // Gate on loading=false: scroll container only exists after spinner is gone.
   useEffect(() => {
     if (loading || articles.length === 0 || didRestoreRef.current) return;
-    const savedId = parseInt(localStorage.getItem(LAST_SEEN_KEY) ?? "0", 10);
-    if (!savedId) return;
-    const targetIdx = articles.findIndex(a => a.id === savedId);
-    if (targetIdx < 0) return;          // < 0 only — index 0 is valid
-    if (targetIdx === 0) {              // first card already shown, just mark done
-      didRestoreRef.current = true;
-      return;
-    }
     didRestoreRef.current = true;
-    // Double-RAF: first frame lets browser commit the newly-rendered cards to layout,
-    // second frame reads clientHeight reliably and sets scrollTop.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const el = scrollRef.current;
-      if (!el) return;
-      const cardH = el.clientHeight;
-      if (cardH > 0) {
-        el.scrollTop = targetIdx * cardH;
+
+    async function doRestore() {
+      // Try DB first (authenticated users), fallback to localStorage
+      let savedId = 0;
+      try {
+        const r = await apiFetch("/api/users/me/progress");
+        if (r.ok) {
+          const d = await r.json() as { lastSeenArticleId: number | null };
+          savedId = d.lastSeenArticleId ?? 0;
+        }
+      } catch { /* ignore — use localStorage */ }
+
+      if (!savedId) {
+        savedId = parseInt(localStorage.getItem(LAST_SEEN_KEY) ?? "0", 10);
       }
-      setActiveIdx(targetIdx);
-    }));
+
+      if (!savedId) return;
+      const targetIdx = articles.findIndex(a => a.id === savedId);
+      if (targetIdx <= 0) return; // idx 0 already shown; < 0 = not found
+
+      // Double-RAF: browser must commit card layout before we read clientHeight
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const cardH = el.clientHeight;
+        if (cardH > 0) el.scrollTop = targetIdx * cardH;
+        setActiveIdx(targetIdx);
+      }));
+    }
+
+    doRestore();
   }, [loading, articles]);
 
-  // ── Persist last-seen article id whenever visible card changes ─────────────
+  // ── Persist last-seen article — localStorage immediately, DB debounced 2s ──
   useEffect(() => {
     const article = articles[activeIdx];
-    if (article && article.id > 0) {
-      localStorage.setItem(LAST_SEEN_KEY, String(article.id));
-    }
+    if (!article || article.id <= 0) return;
+
+    // Immediate local cache so restore works even without network
+    localStorage.setItem(LAST_SEEN_KEY, String(article.id));
+
+    // Debounced DB write — avoid hammering API on every scroll tick
+    if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
+    progressSaveTimer.current = setTimeout(() => {
+      apiFetch("/api/users/me/progress", {
+        method: "PUT",
+        body: JSON.stringify({ lastSeenArticleId: article.id }),
+      }).catch(() => {/* non-critical — localStorage is the fallback */});
+    }, 2000);
+
+    return () => {
+      if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
+    };
   }, [activeIdx, articles]);
 
   // ── Active-card detection: IntersectionObserver + scrollend fallback ─────

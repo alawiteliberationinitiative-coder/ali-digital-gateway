@@ -32,6 +32,7 @@ export const usersTable = pgTable("ali_users", {
   civicRole: text("civic_role"),
   photoUrl:  text("photo_url"),
   referredBy: text("referred_by"),
+  lastSeenArticleId: integer("last_seen_article_id"),
   lastAdRewardAt: timestamp("last_ad_reward_at", { withTimezone: true }),
   lastQuizCompletedAt: timestamp("last_quiz_completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

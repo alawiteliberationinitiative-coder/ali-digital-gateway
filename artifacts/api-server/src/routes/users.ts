@@ -368,4 +368,39 @@ router.get("/users/blocks", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
+// ── GET /api/users/me/progress ────────────────────────────────────────────────
+// Returns the last article the user was viewing (for restore-scroll on app open)
+router.get("/users/me/progress", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [user] = await db
+    .select({ lastSeenArticleId: usersTable.lastSeenArticleId })
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId));
+
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ lastSeenArticleId: user.lastSeenArticleId ?? null });
+});
+
+// ── PUT /api/users/me/progress ────────────────────────────────────────────────
+// Saves the last article the user was viewing (called on every activeIdx change)
+router.put("/users/me/progress", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { lastSeenArticleId } = req.body as { lastSeenArticleId?: unknown };
+  if (typeof lastSeenArticleId !== "number" || !Number.isInteger(lastSeenArticleId) || lastSeenArticleId < 1) {
+    res.status(400).json({ error: "lastSeenArticleId يجب أن يكون رقماً صحيحاً موجباً" });
+    return;
+  }
+
+  await db
+    .update(usersTable)
+    .set({ lastSeenArticleId })
+    .where(eq(usersTable.telegramId, telegramId));
+
+  res.json({ ok: true });
+});
+
 export default router;
