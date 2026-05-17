@@ -2201,7 +2201,11 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       <div className="flex flex-col items-center gap-2">
                         {/* MDD token coin — centred, 50% larger, no border, no lock */}
                         <img src="/mdd-token.jpg" className="w-24 h-24 rounded-full object-cover"
-                          style={{ boxShadow: `0 0 28px rgba(212,175,55,0.55), 0 0 52px rgba(212,175,55,0.28)` }} alt="MDD" />
+                          style={{
+                            border: "3px solid rgba(212,175,55,0.85)",
+                            boxShadow: `0 0 28px rgba(212,175,55,0.6), 0 0 52px rgba(212,175,55,0.3), 0 0 0 6px rgba(212,175,55,0.12)`,
+                            outline: "none",
+                          }} alt="MDD" />
                         <span className="font-mono font-black text-lg tracking-widest"
                           style={{ color: GOLD, textShadow: `0 0 14px ${GOLD}90`, WebkitTextStroke: "0.5px rgba(255,220,100,0.5)" }}>$MDD</span>
                         <p className="font-mono font-black text-3xl tracking-[0.35em]"
