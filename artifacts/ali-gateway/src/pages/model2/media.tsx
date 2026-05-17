@@ -805,30 +805,39 @@ function MediaCard({
     if (video) video.muted = isMuted;
   }, [isMuted]);
 
-  // ── 3. PLAY — canplay → play immediately, muted autoplay fallback ────────────
-  // Simple and reliable: play as soon as the browser has enough data.
-  // In-stream stalls are handled by the buffering overlay (waiting event).
-  // Buffer-gating was removed — it prevented play entirely on 3G networks
-  // where preload="metadata" left the video with 0 s buffered and no load().
+  // ── 3. PLAY — unified play/pause with race-condition guard ──────────────────
+  // Uses a `cancelled` flag so that any in-flight play() is aborted when this
+  // card becomes inactive.  The cleanup ALWAYS pauses the video — belt+suspenders
+  // alongside the useLayoutEffect above.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !isVideo || effectiveQuality === "low" || !isActive || userPaused) return;
+    if (!video || !isVideo) return;
 
-    // If the video stopped downloading (metadata-only preload) restart it now
+    // ── Not active: ensure paused and bail out ───────────────────────────
+    if (!isActive || effectiveQuality === "low" || userPaused) {
+      video.pause();
+      return;
+    }
+
+    // ── Active: load if necessary, then play ─────────────────────────────
     if (video.networkState === HTMLMediaElement.NETWORK_EMPTY ||
         (video.networkState === HTMLMediaElement.NETWORK_IDLE && video.readyState < 3)) {
       video.load();
     }
 
+    let cancelled = false;
+
     async function startPlay() {
+      if (cancelled) return;
       const vid = video!;
       vid.muted = isMutedRef.current;
-      try { await vid.play(); }
-      catch {
-        // Autoplay with sound blocked → mute and retry
-        if (!isMutedRef.current) {
+      try {
+        await vid.play();
+      } catch {
+        // Autoplay with sound blocked → mute and retry once
+        if (!cancelled && !isMutedRef.current) {
           vid.muted = true; isMutedRef.current = true; setIsMuted(true);
-          vid.play().catch(() => {});
+          if (!cancelled) vid.play().catch(() => {});
         }
       }
     }
@@ -837,8 +846,14 @@ function MediaCard({
       startPlay();
     } else {
       video.addEventListener("canplay", startPlay, { once: true });
-      return () => video.removeEventListener("canplay", startPlay);
     }
+
+    // Cleanup: cancel in-flight play, remove listener, ALWAYS pause
+    return () => {
+      cancelled = true;
+      video.removeEventListener("canplay", startPlay);
+      video.pause();
+    };
   }, [isActive, isVideo, effectiveQuality, userPaused]);
 
 
@@ -1459,59 +1474,77 @@ export function MediaSection({
     };
   }, [activeIdx, articles]);
 
-  // ── Active-card detection: IntersectionObserver (reliable in all WebViews) ──
+  // ── Active-card detection: 4-strategy hybrid (belt-and-suspenders) ──────────
   //
-  // WHY IntersectionObserver (not scrollend / scroll + debounce):
-  //   Telegram WebView (iOS WKWebView) does NOT support `scrollend`, and
-  //   `scroll` events on overflow containers are unreliable inside Telegram.
-  //   This caused activeIdx to NEVER update — card 0 stayed "active" forever,
-  //   the previous video kept playing and the next one never started.
+  // Strategy 1 — IntersectionObserver: fires as a card crosses 50% viewport.
+  //              Can be blocked by -webkit-overflow-scrolling on old iOS builds.
+  // Strategy 2 — scrollend: fires once after the snap animation settles.
+  //              Not supported in all Telegram WebView versions.
+  // Strategy 3 — touchend + 350 ms delay: reliable in ALL touch WebViews.
+  //              350 ms is enough for CSS snap animation to complete.
+  // Strategy 4 — scroll + 550 ms debounce: last resort; reads scrollTop after
+  //              scroll activity has been quiet for 550 ms.
   //
-  //   IntersectionObserver fires inside every WebView reliably. We observe
-  //   each card within the scroll container and elect the card with the
-  //   highest intersection ratio (>= 0.5) as the new active card.
+  // The first strategy to fire wins; duplicates are harmless (same idx).
+  // All four are registered so whichever the WebView supports is used.
   //
   useEffect(() => {
     if (articles.length === 0 || !scrollRef.current) return;
+    const el = scrollRef.current;
 
-    // Track the latest intersection ratio for every card by index
+    // Shared helper: calculate the card index from current scrollTop
+    function snapIdx() {
+      const h = el!.clientHeight;
+      if (!h) return;
+      const idx = Math.round(el!.scrollTop / h);
+      setActiveIdx(Math.max(0, Math.min(idx, articles.length - 1)));
+    }
+
+    // ── 1. IntersectionObserver ────────────────────────────────────────────
     const ratios = new Array(articles.length).fill(0) as number[];
-
     const io = new IntersectionObserver((entries) => {
       entries.forEach(e => {
-        const el  = e.target as HTMLElement;
-        const idx = parseInt(el.dataset.cardIdx ?? "-1", 10);
-        if (idx >= 0 && idx < ratios.length) ratios[idx] = e.intersectionRatio;
+        const target = e.target as HTMLElement;
+        const i = parseInt(target.dataset.cardIdx ?? "-1", 10);
+        if (i >= 0 && i < ratios.length) ratios[i] = e.intersectionRatio;
       });
-      // The card most visible AND at least half in view becomes active
       let best = -1, bestR = 0;
       ratios.forEach((r, i) => { if (r > bestR) { bestR = r; best = i; } });
       if (best >= 0 && bestR >= 0.5) setActiveIdx(best);
-    }, {
-      root: scrollRef.current,
-      threshold: [0, 0.25, 0.5, 0.75, 1.0],
-    });
+    }, { root: el, threshold: [0, 0.25, 0.5, 0.75, 1.0] });
+    cardRefs.current.forEach(c => { if (c) io.observe(c); });
 
-    // refs (cardRefs) are committed before effects run — observe directly
-    cardRefs.current.forEach(el => { if (el) io.observe(el); });
+    // ── 2. scrollend ───────────────────────────────────────────────────────
+    el.addEventListener("scrollend", snapIdx, { passive: true });
 
-    return () => io.disconnect();
-  // IMPORTANT: depend on the full articles array, not just .length.
-  // When FALLBACK articles (N items) are replaced by real articles (also N items),
-  // articles.length stays the same but the DOM elements change. Without this,
-  // the IO keeps watching detached old elements and activeIdx never updates.
-  }, [articles]); // eslint-disable-line react-hooks/exhaustive-deps
+    // ── 3. touchend + 350 ms ──────────────────────────────────────────────
+    let touchTimer: ReturnType<typeof setTimeout> | null = null;
+    function onTouchEnd() {
+      if (touchTimer) clearTimeout(touchTimer);
+      touchTimer = setTimeout(snapIdx, 350);
+    }
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
 
-  // ── Immediate video pause on scroll — stops audio before IO fires ──────────
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    // ── 4. scroll: immediate pause + 550 ms debounce snap ─────────────────
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
     function onScroll() {
       el!.querySelectorAll("video").forEach(v => { if (!v.paused) v.pause(); });
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(snapIdx, 550);
     }
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+
+    return () => {
+      io.disconnect();
+      el.removeEventListener("scrollend", snapIdx);
+      el.removeEventListener("touchend",  onTouchEnd);
+      el.removeEventListener("scroll",    onScroll);
+      if (touchTimer)  clearTimeout(touchTimer);
+      if (scrollTimer) clearTimeout(scrollTimer);
+    };
+  // Full articles array dep: ensures IO reconnects when FALLBACK→real articles
+  // replaces card elements even when the count stays the same.
+  }, [articles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Staggered background preload for images ───────────────────────────────
   // Priority order: dist-1 first (immediate), then 2→3→4 with increasing delays.
@@ -1661,7 +1694,7 @@ export function MediaSection({
       <div
         ref={scrollRef}
         className="h-full overflow-y-scroll"
-        style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        style={{ scrollSnapType: "y mandatory", scrollbarWidth: "none", msOverflowStyle: "none" }}>
 
         {articles.map((article, idx) => (
           <MediaCard
