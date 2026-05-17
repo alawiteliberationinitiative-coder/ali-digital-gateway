@@ -27,7 +27,7 @@ function formatViews(n: number): string {
   if (n >= 1_000)     return `${(n / 1_000).toFixed(n % 1_000 < 100 ? 1 : 0)}K`;
   return String(n);
 }
-interface CommentData { id: number; text: string; ts: number }
+interface CommentData { id: number; text: string; ts: number; pseudonym?: string }
 
 type VideoQuality = "high" | "medium" | "low";
 
@@ -1082,11 +1082,33 @@ export function MediaSection({
   // Prevents re-running the restore scroll after the initial mount
   const didRestoreRef = useRef(false);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Load articles then hydrate likes & comments from API ──────────────────
   const loadArticles = useCallback(() => {
     return apiFetch("/api/articles")
       .then(r => (r.ok ? r.json() as Promise<Article[]> : Promise.reject()))
-      .then(data => setArticles(data.length > 0 ? data : FALLBACK))
+      .then(async (data) => {
+        const list = data.length > 0 ? data : FALLBACK;
+        setArticles(list);
+        // Hydrate likes + comments for all real articles in parallel
+        const realIds = list.filter(a => a.id > 0).map(a => a.id);
+        await Promise.all(realIds.map(async (id) => {
+          try {
+            const [lr, cr] = await Promise.all([
+              apiFetch(`/api/articles/${id}/likes`).then(r => r.ok ? r.json() : { count: 0, liked: false }),
+              apiFetch(`/api/articles/${id}/comments`).then(r => r.ok ? r.json() : []),
+            ]);
+            setLikes(p => ({ ...p, [id]: lr.liked }));
+            setLikeCounts(p => ({ ...p, [id]: lr.count }));
+            const mapped = (cr as Array<{ id: number; text: string; createdAt: string; pseudonym: string }>).map(c => ({
+              id: c.id,
+              text: c.text,
+              ts: new Date(c.createdAt).getTime(),
+              pseudonym: c.pseudonym,
+            }));
+            setComments(p => ({ ...p, [id]: mapped }));
+          } catch { /* ignore — fallback to 0 */ }
+        }));
+      })
       .catch(() => setArticles(FALLBACK))
       .finally(() => setLoading(false));
   }, []);
@@ -1142,19 +1164,55 @@ export function MediaSection({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleLike    = useCallback((id: number) => {
+    // Optimistic update
     setLikes(p => {
       const nowLiked = !p[id];
-      setLikeCounts(c => ({ ...c, [id]: (c[id] ?? 0) + (nowLiked ? 1 : -1) }));
+      setLikeCounts(c => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + (nowLiked ? 1 : -1)) }));
       return { ...p, [id]: nowLiked };
     });
+    // Persist to API (fire & forget — optimistic already applied)
+    apiFetch(`/api/articles/${id}/like`, { method: "POST" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setLikes(p => ({ ...p, [id]: data.liked }));
+          setLikeCounts(c => ({ ...c, [id]: data.count }));
+        }
+      })
+      .catch(() => {});
   }, []);
   const handleShare     = useCallback((id: number) => setShareCounts(c => ({ ...c, [id]: (c[id] ?? 0) + 1 })), []);
   const toggleComment = useCallback((id: number) => setOpenCard(p => p === id ? null : id), []);
   const addComment    = useCallback((id: number) => {
     const text = commentText.trim();
     if (!text) return;
-    setComments(p => ({ ...p, [id]: [...(p[id] ?? []), { id: Date.now(), text, ts: Date.now() }] }));
+    // Optimistic local add
+    const tmpId = -Date.now();
+    setComments(p => ({ ...p, [id]: [...(p[id] ?? []), { id: tmpId, text, ts: Date.now(), pseudonym: "" }] }));
     setCommentText("");
+    // Persist to API
+    apiFetch(`/api/articles/${id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(saved => {
+        if (saved) {
+          // Replace the temp comment with the real server ID
+          setComments(p => ({
+            ...p,
+            [id]: (p[id] ?? []).map(c => c.id === tmpId
+              ? { id: saved.id, text: saved.text, ts: new Date(saved.createdAt).getTime(), pseudonym: saved.pseudonym }
+              : c
+            ),
+          }));
+        }
+      })
+      .catch(() => {
+        // Remove optimistic entry on failure
+        setComments(p => ({ ...p, [id]: (p[id] ?? []).filter(c => c.id !== tmpId) }));
+      });
   }, [commentText]);
   const handleDelete  = useCallback(async (id: number) => {
     if (id < 0) return;

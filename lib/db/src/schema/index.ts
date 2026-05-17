@@ -1,5 +1,6 @@
 export * from "./users";
 export * from "./articles";
+export * from "./article-interactions";
 export * from "./spaces";
 export * from "./follows";
 export * from "./activity";

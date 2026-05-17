@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, sql, usersTable, articlesTable } from "@workspace/db";
+import { db, eq, sql, and, usersTable, articlesTable, articleLikesTable, articleCommentsTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
 import { sendArticleToChannel, archiveMediaToTelegram } from "../lib/telegram-notify.js";
 
@@ -394,6 +394,104 @@ router.post("/articles", async (req, res): Promise<void> => {
   }
 
   res.status(201).json(article);
+});
+
+// ── GET /api/articles/:id/likes ───────────────────────────────────────────────
+// Returns { count, liked } — liked is true if the current user liked this article.
+router.get("/articles/:id/likes", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  const telegramId = req.telegramId ?? "";
+  try {
+    const rows = await db.select().from(articleLikesTable).where(eq(articleLikesTable.articleId, id));
+    const liked = telegramId ? rows.some(r => r.telegramId === telegramId) : false;
+    res.json({ count: rows.length, liked });
+  } catch {
+    res.json({ count: 0, liked: false });
+  }
+});
+
+// ── POST /api/articles/:id/like ───────────────────────────────────────────────
+// Toggle like — adds if not present, removes if present.
+router.post("/articles/:id/like", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  try {
+    const existing = await db.select().from(articleLikesTable)
+      .where(and(eq(articleLikesTable.articleId, id), eq(articleLikesTable.telegramId, telegramId)));
+    if (existing.length > 0) {
+      await db.delete(articleLikesTable)
+        .where(and(eq(articleLikesTable.articleId, id), eq(articleLikesTable.telegramId, telegramId)));
+      const rows = await db.select().from(articleLikesTable).where(eq(articleLikesTable.articleId, id));
+      res.json({ liked: false, count: rows.length });
+    } else {
+      await db.insert(articleLikesTable).values({ articleId: id, telegramId });
+      const rows = await db.select().from(articleLikesTable).where(eq(articleLikesTable.articleId, id));
+      res.json({ liked: true, count: rows.length });
+    }
+  } catch (err) {
+    req.log.error({ err }, "like toggle failed");
+    res.status(500).json({ error: "فشل تسجيل الإعجاب" });
+  }
+});
+
+// ── GET /api/articles/:id/comments ────────────────────────────────────────────
+router.get("/articles/:id/comments", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  try {
+    const rows = await db.select().from(articleCommentsTable)
+      .where(eq(articleCommentsTable.articleId, id));
+    res.json(rows);
+  } catch {
+    res.json([]);
+  }
+});
+
+// ── POST /api/articles/:id/comments ───────────────────────────────────────────
+router.post("/articles/:id/comments", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  const { text } = req.body as { text?: string };
+  if (!text?.trim()) { res.status(400).json({ error: "التعليق لا يمكن أن يكون فارغاً" }); return; }
+  if (text.length > 1000) { res.status(400).json({ error: "التعليق طويل جداً" }); return; }
+  try {
+    const user = await getUser(telegramId);
+    const pseudonym = user?.pseudonym ?? "عضو";
+    const [comment] = await db.insert(articleCommentsTable)
+      .values({ articleId: id, telegramId, pseudonym, text: text.trim() })
+      .returning();
+    res.status(201).json(comment);
+  } catch (err) {
+    req.log.error({ err }, "comment insert failed");
+    res.status(500).json({ error: "فشل حفظ التعليق" });
+  }
+});
+
+// ── DELETE /api/articles/:id/comments/:commentId ──────────────────────────────
+router.delete("/articles/:id/comments/:commentId", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const commentId = Number(req.params.commentId);
+  if (isNaN(commentId)) { res.status(400).json({ error: "id غير صالح" }); return; }
+  try {
+    const [comment] = await db.select().from(articleCommentsTable)
+      .where(eq(articleCommentsTable.id, commentId));
+    if (!comment) { res.status(404).json({ error: "التعليق غير موجود" }); return; }
+    const isAdmin = ADMIN_IDS.includes(telegramId);
+    if (comment.telegramId !== telegramId && !isAdmin) {
+      res.status(403).json({ error: "ليس لديك صلاحية حذف هذا التعليق" }); return;
+    }
+    await db.delete(articleCommentsTable).where(eq(articleCommentsTable.id, commentId));
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "comment delete failed");
+    res.status(500).json({ error: "فشل حذف التعليق" });
+  }
 });
 
 // ── DELETE /api/articles/:id ──────────────────────────────────────────────────

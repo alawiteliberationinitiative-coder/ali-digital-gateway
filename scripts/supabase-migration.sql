@@ -1065,3 +1065,26 @@ $$;
 
 -- Revoke from public, only service_role can call it
 REVOKE ALL ON FUNCTION drizzle_query(text, jsonb) FROM PUBLIC;
+
+-- ── Article Likes ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS article_likes (
+  id          SERIAL PRIMARY KEY,
+  article_id  INTEGER NOT NULL REFERENCES ali_articles(id) ON DELETE CASCADE,
+  telegram_id TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (article_id, telegram_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_article_likes_article_id ON article_likes(article_id);
+
+-- ── Article Comments ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS article_comments (
+  id          SERIAL PRIMARY KEY,
+  article_id  INTEGER NOT NULL REFERENCES ali_articles(id) ON DELETE CASCADE,
+  telegram_id TEXT NOT NULL,
+  pseudonym   TEXT NOT NULL,
+  text        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_article_comments_article_id ON article_comments(article_id);
