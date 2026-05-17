@@ -775,7 +775,6 @@ function MediaCard({
                 opacity:    mediaLoaded ? 1 : 0,
                 transition: "opacity 0.5s ease",
               }}
-              muted
               loop
               playsInline
               preload={preloadAttr}
