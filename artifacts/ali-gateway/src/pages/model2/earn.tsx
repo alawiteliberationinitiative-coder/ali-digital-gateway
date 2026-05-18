@@ -56,7 +56,7 @@ export function EarnSection({ telegramId: _telegramId }: { telegramId: string })
             style={{ filter: tab === "watch" ? "drop-shadow(0 0 5px rgba(167,139,250,0.7))" : "none", flexShrink: 0 }} />
           <div className="relative z-10 text-right">
             <p className="font-arabic font-black text-[11px] leading-tight"
-              style={{ color: tab === "watch" ? "#c4b5fd" : "rgba(255,255,255,0.55)" }}>شاهد وادعم</p>
+              style={{ color: tab === "watch" ? "#c4b5fd" : "rgba(255,255,255,0.55)" }}>شاهد الآن وادعم المبادرة</p>
             <p className="font-arabic text-[9px] leading-tight"
               style={{ color: tab === "watch" ? "rgba(196,181,253,0.7)" : "rgba(255,255,255,0.25)" }}>الإعلانات الطوعية</p>
           </div>

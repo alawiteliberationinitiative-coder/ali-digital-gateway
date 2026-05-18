@@ -598,47 +598,63 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
 
       {/* ── Tab switcher ── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5"
-        style={{ background: "rgba(2,14,4,0.97)", borderBottom: "1px solid rgba(212,175,55,0.14)" }}>
+        style={{ background: "rgba(2,10,2,0.97)", borderBottom: "1px solid rgba(212,175,55,0.18)" }}>
 
-        {/* توثيق الانتهاكات */}
-        <motion.button onClick={() => setTab("violations")} whileTap={{ scale: 0.94 }}
-          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden"
+        {/* رصد عاجل — يمين (أولوية الوصول) */}
+        <motion.button onClick={() => setTab("urgent")} whileTap={{ scale: 0.93 }}
+          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
           style={{
-            background: tab === "violations"
-              ? "linear-gradient(135deg, rgba(212,175,55,0.22) 0%, rgba(120,100,20,0.18) 100%)"
-              : "rgba(255,255,255,0.04)",
-            border: tab === "violations" ? `1.5px solid rgba(212,175,55,0.55)` : "1.5px solid rgba(255,255,255,0.08)",
-            boxShadow: tab === "violations" ? `0 0 16px rgba(212,175,55,0.2), inset 0 1px 0 rgba(255,255,255,0.12)` : "none",
+            background: "linear-gradient(135deg, rgba(212,175,55,0.13) 0%, rgba(180,150,30,0.07) 100%)",
+            border: `1.5px solid rgba(212,175,55,0.35)`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,0,0,0.3)",
+            backdropFilter: "blur(8px)",
           }}>
-          <Shield size={15}
-            color={tab === "violations" ? GOLD : "rgba(255,255,255,0.35)"}
-            style={{ filter: tab === "violations" ? `drop-shadow(0 0 5px ${GOLD}90)` : "none", flexShrink: 0 }} />
-          <div className="relative z-10 text-right">
-            <p className="font-arabic font-black text-[11px] leading-tight"
-              style={{ color: tab === "violations" ? GOLD : "rgba(255,255,255,0.55)" }}>توثيق الانتهاكات</p>
-            <p className="font-arabic text-[9px] leading-tight"
-              style={{ color: tab === "violations" ? "rgba(212,175,55,0.65)" : "rgba(255,255,255,0.25)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
+          {/* طبقة حمراء شفافة عند التفعيل */}
+          {tab === "urgent" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ background: "rgba(239,68,68,0.22)", border: "1.5px solid rgba(239,68,68,0.5)" }} />
+          )}
+          {/* أيقونة زجاجية ذهبية لامعة */}
+          <div className="relative z-10 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(145deg, rgba(212,175,55,0.35) 0%, rgba(212,175,55,0.1) 100%)",
+              border: "1px solid rgba(212,175,55,0.6)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(212,175,55,0.3)",
+            }}>
+            <ShieldAlert size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
+          </div>
+          <div className="relative z-10 text-right flex-1">
+            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>رصد عاجل</p>
+            <p className="font-arabic text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>خطف · فصائل · قتل · اعتقال</p>
           </div>
         </motion.button>
 
-        {/* رصد عاجل */}
-        <motion.button onClick={() => setTab("urgent")} whileTap={{ scale: 0.94 }}
-          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden"
+        {/* توثيق الانتهاكات — يسار */}
+        <motion.button onClick={() => setTab("violations")} whileTap={{ scale: 0.93 }}
+          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
           style={{
-            background: tab === "urgent"
-              ? "linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(120,20,20,0.25) 100%)"
-              : "rgba(255,255,255,0.04)",
-            border: tab === "urgent" ? `1.5px solid rgba(239,68,68,0.5)` : "1.5px solid rgba(255,255,255,0.08)",
-            boxShadow: tab === "urgent" ? `0 0 16px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.12)` : "none",
+            background: "linear-gradient(135deg, rgba(212,175,55,0.13) 0%, rgba(180,150,30,0.07) 100%)",
+            border: `1.5px solid rgba(212,175,55,0.35)`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,0,0,0.3)",
+            backdropFilter: "blur(8px)",
           }}>
-          <ShieldAlert size={15}
-            color={tab === "urgent" ? RED : "rgba(255,255,255,0.35)"}
-            style={{ filter: tab === "urgent" ? `drop-shadow(0 0 5px ${RED}90)` : "none", flexShrink: 0 }} />
-          <div className="relative z-10 text-right">
-            <p className="font-arabic font-black text-[11px] leading-tight"
-              style={{ color: tab === "urgent" ? "#fca5a5" : "rgba(255,255,255,0.55)" }}>رصد عاجل</p>
-            <p className="font-arabic text-[9px] leading-tight"
-              style={{ color: tab === "urgent" ? "rgba(252,165,165,0.65)" : "rgba(255,255,255,0.25)" }}>خطف · فصائل · قتل · اعتقال</p>
+          {tab === "violations" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ background: "rgba(239,68,68,0.22)", border: "1.5px solid rgba(239,68,68,0.5)" }} />
+          )}
+          <div className="relative z-10 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(145deg, rgba(212,175,55,0.35) 0%, rgba(212,175,55,0.1) 100%)",
+              border: "1px solid rgba(212,175,55,0.6)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(212,175,55,0.3)",
+            }}>
+            <Shield size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
+          </div>
+          <div className="relative z-10 text-right flex-1">
+            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>توثيق الانتهاكات</p>
+            <p className="font-arabic text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
           </div>
         </motion.button>
       </div>

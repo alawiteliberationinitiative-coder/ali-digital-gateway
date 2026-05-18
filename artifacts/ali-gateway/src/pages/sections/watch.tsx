@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Star, CheckCircle, Play, Clock, XCircle } from "lucide-react";
-import { AliEmblem } from "../../components/ui/ali-emblem";
 import { useTelegram } from "../../lib/telegram";
 import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 import { useState } from "react";
@@ -12,10 +11,9 @@ const COOLDOWN_MS = 25_000;
 
 const NOTICE_LINES = [
   "هذا الإعلان لا يمثّل توجهات المبادرة.",
-  "يرجى مشاهدته حتى النهاية.",
+  "يرجى مشاهدته حتى النهاية (أكمل). سيظهر حرف ✕ عندما ينتهي عداد الثواني — اضغط عليه للخروج من الإعلان.",
   "بإمكانك عدم النقر على الشاشة لكيلا تنتقل إلى روابط إعلانية خارجية.",
   "مجرّد مشاهدتك تزيد من رصيدك وتدعم المبادرة.",
-  "أغلقه فقط عندما ينتهي عداد الثواني.",
   "كل إعلان تشاهده يدعم المبادرة وأهلنا إنسانياً 💚",
 ];
 
@@ -94,26 +92,40 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto flex flex-col items-center px-5 py-8 gap-8">
 
-        {/* Emblem */}
-        <div className="relative flex items-center justify-center">
-          <div
-            className="absolute rounded-full ali-pulse-ring"
-            style={{ width: 188, height: 188, background: "transparent", border: "2px solid rgba(212,175,55,0.25)" }}
-          />
-          <div
-            className="absolute rounded-full ali-pulse-ring-sm"
-            style={{ width: 164, height: 164, background: "transparent", border: "1.5px solid rgba(212,175,55,0.15)" }}
-          />
-          <div
-            className="relative z-10 rounded-full overflow-hidden"
+        {/* Watch hero banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
+          className="w-full rounded-3xl flex flex-col items-center justify-center gap-3 py-7 px-4 text-center"
+          style={{
+            background: "linear-gradient(135deg, rgba(0,43,27,0.9) 0%, rgba(6,13,26,0.95) 100%)",
+            border: "2px solid rgba(212,175,55,0.45)",
+            boxShadow: "0 0 40px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
+          }}>
+          <motion.div
+            animate={{ scale: [1, 1.06, 1] }} transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut" }}
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{
-              width: 144, height: 144,
-              boxShadow: "0 0 48px rgba(212,175,55,0.35), 0 8px 0 rgba(212,175,55,0.3)",
-              border: "3px solid #d4af37",
+              background: "linear-gradient(145deg, rgba(212,175,55,0.35), rgba(212,175,55,0.08))",
+              border: "1.5px solid rgba(212,175,55,0.6)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 0 20px rgba(212,175,55,0.3)",
             }}>
-            <AliEmblem className="w-full h-full" animate={false} />
+            <Play className="w-8 h-8" color="#d4af37" fill="#d4af37" style={{ filter: "drop-shadow(0 0 6px rgba(212,175,55,0.8))" }} />
+          </motion.div>
+          <div>
+            <p className="font-arabic font-black text-xl leading-tight" style={{ color: "#d4af37", textShadow: "0 0 12px rgba(212,175,55,0.5)" }}>
+              شاهد الآن وادعم المبادرة
+            </p>
+            <p className="font-arabic text-xs mt-1" style={{ color: "rgba(34,197,94,0.8)" }}>
+              مشاهدتك تترجم دعماً حقيقياً لأهلنا
+            </p>
           </div>
-        </div>
+          <motion.div
+            className="h-px w-3/4"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.6), transparent)" }}
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          />
+        </motion.div>
 
         {/* Watch count badge */}
         {watchCount > 0 && (
