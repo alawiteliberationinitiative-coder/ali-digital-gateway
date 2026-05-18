@@ -483,16 +483,16 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
   const [draft,    setDraft]    = useState(comment.text);
   return (
     <div className="flex gap-2" dir="rtl">
-      <div className="w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold flex-shrink-0 mt-0.5"
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0 mt-0.5"
         style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-          <span className="font-arabic text-[15px] font-bold" style={{ color: GOLD }}>{comment.pseudonym || "عضو"}</span>
-          {isOwn && !editMode && <span className="font-arabic text-[14px] text-white/30">(أنت)</span>}
+          <span className="font-arabic text-[13px] font-bold" style={{ color: GOLD }}>{comment.pseudonym || "عضو"}</span>
+          {isOwn && !editMode && <span className="font-arabic text-[12px] text-white/30">(أنت)</span>}
         </div>
         {editMode ? (
           <div className="flex items-center gap-1.5">
-            <input className="flex-1 rounded-xl px-3 py-1.5 text-[21px] font-arabic text-white/80 outline-none"
+            <input className="flex-1 rounded-xl px-3 py-1.5 text-[18px] font-arabic text-white/80 outline-none"
               style={{ background: "rgba(255,255,255,0.09)", border: `1px solid ${GOLD}30` }}
               value={draft} onChange={e => setDraft(e.target.value)}
               onKeyDown={e => {
@@ -506,7 +506,7 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
             </button>
           </div>
         ) : (
-          <p className="font-arabic text-white/75 text-[20px] leading-relaxed">{comment.text}</p>
+          <p className="font-arabic text-white/75 text-[17px] leading-relaxed">{comment.text}</p>
         )}
         <div className="flex items-center gap-3 mt-1.5">
           <motion.button whileTap={{ scale: 1.2 }} onClick={() => onLike(comment.id)}
@@ -514,7 +514,7 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
             <Heart size={17} color={comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)"}
               fill={comment.likedByMe ? GOLD : "none"} />
             {(comment.likeCount ?? 0) > 0 && (
-              <span className="font-mono text-[14px]" style={{ color: comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)" }}>
+              <span className="font-mono text-[12px]" style={{ color: comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)" }}>
                 {comment.likeCount}
               </span>
             )}
@@ -524,12 +524,12 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
               {isOwn && (
                 <button onClick={() => setEditMode(true)}
                   className="flex items-center gap-1 text-white/30 hover:text-white/60">
-                  <Pencil size={15} /><span className="font-arabic text-[14px]">تعديل</span>
+                  <Pencil size={15} /><span className="font-arabic text-[12px]">تعديل</span>
                 </button>
               )}
               <button onClick={() => onDelete(comment.id)}
                 className="flex items-center gap-1 text-red-400/40 hover:text-red-400/70">
-                <Trash2 size={15} /><span className="font-arabic text-[14px]">حذف</span>
+                <Trash2 size={15} /><span className="font-arabic text-[12px]">حذف</span>
               </button>
             </>
           )}
@@ -1024,7 +1024,7 @@ function ReelCard({
           paddingBottom: 14, paddingTop: 64, paddingRight: 16, paddingLeft: 72,
         }}
         dir="rtl">
-        <h2 className="font-arabic font-bold text-white text-[15px] leading-tight line-clamp-2 drop-shadow mb-1.5">
+        <h2 className="font-arabic font-bold text-white text-[13px] leading-tight line-clamp-2 drop-shadow mb-1.5">
           {article.title}
         </h2>
         <div className="flex items-center gap-2 flex-wrap">
@@ -1063,15 +1063,15 @@ function ReelCard({
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" dir="rtl">
               {article.body && (
                 <div className="flex gap-2 pb-3 border-b" style={{ borderColor: `${GOLD}15` }}>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold flex-shrink-0 mt-0.5"
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0 mt-0.5"
                     style={{ background: `${GOLD}28`, color: GOLD }}>✦</div>
                   <div className="rounded-2xl rounded-tr-sm px-3 py-2 flex-1"
                     style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}18` }}>
                     <div className="flex items-center gap-1 mb-1.5">
-                      <span className="text-[14px]">📌</span>
-                      <span className="font-arabic text-[15px] font-bold" style={{ color: GOLD }}>تعليق مثبّت</span>
+                      <span className="text-[12px]">📌</span>
+                      <span className="font-arabic text-[13px] font-bold" style={{ color: GOLD }}>تعليق مثبّت</span>
                     </div>
-                    <p className="font-arabic text-white/80 leading-relaxed text-[20px]">{article.body}</p>
+                    <p className="font-arabic text-white/80 leading-relaxed text-[17px]">{article.body}</p>
                   </div>
                 </div>
               )}
