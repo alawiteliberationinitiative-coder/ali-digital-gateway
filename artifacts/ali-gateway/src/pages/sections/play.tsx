@@ -47,7 +47,7 @@ interface AnswerResult {
   tierColor:           string;
 }
 
-type GameState = "loading" | "map" | "question" | "feedback" | "stage-done";
+type GameState = "loading" | "map" | "question" | "feedback" | "stage-done" | "setup-error";
 
 // ── Animations ────────────────────────────────────────────────────────────────
 
@@ -624,14 +624,24 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   const [submitting,   setSubmitting]  = useState(false);
   const [error,        setError]       = useState<string | null>(null);
 
+  // ── Safe fetch helper — throws on non-2xx ───────────────────────────────
+  async function safeFetch<T>(url: string, init?: RequestInit): Promise<T> {
+    const r = await apiFetch(url, init as Parameters<typeof apiFetch>[1]);
+    if (!r.ok) {
+      const errBody = await r.json().catch(() => ({})) as { error?: string };
+      throw new Error(errBody.error ?? `HTTP ${r.status}`);
+    }
+    return r.json() as Promise<T>;
+  }
+
   // ── Load initial data ────────────────────────────────────────────────────
   useEffect(() => {
     if (!telegramId) return;
     let cancelled = false;
 
     Promise.all([
-      apiFetch("/api/quiz/state").then(r => r.json() as Promise<QuizState>),
-      apiFetch("/api/quiz/question").then(r => r.json() as Promise<QuizQuestion>),
+      safeFetch<QuizState>("/api/quiz/state"),
+      safeFetch<QuizQuestion>("/api/quiz/question"),
     ])
       .then(([s, q]) => {
         if (cancelled) return;
@@ -639,11 +649,19 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         setQuestion(q);
         setGameState("map");
       })
-      .catch(() => {
-        if (!cancelled) setGameState("map");
+      .catch((err: Error) => {
+        if (cancelled) return;
+        const msg = err?.message ?? "";
+        if (msg.includes("quiz_progress") || msg.includes("relation") || msg.includes("does not exist")) {
+          setError("setup");
+        } else {
+          setError(msg || "تعذّر الاتصال بالخادم");
+        }
+        setGameState("setup-error");
       });
 
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [telegramId]);
 
   // ── Load next question (after answer or stage done) ──────────────────────
@@ -651,15 +669,15 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       const [s, q] = await Promise.all([
-        apiFetch("/api/quiz/state").then(r => r.json() as Promise<QuizState>),
-        apiFetch("/api/quiz/question").then(r => r.json() as Promise<QuizQuestion>),
+        safeFetch<QuizState>("/api/quiz/state"),
+        safeFetch<QuizQuestion>("/api/quiz/question"),
       ]);
       setQuizState(s);
       setQuestion(q);
       setAnswerResult(null);
       setGameState("question");
-    } catch {
-      setError("تعذّر تحميل السؤال");
+    } catch (err) {
+      setError((err as Error)?.message || "تعذّر تحميل السؤال");
     }
   }
 
@@ -669,16 +687,15 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await apiFetch("/api/quiz/answer", {
+      const result = await safeFetch<AnswerResult>("/api/quiz/answer", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ questionId: question.id, answer }),
-      }).then(r => r.json() as Promise<AnswerResult>);
-
+      });
       setAnswerResult(result);
       setGameState("feedback");
-    } catch {
-      setError("حدث خطأ. حاول مجدداً.");
+    } catch (err) {
+      setError((err as Error)?.message || "حدث خطأ. حاول مجدداً.");
     }
     setSubmitting(false);
   }
@@ -707,6 +724,51 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
           animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} />
         <p className="font-arabic text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>جاري التحميل...</p>
       </div>
+    );
+  }
+
+  if (gameState === "setup-error") {
+    const isSetup = error === "setup";
+    return (
+      <motion.div {...fadeUp} className="flex flex-col items-center justify-center h-full gap-5 px-5 text-center" dir="rtl">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
+          style={{ background: "rgba(239,68,68,0.1)", border: "2px solid rgba(239,68,68,0.3)" }}>
+          {isSetup ? "🔧" : "⚠️"}
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-arabic font-black text-xl" style={{ color: "#f87171" }}>
+            {isSetup ? "النظام قيد الإعداد" : "تعذّر تحميل المسابقة"}
+          </h3>
+          <p className="font-arabic text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+            {isSetup
+              ? "قاعدة بيانات المسابقة لم تُهيَّأ بعد. يرجى التواصل مع المسؤول."
+              : (error ?? "حدث خطأ غير متوقع. حاول مجدداً.")}
+          </p>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => {
+            setGameState("loading");
+            setError(null);
+            Promise.all([
+              safeFetch<QuizState>("/api/quiz/state"),
+              safeFetch<QuizQuestion>("/api/quiz/question"),
+            ]).then(([s, q]) => {
+              setQuizState(s); setQuestion(q); setGameState("map");
+            }).catch((err: Error) => {
+              setError(err?.message || "تعذّر الاتصال");
+              setGameState("setup-error");
+            });
+          }}
+          className="px-8 py-3 rounded-2xl font-arabic font-bold text-sm"
+          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+          إعادة المحاولة ↺
+        </motion.button>
+        <button onClick={onBack}
+          className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+          رجوع
+        </button>
+      </motion.div>
     );
   }
 
