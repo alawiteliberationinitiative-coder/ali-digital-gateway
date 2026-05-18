@@ -9,7 +9,7 @@ import { Play, FileText, Radio, Star, MessageSquare, Phone, Mic } from "lucide-r
 // ── Lazy-loaded tab sections ──────────────────────────────────────────────────
 const MediaSection         = lazy(() => import("./model2/media").then(m => ({ default: m.MediaSection })));
 const ReportsSection       = lazy(() => import("./model2/reports").then(m => ({ default: m.ReportsSection })));
-const FieldMonitorSection  = lazy(() => import("./model2/field-monitor").then(m => ({ default: m.FieldMonitorSection })));
+const FieldDocsHub         = lazy(() => import("./model2/field-docs-hub").then(m => ({ default: m.FieldDocsHub })));
 const DocumentationSection = lazy(() => import("./model2/documentation").then(m => ({ default: m.DocumentationSection })));
 const CommunitySection     = lazy(() => import("./sections/community").then(m => ({ default: m.CommunitySection })));
 const EarnSection          = lazy(() => import("./model2/earn").then(m => ({ default: m.EarnSection })));
@@ -28,7 +28,7 @@ type TabIcon = (props: { size?: number; color?: string }) => JSX.Element | null;
 const TABS: { id: Tab; label: string; Icon: TabIcon }[] = [
   { id: "media",     label: "ميديا",       Icon: Play     },
   { id: "reports",   label: "تقارير",      Icon: FileText },
-  { id: "field",     label: "رصد ميداني",  Icon: Radio    },
+  { id: "field",     label: "رصد وتوثيق", Icon: Radio    },
   { id: "community", label: "المجلس",      Icon: Mic      },
   { id: "earn",      label: "اربح",        Icon: Star     },
 ];
@@ -461,7 +461,7 @@ export default function DashboardModel2() {
                 <Suspense fallback={<TabLoading />}>
                   {activeTab === "media"     && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
                   {activeTab === "reports"  && <ReportsSection      telegramId={telegramId} />}
-                  {activeTab === "field"    && <FieldMonitorSection telegramId={telegramId} />}
+                  {activeTab === "field"    && <FieldDocsHub telegramId={telegramId} />}
                   {activeTab === "community"&& <CommunitySection    onBack={() => setActiveTab("media")} />}
                   {activeTab === "earn"     && <EarnSection         telegramId={telegramId} />}
                   {activeTab === "messages" && <ComingSoonSection icon={<MessageSquare size={40} color={GOLD} />} label="الرسائل" />}
