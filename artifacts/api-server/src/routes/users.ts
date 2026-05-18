@@ -135,15 +135,16 @@ router.patch("/users/me/pseudonym", async (req, res): Promise<void> => {
   res.json({ ...updated, mddBalance: Number(updated.mddBalance) });
 });
 
-/* ── Award 200 points for documentation form ─────────────────────────────── */
+/* ── Award points for documentation form ─────────────────────────────────
+ * type "urgent"     → 500 pts  (urgent field monitoring reports)
+ * type "violations" → 1000 pts (violations documentation)
+ * default           → 200 pts  (legacy/untyped calls)
+ * ─────────────────────────────────────────────────────────────────────── */
 router.post("/docs/submit", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
   if (!telegramId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  // Require a server-issued upload token from a prior /api/docs/upload-file
-  // call.  Without this a caller could farm 200 points by hitting this
-  // endpoint directly, with no file ever uploaded.
-  const { fileId } = req.body as { fileId?: string };
+  const { fileId, type } = req.body as { fileId?: string; type?: string };
   if (!fileId || typeof fileId !== "string") {
     res.status(400).json({ error: "fileId required" });
     return;
@@ -155,15 +156,17 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
     return;
   }
 
+  const pointsAwarded = type === "urgent" ? 500 : type === "violations" ? 1000 : 200;
+
   const [user] = await db
     .update(usersTable)
-    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + 200` })
+    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${pointsAwarded}` })
     .where(eq(usersTable.telegramId, telegramId))
     .returning({ loyaltyPoints: usersTable.loyaltyPoints });
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  req.log.info({ telegramId, fileId, pointsAwarded: 200 }, "docs submit reward granted");
-  res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded: 200 });
+  req.log.info({ telegramId, fileId, type, pointsAwarded }, "docs submit reward granted");
+  res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded });
 });
 
 /* ── Referral count ──────────────────────────────────────────────────────── */

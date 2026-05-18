@@ -176,7 +176,7 @@ function UploadOverlay({ progress, onDone }: { progress: number; onDone: boolean
           <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
           <div>
             <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>تم إرسال البلاغ إلى مركز ADAR ✓</p>
-            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · +100 نقطة أُضيفت لرصيدك</p>
+            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · +500 نقطة أُضيفت لرصيدك</p>
           </div>
         </div>
       ) : (
@@ -510,11 +510,11 @@ function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
       const res = await apiFetch("/api/docs/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId }),
+        body: JSON.stringify({ fileId, type: "urgent" }),
       });
       if (res.ok) {
         setSubmittedIds(p => new Set(p).add(formId));
-        setTotalPoints(p => p + 100);
+        setTotalPoints(p => p + 500);
       }
     } catch { /* silent */ }
   }, [telegramId]);
@@ -545,7 +545,7 @@ function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
           <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 12, color: "#fca5a5" }}>بلاغات الرصد العاجل — 6 فئات</p>
         </div>
         <p style={{ fontFamily: "'Amiri', serif", fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.8 }}>
-          أبلغ عن حوادث عاجلة في الميدان — كل بلاغ مشفّر ومرسل فوراً إلى مركز ADAR ويُضيف <span style={{ color: RED }}>100 نقطة</span> لرصيدك.
+          أبلغ عن حوادث عاجلة في الميدان — كل بلاغ مشفّر ومرسل فوراً إلى مركز ADAR ويُضيف <span style={{ color: RED }}>500 نقطة</span> لرصيدك.
         </p>
       </div>
 
@@ -604,10 +604,10 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
         <motion.button onClick={() => setTab("urgent")} whileTap={{ scale: 0.93 }}
           className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, rgba(212,175,55,0.13) 0%, rgba(180,150,30,0.07) 100%)",
-            border: `1.5px solid rgba(212,175,55,0.35)`,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,0,0,0.3)",
-            backdropFilter: "blur(8px)",
+            background: "linear-gradient(145deg, rgba(212,175,55,0.22) 0%, rgba(180,150,10,0.08) 60%, rgba(255,220,80,0.06) 100%)",
+            border: `1.5px solid rgba(212,175,55,0.55)`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.3), 0 3px 10px rgba(0,0,0,0.4)",
+            backdropFilter: "blur(12px)",
           }}>
           {/* طبقة حمراء شفافة عند التفعيل */}
           {tab === "urgent" && (
@@ -625,8 +625,8 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
             <ShieldAlert size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
           </div>
           <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: GOLD, textShadow: `0 0 8px ${GOLD}80` }}>رصد عاجل</p>
-            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.6)" }}>خطف · فصائل · قتل · اعتقال</p>
+            <p className="font-arabic font-black text-[13px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.5)" }}>رصد عاجل</p>
+            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>خطف · فصائل · قتل · اعتقال</p>
           </div>
         </motion.button>
 
@@ -634,10 +634,10 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
         <motion.button onClick={() => setTab("violations")} whileTap={{ scale: 0.93 }}
           className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, rgba(212,175,55,0.13) 0%, rgba(180,150,30,0.07) 100%)",
-            border: `1.5px solid rgba(212,175,55,0.35)`,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,0,0,0.3)",
-            backdropFilter: "blur(8px)",
+            background: "linear-gradient(145deg, rgba(212,175,55,0.22) 0%, rgba(180,150,10,0.08) 60%, rgba(255,220,80,0.06) 100%)",
+            border: `1.5px solid rgba(212,175,55,0.55)`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.3), 0 3px 10px rgba(0,0,0,0.4)",
+            backdropFilter: "blur(12px)",
           }}>
           {tab === "violations" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -646,15 +646,15 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
           )}
           <div className="relative z-10 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
             style={{
-              background: "linear-gradient(145deg, rgba(212,175,55,0.35) 0%, rgba(212,175,55,0.1) 100%)",
-              border: "1px solid rgba(212,175,55,0.6)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(212,175,55,0.3)",
+              background: "linear-gradient(145deg, rgba(212,175,55,0.45) 0%, rgba(212,175,55,0.12) 100%)",
+              border: "1px solid rgba(212,175,55,0.7)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 8px rgba(212,175,55,0.35)",
             }}>
-            <Shield size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
+            <Shield size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 5px ${GOLD})` }} />
           </div>
           <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: GOLD, textShadow: `0 0 8px ${GOLD}80` }}>توثيق الانتهاكات</p>
-            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.6)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
+            <p className="font-arabic font-black text-[13px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.5)" }}>توثيق الانتهاكات</p>
+            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
           </div>
         </motion.button>
       </div>

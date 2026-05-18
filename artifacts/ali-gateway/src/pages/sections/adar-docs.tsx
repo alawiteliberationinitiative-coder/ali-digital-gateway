@@ -716,11 +716,11 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
       const res = await apiFetch("/api/docs/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId }),
+        body: JSON.stringify({ fileId, type: "violations" }),
       });
       if (res.ok) {
         setSubmittedIds(prev => new Set(prev).add(formId));
-        setTotalPoints(p => p + 200);
+        setTotalPoints(p => p + 1000);
       }
     } catch {
       /* non-critical: server will have recorded the state if upload was valid */

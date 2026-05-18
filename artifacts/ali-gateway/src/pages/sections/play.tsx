@@ -60,7 +60,7 @@ const LEVELS: Question[][] = [
 
 const MAX_LEVEL = LEVELS.length;
 
-type GameState  = "loading" | "ready" | "playing" | "answered" | "ad-break" | "next-level" | "all-done";
+type GameState  = "loading" | "level-select" | "ready" | "playing" | "answered" | "ad-break" | "next-level" | "all-done";
 type DoubleState = "idle" | "loading" | "done" | "error";
 
 // ── شاشة الإعلان بين المراحل ─────────────────────────────────────────────
@@ -275,18 +275,13 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     apiFetch("/api/users/me")
       .then(r => r.ok ? r.json() : { level: 1 })
       .then((data: { level?: number }) => {
-        const lvl = data.level ?? 1;
-        if (lvl > MAX_LEVEL) {
-          setPlayingLevel(MAX_LEVEL);
-          setGameState("all-done");
-        } else {
-          setPlayingLevel(lvl);
-          setGameState("ready");
-        }
+        const lvl = Math.min(data.level ?? 1, MAX_LEVEL);
+        setPlayingLevel(lvl);
+        setGameState("level-select");
       })
       .catch(() => {
         setPlayingLevel(1);
-        setGameState("ready");
+        setGameState("level-select");
       });
   }, [telegramId]);
 
@@ -322,19 +317,13 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (gameState !== "ad-break") return;
     const t = setTimeout(() => {
-      const next = playingLevelRef.current + 1;
-      if (next <= MAX_LEVEL) {
-        setPlayingLevel(next);
-        setCurrent(0);
-        setSelected(null);
-        setScore(0);
-        setStreak(0);
-        setDoubleState("idle");
-        setDoubledScore(0);
-        setGameState("next-level");
-      } else {
-        setGameState("all-done");
-      }
+      setCurrent(0);
+      setSelected(null);
+      setScore(0);
+      setStreak(0);
+      setDoubleState("idle");
+      setDoubledScore(0);
+      setGameState("level-select");
     }, 20_000);
     return () => clearTimeout(t);
   }, [gameState]);
@@ -364,26 +353,21 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
       }).catch(() => {});
     }
 
-    const next = lvl + 1;
-    if (next <= MAX_LEVEL) {
-      setPlayingLevel(next);
-      setCurrent(0);
-      setSelected(null);
-      setScore(0);
-      setStreak(0);
-      setDoubleState("idle");
-      setDoubledScore(0);
-      setGameState("next-level");
-    } else {
-      setGameState("all-done");
-    }
+    setCurrent(0);
+    setSelected(null);
+    setScore(0);
+    setStreak(0);
+    setDoubleState("idle");
+    setDoubledScore(0);
+    setGameState("level-select");
   }, []); // ← مقصودة: القيم تأتي من الـ refs
 
   const questions = LEVELS[Math.min(playingLevel - 1, MAX_LEVEL - 1)];
   const q         = questions[current];
   const isLast    = current === questions.length - 1;
 
-  function handleStart() {
+  function startLevel(lvl: number) {
+    setPlayingLevel(lvl);
     setCurrent(0);
     setSelected(null);
     setScore(0);
@@ -391,8 +375,6 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
     setDoubleState("idle");
     setDoubledScore(0);
     quizChallengeRef.current = "";
-    // Request a quiz session token before showing questions so the server can
-    // verify the session was open for a realistic duration at completion time.
     const tid = telegramIdRef.current;
     if (tid) {
       apiFetch("/api/quiz/start-level", { method: "POST" })
@@ -401,6 +383,10 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         .catch(() => {});
     }
     setGameState("playing");
+  }
+
+  function handleStart() {
+    startLevel(playingLevel);
   }
 
   function handleAnswer(idx: number) {
@@ -469,8 +455,9 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         <div className="flex-1">
           <h1 className="font-arabic font-bold text-primary text-lg leading-tight">طريق النحل 🐝</h1>
           <p className="font-arabic text-muted-foreground text-xs">
-            {gameState === "loading"  ? "جاري التحميل..." :
-             gameState === "all-done" ? "أكملت جميع المراحل 🏆" :
+            {gameState === "loading"      ? "جاري التحميل..." :
+             gameState === "level-select" ? "اختر مرحلتك 🗺️" :
+             gameState === "all-done"     ? "أكملت المرحلة 🏆 — العودة للخريطة" :
              `المرحلة ${playingLevel} من ${MAX_LEVEL}`}
           </p>
         </div>
@@ -494,6 +481,98 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
               <motion.div className="w-10 h-10 border-[3px] border-[#d4af37] border-t-transparent rounded-full"
                 animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }} />
               <p className="font-arabic text-muted-foreground text-sm">جاري تحميل مرحلتك...</p>
+            </motion.div>
+          )}
+
+          {/* ── خريطة المراحل — Duolingo Style ── */}
+          {gameState === "level-select" && (
+            <motion.div key="level-select"
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+
+              <div className="flex flex-col items-center pt-5 pb-24 px-4">
+
+                <div className="mb-6 text-center">
+                  <p className="font-arabic text-[#d4af37]/60 text-xs mb-1">اختر مرحلتك وابدأ التحدي</p>
+                  <h2 className="font-arabic font-black text-2xl text-white">طريق النحل 🐝</h2>
+                  <p className="font-arabic text-white/30 text-xs mt-1">جميع المراحل متاحة — يمكنك إعادة اللعب دائماً</p>
+                </div>
+
+                {LEVELS.map((qs, i) => {
+                  const lvlNum = i + 1;
+                  const isRight = i % 2 === 0;
+                  const totalPts = qs.reduce((s, q) => s + q.pts, 0);
+                  const cfg = [
+                    { grad: "linear-gradient(145deg,#c9991a,#f0d060,#c9991a)", shadow: "rgba(212,175,55,0.65)", text: "#002b1b", icon: "🎯", name: "البداية" },
+                    { grad: "linear-gradient(145deg,#16a34a,#4ade80,#16a34a)", shadow: "rgba(34,197,94,0.65)",  text: "#002b1b", icon: "⭐", name: "المعرفة" },
+                    { grad: "linear-gradient(145deg,#2563eb,#60a5fa,#2563eb)", shadow: "rgba(59,130,246,0.65)", text: "#fff",    icon: "🔥", name: "التعمق" },
+                    { grad: "linear-gradient(145deg,#9333ea,#c084fc,#9333ea)", shadow: "rgba(168,85,247,0.65)", text: "#fff",    icon: "💎", name: "الإتقان" },
+                    { grad: "linear-gradient(145deg,#dc2626,#f87171,#dc2626)", shadow: "rgba(239,68,68,0.65)",  text: "#fff",    icon: "🏆", name: "الخبرة" },
+                  ][i];
+
+                  return (
+                    <div key={i} className="flex flex-col items-center w-full">
+                      <div className={`flex items-center w-full gap-4 ${isRight ? "" : "flex-row-reverse"}`}>
+
+                        {/* زر المرحلة */}
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.88 }}
+                          onClick={() => startLevel(lvlNum)}
+                          className="flex-shrink-0 w-[88px] h-[88px] rounded-full flex flex-col items-center justify-center relative"
+                          style={{
+                            background: cfg.grad,
+                            boxShadow: `0 7px 0 ${cfg.shadow}cc, 0 12px 28px ${cfg.shadow}55`,
+                          }}>
+                          <span className="text-[28px] leading-none">{cfg.icon}</span>
+                          <span className="font-arabic font-black text-[11px] mt-0.5" style={{ color: cfg.text }}>{lvlNum}</span>
+                          <motion.div
+                            className="absolute inset-0 rounded-full"
+                            style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }} />
+                        </motion.button>
+
+                        {/* بطاقة المعلومات */}
+                        <div className={`flex-1 rounded-2xl px-4 py-3 ${isRight ? "text-right" : "text-left"}`}
+                          style={{
+                            background: "linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}>
+                          <p className="font-arabic font-black text-sm text-white">{cfg.name}</p>
+                          <p className="font-arabic text-xs text-white/40 mt-0.5">
+                            {qs.length} أسئلة · حتى {totalPts} نقطة
+                          </p>
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => startLevel(lvlNum)}
+                            className="mt-2 font-arabic font-black text-[11px] px-4 py-1.5 rounded-full"
+                            style={{
+                              background: cfg.grad,
+                              color: cfg.text,
+                              boxShadow: `0 3px 0 ${cfg.shadow}aa`,
+                            }}>
+                            العب الآن ▶
+                          </motion.button>
+                        </div>
+                      </div>
+
+                      {/* رابط بين المراحل */}
+                      {i < LEVELS.length - 1 && (
+                        <div className={`flex flex-col items-center gap-1 py-2 ${isRight ? "ml-[44px]" : "mr-[44px]"}`}>
+                          {[0,1,2].map(j => (
+                            <motion.div key={j} className="w-2.5 h-2.5 rounded-full"
+                              style={{ background: "rgba(212,175,55,0.25)" }}
+                              animate={{ opacity: [0.3, 0.8, 0.3] }}
+                              transition={{ repeat: Infinity, duration: 1.8, delay: j * 0.3 }} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
 
@@ -777,10 +856,18 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
                 </motion.button>
               )}
 
-              <button onClick={onBack}
-                className="w-full py-3 rounded-2xl font-arabic text-muted-foreground text-sm border border-border bg-card">
-                العودة للرئيسية
-              </button>
+              <div className="flex gap-3 w-full">
+                <motion.button whileTap={{ scale: 0.96 }}
+                  onClick={() => { setScore(0); setDoubleState("idle"); setDoubledScore(0); setGameState("level-select"); }}
+                  className="flex-1 py-3 rounded-2xl font-arabic font-bold text-sm"
+                  style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.08))", border: "1.5px solid rgba(212,175,55,0.5)", color: "#d4af37" }}>
+                  🗺️ خريطة المراحل
+                </motion.button>
+                <button onClick={onBack}
+                  className="flex-1 py-3 rounded-2xl font-arabic text-muted-foreground text-sm border border-border bg-card">
+                  الرئيسية
+                </button>
+              </div>
             </motion.div>
           )}
 
