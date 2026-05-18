@@ -597,66 +597,94 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
     <div className="h-full flex flex-col overflow-hidden" dir="rtl">
 
       {/* ── Tab switcher ── */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5"
-        style={{ background: "rgba(2,10,2,0.97)", borderBottom: "1px solid rgba(212,175,55,0.18)" }}>
+      <div className="flex-shrink-0 flex items-center gap-2.5 px-3 py-3"
+        style={{ background: "rgba(2,10,2,0.97)", borderBottom: "1px solid rgba(212,175,55,0.22)" }}>
 
-        {/* رصد عاجل — يمين (أولوية الوصول) */}
-        <motion.button onClick={() => setTab("urgent")} whileTap={{ scale: 0.93 }}
-          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
-          style={{
-            background: "linear-gradient(145deg, rgba(212,175,55,0.22) 0%, rgba(180,150,10,0.08) 60%, rgba(255,220,80,0.06) 100%)",
-            border: `1.5px solid rgba(212,175,55,0.55)`,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.3), 0 3px 10px rgba(0,0,0,0.4)",
-            backdropFilter: "blur(12px)",
-          }}>
-          {/* طبقة حمراء شفافة عند التفعيل */}
-          {tab === "urgent" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 rounded-2xl pointer-events-none"
-              style={{ background: "rgba(239,68,68,0.22)", border: "1.5px solid rgba(239,68,68,0.5)" }} />
-          )}
-          {/* أيقونة زجاجية ذهبية لامعة */}
-          <div className="relative z-10 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background: "linear-gradient(145deg, rgba(212,175,55,0.35) 0%, rgba(212,175,55,0.1) 100%)",
-              border: "1px solid rgba(212,175,55,0.6)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(212,175,55,0.3)",
-            }}>
-            <ShieldAlert size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
-          </div>
-          <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[13px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.5)" }}>رصد عاجل</p>
-            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>خطف · فصائل · قتل · اعتقال</p>
-          </div>
-        </motion.button>
+        {([
+          { id: "urgent",     icon: <ShieldAlert size={18} color={GOLD} style={{ filter: `drop-shadow(0 0 5px ${GOLD}cc)` }} />, label: "رصد عاجل",          sub: "خطف · فصائل · قتل · اعتقال" },
+          { id: "violations", icon: <Shield     size={18} color={GOLD} style={{ filter: `drop-shadow(0 0 5px ${GOLD}cc)` }} />, label: "توثيق الانتهاكات", sub: "مختطفات · تهجير · مفقودون" },
+        ] as const).map(({ id, icon, label, sub }) => {
+          const active = tab === id;
+          return (
+            <motion.button
+              key={id}
+              onClick={() => setTab(id)}
+              whileTap={{ scale: 0.96, y: 1 }}
+              className="relative flex-1 flex items-center justify-center gap-2 overflow-hidden"
+              style={{
+                borderRadius: 10,
+                padding: "10px 12px",
+                /* ── 3D glass gold body ── */
+                background: active
+                  ? "linear-gradient(180deg, rgba(255,235,120,0.28) 0%, rgba(212,175,55,0.38) 35%, rgba(160,120,10,0.32) 65%, rgba(100,70,0,0.45) 100%)"
+                  : "linear-gradient(180deg, rgba(255,235,120,0.14) 0%, rgba(212,175,55,0.20) 35%, rgba(160,120,10,0.16) 65%, rgba(80,55,0,0.28) 100%)",
+                /* ── border: bright top + dark bottom for 3D bevel ── */
+                border: active
+                  ? "1.5px solid rgba(255,225,80,0.75)"
+                  : "1.5px solid rgba(212,175,55,0.45)",
+                /* ── shadow stack: top highlight + depth shadow + glow ── */
+                boxShadow: active
+                  ? [
+                      "inset 0 1.5px 0 rgba(255,245,160,0.55)",
+                      "inset 0 -2px 0 rgba(0,0,0,0.55)",
+                      "inset 1px 0 0 rgba(255,235,100,0.18)",
+                      "inset -1px 0 0 rgba(0,0,0,0.25)",
+                      "0 4px 14px rgba(0,0,0,0.55)",
+                      `0 0 16px rgba(212,175,55,0.30)`,
+                    ].join(", ")
+                  : [
+                      "inset 0 1.5px 0 rgba(255,245,160,0.30)",
+                      "inset 0 -2px 0 rgba(0,0,0,0.45)",
+                      "inset 1px 0 0 rgba(255,235,100,0.10)",
+                      "inset -1px 0 0 rgba(0,0,0,0.20)",
+                      "0 3px 10px rgba(0,0,0,0.45)",
+                    ].join(", "),
+                backdropFilter: "blur(14px)",
+                transition: "all 0.18s ease",
+              }}>
 
-        {/* توثيق الانتهاكات — يسار */}
-        <motion.button onClick={() => setTab("violations")} whileTap={{ scale: 0.93 }}
-          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-3 overflow-hidden"
-          style={{
-            background: "linear-gradient(145deg, rgba(212,175,55,0.22) 0%, rgba(180,150,10,0.08) 60%, rgba(255,220,80,0.06) 100%)",
-            border: `1.5px solid rgba(212,175,55,0.55)`,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.3), 0 3px 10px rgba(0,0,0,0.4)",
-            backdropFilter: "blur(12px)",
-          }}>
-          {tab === "violations" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 rounded-2xl pointer-events-none"
-              style={{ background: "rgba(239,68,68,0.22)", border: "1.5px solid rgba(239,68,68,0.5)" }} />
-          )}
-          <div className="relative z-10 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background: "linear-gradient(145deg, rgba(212,175,55,0.45) 0%, rgba(212,175,55,0.12) 100%)",
-              border: "1px solid rgba(212,175,55,0.7)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 8px rgba(212,175,55,0.35)",
-            }}>
-            <Shield size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 5px ${GOLD})` }} />
-          </div>
-          <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[13px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 10px rgba(34,197,94,0.5)" }}>توثيق الانتهاكات</p>
-            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
-          </div>
-        </motion.button>
+              {/* ── glass sheen strip across top ── */}
+              <div className="absolute inset-x-0 top-0 h-[38%] pointer-events-none"
+                style={{
+                  borderRadius: "9px 9px 50% 50% / 9px 9px 14px 14px",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 100%)",
+                }} />
+
+              {/* ── icon ── */}
+              <div className="relative z-10 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
+                style={{
+                  background: "linear-gradient(145deg, rgba(212,175,55,0.38) 0%, rgba(160,120,10,0.18) 100%)",
+                  border: "1px solid rgba(212,175,55,0.55)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 5px rgba(212,175,55,0.25)",
+                }}>
+                {icon}
+              </div>
+
+              {/* ── text ── */}
+              <div className="relative z-10 text-right flex-1 min-w-0">
+                <p style={{
+                  fontFamily: "'Cairo', sans-serif",
+                  fontWeight: 900,
+                  fontSize: 14,
+                  lineHeight: 1.2,
+                  color: active ? "#16a34a" : "#15803d",
+                  textShadow: active
+                    ? "0 0 12px rgba(22,163,74,0.65), 0 1px 0 rgba(0,0,0,0.4)"
+                    : "0 1px 0 rgba(0,0,0,0.4)",
+                  letterSpacing: "0.01em",
+                }}>{label}</p>
+                <p style={{
+                  fontFamily: "'Cairo', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 9,
+                  lineHeight: 1.3,
+                  color: active ? "rgba(22,163,74,0.70)" : "rgba(21,128,61,0.55)",
+                  marginTop: 1,
+                }}>{sub}</p>
+              </div>
+            </motion.button>
+          );
+        })}
       </div>
 
       {/* ── Scrolling ticker ── */}
