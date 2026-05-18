@@ -104,14 +104,78 @@ const fadeUp = {
   transition: { duration: 0.28 },
 };
 
-// ── Tier badge component ──────────────────────────────────────────────────────
+// ── 3-D glass shield badge ────────────────────────────────────────────────────
 
-function TierBadge({ icon, name, color, small }: { icon: string; name: string; color: string; small?: boolean }) {
+function TierShield({ name, color, small = false }: {
+  name: string; color: string; small?: boolean;
+}) {
+  const px  = small ? 28 : 48;
+  const py  = Math.round(px * 1.14);
+  const uid = `ts${color.replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
-    <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${small ? "text-xs" : "text-sm"}`}
-      style={{ background: `${color}22`, border: `1px solid ${color}66`, color }}>
-      <span>{icon}</span>
-      <span className="font-arabic font-bold">{name}</span>
+    <div className="flex flex-col items-center" style={{ gap: small ? 2 : 4 }}>
+      <svg width={px} height={py} viewBox="0 0 100 114" xmlns="http://www.w3.org/2000/svg"
+        style={{ filter: `drop-shadow(0 ${small ? 2 : 4}px ${small ? 8 : 14}px ${color}88)` }}>
+        <defs>
+          {/* Vertical metallic gradient: bright top → mid → dark bottom */}
+          <linearGradient id={`${uid}a`} x1="0.25" y1="0" x2="0.75" y2="1">
+            <stop offset="0%"   stopColor="rgba(255,255,255,0.42)" />
+            <stop offset="40%"  stopColor="rgba(255,255,255,0.04)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.45)" />
+          </linearGradient>
+          {/* Left-to-right bevel */}
+          <linearGradient id={`${uid}b`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stopColor="rgba(255,255,255,0.18)" />
+            <stop offset="55%"  stopColor="rgba(255,255,255,0)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.22)" />
+          </linearGradient>
+        </defs>
+
+        {/* ── Base shield (tier colour) ── */}
+        <path d="M50 5 L92 20 L92 60 Q92 90 50 109 Q8 90 8 60 L8 20 Z"
+              fill={color} />
+
+        {/* ── Vertical sheen overlay ── */}
+        <path d="M50 5 L92 20 L92 60 Q92 90 50 109 Q8 90 8 60 L8 20 Z"
+              fill={`url(#${uid}a)`} />
+
+        {/* ── Left–right bevel ── */}
+        <path d="M50 5 L92 20 L92 60 Q92 90 50 109 Q8 90 8 60 L8 20 Z"
+              fill={`url(#${uid}b)`} />
+
+        {/* ── Top banner highlight ── */}
+        <path d="M50 5 L92 20 L90 28 L50 14 L10 28 L8 20 Z"
+              fill="rgba(255,255,255,0.45)" />
+
+        {/* ── Left-side softer glow ── */}
+        <path d="M50 14 L10 28 L8 60 Q8 90 50 109 L50 96 Q14 82 14 60 L14 31 Z"
+              fill="rgba(255,255,255,0.07)" />
+
+        {/* ── Glass lens shine (upper-left) ── */}
+        <ellipse cx="33" cy="44" rx="12" ry="17"
+                 fill="rgba(255,255,255,0.17)"
+                 transform="rotate(-14 33 44)" />
+
+        {/* ── Tiny top-left sparkle ── */}
+        <ellipse cx="27" cy="22" rx="6" ry="4"
+                 fill="rgba(255,255,255,0.38)"
+                 transform="rotate(-22 27 22)" />
+
+        {/* ── Inner engraved border ── */}
+        <path d="M50 11 L87 25 L87 60 Q87 86 50 103 Q13 86 13 60 L13 25 Z"
+              fill="none" stroke="rgba(255,255,255,0.20)" strokeWidth="1.5" />
+      </svg>
+
+      {/* ── Tier name label below shield ── */}
+      <span className="font-arabic font-black leading-tight text-center"
+            style={{
+              color,
+              fontSize: small ? 10 : 13,
+              textShadow: `0 0 8px ${color}70`,
+              letterSpacing: "0.02em",
+            }}>
+        {name}
+      </span>
     </div>
   );
 }
@@ -196,12 +260,10 @@ function StageAdScreen({ stage, tierName, tierIcon, tierColor, loyaltyPoints, on
       className="flex flex-col items-center justify-center h-full gap-6 px-5 text-center"
       style={{ background: "linear-gradient(180deg,#060d1a 0%,#001a0f 100%)" }}>
 
-      {/* Tier badge */}
-      <motion.div className="flex items-center gap-2 rounded-full px-5 py-2"
-        style={{ background: `${tierColor}22`, border: `2px solid ${tierColor}66` }}
-        animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 2.5 }}>
-        <span className="text-2xl">{tierIcon}</span>
-        <span className="font-arabic font-black text-lg" style={{ color: tierColor }}>{tierName}</span>
+      {/* Tier shield */}
+      <motion.div
+        animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2.5 }}>
+        <TierShield name={tierName} color={tierColor} />
       </motion.div>
 
       {/* Big icon */}
@@ -310,15 +372,12 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
       <div className="w-full rounded-2xl overflow-hidden"
         style={{ border: `1.5px solid ${state.tierColor}55`, background: `linear-gradient(135deg, ${state.tierColor}12, rgba(0,0,0,0.3))` }}>
 
-        <div className="flex items-center gap-3 px-4 py-3">
-          <motion.span className="text-3xl flex-shrink-0"
-            animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 3 }}>
-            {state.tierIcon}
-          </motion.span>
+        <div className="flex items-center gap-4 px-4 py-3">
+          <motion.div className="flex-shrink-0"
+            animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 3 }}>
+            <TierShield name={state.tierName} color={state.tierColor} />
+          </motion.div>
           <div className="flex-1 text-right">
-            <p className="font-arabic font-black text-base" style={{ color: state.tierColor }}>
-              {state.tierName}
-            </p>
             <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
               المرحلة {state.stage} · {state.stageInTier}/5 مراحل في الرتبة
             </p>
@@ -488,7 +547,7 @@ function QuestionScreen({ state, question, onAnswer, submitting, onBack }: {
           <ChevronRight className="w-5 h-5" style={{ color: "rgba(255,255,255,0.7)" }} />
         </button>
         <div className="flex-1 flex items-center justify-between">
-          {state && <TierBadge icon={state.tierIcon} name={state.tierName} color={tierColor} small />}
+          {state && <TierShield name={state.tierName} color={tierColor} small />}
           <ProgressHearts count={correctCount} total={5} />
         </div>
       </div>
@@ -624,9 +683,12 @@ function FeedbackScreen({ question, result, onContinue }: {
             <p className="font-arabic text-sm mt-1" style={{ color: "#22c55e" }}>+{result.loyaltyPointsAwarded} نقطة ولاء</p>
           )}
           {result.tierAdvanced && (
-            <p className="font-arabic text-sm mt-1" style={{ color: result.tierColor }}>
-              ارتقيت لرتبة {result.tierIcon} {result.tierName}!
-            </p>
+            <div className="flex flex-col items-center gap-1 mt-2">
+              <TierShield name={result.tierName} color={result.tierColor} />
+              <p className="font-arabic text-sm" style={{ color: result.tierColor }}>
+                ارتقيت لهذه الرتبة!
+              </p>
+            </div>
           )}
         </motion.div>
       )}
@@ -830,7 +892,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
             <h2 className="font-arabic font-black text-base" style={{ color: "#d4af37" }}>طريق النحل</h2>
             {quizState && (
               <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                المرحلة {quizState.stage} · {quizState.tierName} {quizState.tierIcon}
+                المرحلة {quizState.stage} · {quizState.tierName}
               </p>
             )}
           </div>
