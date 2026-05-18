@@ -864,7 +864,7 @@ const ChatInput = memo(function ChatInput({ onSend }: { onSend: (text: string) =
             placeholder="اكتب رسالتك..."
             rows={1}
             dir="rtl"
-            className="w-full bg-transparent font-arabic text-sm text-white/85 outline-none resize-none placeholder:text-white/25"
+            className="w-full bg-transparent font-arabic text-[21px] text-white/85 outline-none resize-none placeholder:text-white/25"
             style={{ maxHeight: 100, overflowY: "auto" }}
           />
         </div>
@@ -1163,8 +1163,8 @@ function ChatView({
                     background: isMine ? "rgba(212,175,55,0.1)" : "rgba(96,165,250,0.1)",
                     border: `1px solid ${isMine ? "rgba(212,175,55,0.2)" : "rgba(96,165,250,0.2)"}`,
                   }}>
-                  <p className="font-arabic text-sm text-white/90 leading-relaxed" dir="auto">{msg.content}</p>
-                  <p className="font-mono text-[9px] text-white/30 mt-0.5" style={{ direction: "ltr", textAlign: "right" }}>{formatMsgTime(msg.createdAt)}</p>
+                  <p className="font-arabic text-[21px] text-white/90 leading-relaxed" dir="auto">{msg.content}</p>
+                  <p className="font-mono text-[13px] text-white/30 mt-0.5" style={{ direction: "ltr", textAlign: "right" }}>{formatMsgTime(msg.createdAt)}</p>
                 </div>
               </div>
             );
