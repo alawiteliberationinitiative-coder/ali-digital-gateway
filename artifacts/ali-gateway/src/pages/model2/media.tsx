@@ -562,7 +562,7 @@ function ReelCard({
   onLike, onToggleComment, onDelete, onSave, onShare, onAddComment, onCommentTextChange,
   onEditComment, onDeleteComment, onLikeComment,
   networkQuality,
-  globalMuted, onToggleMute,
+  globalMuted, onToggleMute, onForceMute,
   onBecameActive,
 }: {
   article: Article; idx: number; isActive: boolean;
@@ -717,7 +717,7 @@ function ReelCard({
         setQualityOpen(true);
         const elapsed = stallRef.current ? Date.now() - stallRef.current : 0;
         if (elapsed >= 6000) {
-          v.pause();
+          v?.pause();
           setSelectedQuality("low");
           setAutoDowngraded(true);
           stallRef.current = null;
@@ -732,7 +732,7 @@ function ReelCard({
     }
     function onProgress() {
       const vid = v;
-      if (!vid.duration || !isFinite(vid.duration) || !vid.buffered.length) return;
+      if (!vid || !vid.duration || !isFinite(vid.duration) || !vid.buffered.length) return;
       setBufferPct(Math.min(100, Math.round((vid.buffered.end(vid.buffered.length - 1) / vid.duration) * 100)));
     }
 
