@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { db, eq, and, sql, desc, count, usersTable, articlesTable, usersActivityTable, blocksTable } from "@workspace/db";
+import { db, eq, and, sql, desc, count, usersTable, articlesTable, usersActivityTable, blocksTable, docSubmissionsTable } from "@workspace/db";
 import { consumeUploadToken } from "../lib/upload-tokens.js";
+
+const ADMIN_IDS = new Set(["6213952907"]);
 
 const router = Router();
 
@@ -135,10 +137,10 @@ router.patch("/users/me/pseudonym", async (req, res): Promise<void> => {
   res.json({ ...updated, mddBalance: Number(updated.mddBalance) });
 });
 
-/* ── Award points for documentation form ─────────────────────────────────
- * type "urgent"     → 500 pts  (urgent field monitoring reports)
- * type "violations" → 1000 pts (violations documentation)
- * default           → 200 pts  (legacy/untyped calls)
+/* ── Submit documentation form (pending admin review) ─────────────────────
+ * type "urgent"     → 1000 pts pending  (urgent field monitoring reports)
+ * type "violations" → 5000 pts pending  (violations documentation forms)
+ * Points are NOT awarded until an admin approves the submission.
  * ─────────────────────────────────────────────────────────────────────── */
 router.post("/docs/submit", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
@@ -156,17 +158,86 @@ router.post("/docs/submit", async (req, res): Promise<void> => {
     return;
   }
 
-  const pointsAwarded = type === "urgent" ? 500 : type === "violations" ? 1000 : 200;
+  const pointsAmount = type === "urgent" ? 1000 : type === "violations" ? 5000 : 1000;
+
+  const [submission] = await db
+    .insert(docSubmissionsTable)
+    .values({ telegramId, fileId, formType: type ?? "unknown", status: "pending", pointsAmount })
+    .returning({ id: docSubmissionsTable.id });
+
+  req.log.info({ telegramId, fileId, type, pointsAmount, id: submission?.id }, "docs submission queued for review");
+  res.json({ status: "pending", pointsAmount, submissionId: submission?.id });
+});
+
+/* ── Admin: list pending submissions ─────────────────────────────────────── */
+router.get("/admin/docs/pending", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId || !ADMIN_IDS.has(telegramId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(docSubmissionsTable)
+    .where(eq(docSubmissionsTable.status, "pending"))
+    .orderBy(docSubmissionsTable.createdAt);
+  res.json(rows);
+});
+
+/* ── Admin: approve submission → award points ─────────────────────────────── */
+router.post("/admin/docs/:id/approve", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId || !ADMIN_IDS.has(telegramId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const subId = Number(req.params.id);
+  if (!subId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [sub] = await db
+    .select()
+    .from(docSubmissionsTable)
+    .where(and(eq(docSubmissionsTable.id, subId), eq(docSubmissionsTable.status, "pending")));
+
+  if (!sub) { res.status(404).json({ error: "Submission not found or already reviewed" }); return; }
+
+  await db
+    .update(docSubmissionsTable)
+    .set({ status: "approved", reviewedBy: telegramId, reviewedAt: new Date() })
+    .where(eq(docSubmissionsTable.id, subId));
 
   const [user] = await db
     .update(usersTable)
-    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${pointsAwarded}` })
-    .where(eq(usersTable.telegramId, telegramId))
+    .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${sub.pointsAmount}` })
+    .where(eq(usersTable.telegramId, sub.telegramId))
     .returning({ loyaltyPoints: usersTable.loyaltyPoints });
 
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  req.log.info({ telegramId, fileId, type, pointsAwarded }, "docs submit reward granted");
-  res.json({ loyaltyPoints: user.loyaltyPoints, pointsAwarded });
+  req.log.info({ subId, targetUser: sub.telegramId, pointsAmount: sub.pointsAmount, approvedBy: telegramId }, "docs submission approved, points awarded");
+  res.json({ approved: true, pointsAwarded: sub.pointsAmount, totalLoyaltyPoints: user?.loyaltyPoints });
+});
+
+/* ── Admin: reject submission ─────────────────────────────────────────────── */
+router.post("/admin/docs/:id/reject", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId || !ADMIN_IDS.has(telegramId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const subId = Number(req.params.id);
+  if (!subId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const updated = await db
+    .update(docSubmissionsTable)
+    .set({ status: "rejected", reviewedBy: telegramId, reviewedAt: new Date() })
+    .where(and(eq(docSubmissionsTable.id, subId), eq(docSubmissionsTable.status, "pending")))
+    .returning({ id: docSubmissionsTable.id });
+
+  if (!updated.length) { res.status(404).json({ error: "Submission not found or already reviewed" }); return; }
+
+  req.log.info({ subId, rejectedBy: telegramId }, "docs submission rejected");
+  res.json({ rejected: true });
 });
 
 /* ── Referral count ──────────────────────────────────────────────────────── */

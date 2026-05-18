@@ -246,7 +246,7 @@ function UploadOverlay({ progress, onDone }: { progress: number; onDone: boolean
           <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
           <div>
             <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>تم الحفظ في الأرشيف السحابي السيادي ✓</p>
-            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · +200 نقطة أُضيفت لرصيدك</p>
+            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · قيد مراجعة الإدارة · ستُضاف 5000 نقطة عند التأكيد</p>
           </div>
         </div>
       ) : (
@@ -287,7 +287,7 @@ function FormWrapper({
       {children}
       <button onClick={onSubmit} disabled={!canSubmit}
         style={{ ...submitBtn, opacity: canSubmit ? 1 : 0.4 }}>
-        <Shield className="w-4 h-4" /> أرشفة الملف وإضافة 200 نقطة
+        <Shield className="w-4 h-4" /> أرشفة الملف وإرسال للمراجعة
       </button>
     </>
   );
@@ -706,7 +706,6 @@ const FORM_DEFS = [
 export function DocsTab({ telegramId }: { telegramId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
-  const [totalPoints, setTotalPoints] = useState(0);
 
   const toggle = useCallback((id: string) => setOpenId(prev => prev === id ? null : id), []);
 
@@ -720,7 +719,6 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
       });
       if (res.ok) {
         setSubmittedIds(prev => new Set(prev).add(formId));
-        setTotalPoints(p => p + 1000);
       }
     } catch {
       /* non-critical: server will have recorded the state if upload was valid */
@@ -732,17 +730,17 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
   return (
     <div>
       <AnimatePresence>
-        {totalPoints > 0 && (
+        {submittedIds.size > 0 && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl px-4 py-3 flex items-center gap-3 mb-4"
             style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.35)" }}>
             <span className="text-2xl">🏆</span>
             <div>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>
-                +{totalPoints} نقطة من {submitCount} {submitCount === 1 ? "نموذج" : "نماذج"} موثقة
+                {submitCount} {submitCount === 1 ? "نموذج" : "نماذج"} قيد مراجعة الإدارة
               </p>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(74,222,128,0.55)", marginTop: 1 }}>
-                أُضيفت تلقائياً لرصيدك السيادي ✓
+                ستُضاف 5000 نقطة عن كل نموذج بعد تأكيد الاستحقاق ✓
               </p>
             </div>
           </motion.div>
@@ -755,7 +753,7 @@ export function DocsTab({ telegramId }: { telegramId: string }) {
           <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 12, color: GOLD }}>نماذج التوثيق السيادية — 6 ملفات قانونية</p>
         </div>
         <p style={{ fontFamily: "'Amiri', serif", fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.8 }}>
-          كل نموذج مكتمل يُحفظ مشفراً بمعيار AES-256 في مجلدك الخاص داخل الأرشيف السحابي، ويُضيف <span style={{ color: GOLD }}>200 نقطة</span> لرصيدك السيادي.
+          كل نموذج مكتمل يُحفظ مشفراً بمعيار AES-256 في مجلدك الخاص داخل الأرشيف السحابي، ويُضيف <span style={{ color: GOLD }}>5000 نقطة</span> لرصيدك السيادي بعد مراجعة الإدارة وتأكيد الاستحقاق.
         </p>
       </div>
 

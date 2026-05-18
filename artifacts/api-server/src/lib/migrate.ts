@@ -24,6 +24,25 @@ async function execDdl(ddl: string): Promise<void> {
 export async function runMigrations(): Promise<void> {
   try {
     await execDdl(`
+      CREATE TABLE IF NOT EXISTS doc_submissions (
+        id             SERIAL PRIMARY KEY,
+        telegram_id    TEXT NOT NULL,
+        file_id        TEXT NOT NULL,
+        form_type      TEXT NOT NULL DEFAULT 'unknown',
+        status         TEXT NOT NULL DEFAULT 'pending',
+        points_amount  INTEGER NOT NULL,
+        reviewed_by    TEXT,
+        reviewed_at    TIMESTAMPTZ,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    logger.info("doc_submissions migration: OK");
+  } catch (err) {
+    logger.warn({ err }, "doc_submissions migration skipped");
+  }
+
+  try {
+    await execDdl(`
       CREATE TABLE IF NOT EXISTS quiz_progress (
         id                   SERIAL PRIMARY KEY,
         telegram_id          TEXT NOT NULL UNIQUE,

@@ -176,7 +176,7 @@ function UploadOverlay({ progress, onDone }: { progress: number; onDone: boolean
           <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
           <div>
             <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>تم إرسال البلاغ إلى مركز ADAR ✓</p>
-            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · +500 نقطة أُضيفت لرصيدك</p>
+            <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 11, color: "rgba(74,222,128,0.6)", marginTop: 2 }}>تشفير AES-256 · قيد مراجعة الإدارة · ستُضاف 1000 نقطة عند التأكيد</p>
           </div>
         </div>
       ) : (
@@ -500,7 +500,6 @@ const URGENT_FORMS = [
 function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
-  const [totalPoints, setTotalPoints] = useState(0);
 
   const toggle = useCallback((id: string) => setOpenId(p => p === id ? null : id), []);
 
@@ -514,7 +513,6 @@ function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
       });
       if (res.ok) {
         setSubmittedIds(p => new Set(p).add(formId));
-        setTotalPoints(p => p + 500);
       }
     } catch { /* silent */ }
   }, [telegramId]);
@@ -522,17 +520,17 @@ function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
   return (
     <div>
       <AnimatePresence>
-        {totalPoints > 0 && (
+        {submittedIds.size > 0 && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl px-4 py-3 flex items-center gap-3 mb-4"
             style={{ background: "rgba(34,197,94,0.1)", border: "1.5px solid rgba(34,197,94,0.35)" }}>
             <span className="text-2xl">🏆</span>
             <div>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 13, color: "#4ade80" }}>
-                +{totalPoints} نقطة من {submittedIds.size} بلاغ موثّق
+                {submittedIds.size} {submittedIds.size === 1 ? "بلاغ" : "بلاغات"} قيد مراجعة الإدارة
               </p>
               <p style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: "rgba(74,222,128,0.55)", marginTop: 1 }}>
-                أُضيفت تلقائياً لرصيدك السيادي ✓
+                ستُضاف 1000 نقطة عن كل بلاغ بعد تأكيد الاستحقاق ✓
               </p>
             </div>
           </motion.div>
@@ -545,7 +543,7 @@ function UrgentMonitorTab({ telegramId }: { telegramId: string }) {
           <p style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: 12, color: "#fca5a5" }}>بلاغات الرصد العاجل — 6 فئات</p>
         </div>
         <p style={{ fontFamily: "'Amiri', serif", fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.8 }}>
-          أبلغ عن حوادث عاجلة في الميدان — كل بلاغ مشفّر ومرسل فوراً إلى مركز ADAR ويُضيف <span style={{ color: RED }}>500 نقطة</span> لرصيدك.
+          أبلغ عن حوادث عاجلة في الميدان — كل بلاغ مشفّر ومرسل فوراً إلى مركز ADAR ويُضيف <span style={{ color: RED }}>1000 نقطة</span> لرصيدك بعد مراجعة الإدارة وتأكيد الاستحقاق.
         </p>
       </div>
 
