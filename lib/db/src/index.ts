@@ -26,6 +26,9 @@ function inlineParams(rawSql: string, params: unknown[]): string {
       lit = String(val);
     } else if (typeof val === "boolean") {
       lit = val ? "TRUE" : "FALSE";
+    } else if (val !== null && typeof val === "object") {
+      // Arrays and plain objects (JSONB) — must use JSON.stringify, not String()
+      lit = `'${JSON.stringify(val).replace(/'/g, "''")}'`;
     } else {
       lit = `'${String(val).replace(/'/g, "''")}'`;
     }

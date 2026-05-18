@@ -7,3 +7,4 @@ export * from "./activity";
 export * from "./messages";
 export * from "./blocks";
 export * from "./calls";
+export * from "./quiz-progress";
