@@ -228,9 +228,18 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
     }
   }
 
+  // ── Loyalty points: 1 point per correct answer ────────────────────────
+  const pointsAwarded = correct ? 1 : 0;
+
+  if (correct) {
+    db.update(usersTable)
+      .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + 1` })
+      .where(eq(usersTable.telegramId, telegramId))
+      .catch(() => {});
+  }
+
   // ── Stage completion ───────────────────────────────────────────────────
   let newStage          = progress.currentStage;
-  let pointsAwarded     = 0;
   let tierAdvanced      = false;
   let newQuestionPool: number[] | null = null; // null = no change
 
@@ -240,23 +249,14 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
     const newTierIdx = Math.floor((newStage - 1) / 5);
     tierAdvanced     = newTierIdx > oldTierIdx;
 
-    const diff    = Math.min(5, Math.ceil(progress.currentStage / 10));
-    pointsAwarded = diff * 50;
-
     newPoolIndex    = 0;
     newCorrectCount = 0;
-    // ✅ FIX: CLEAR the question pool so next GET /quiz/question generates fresh
-    //         questions for the NEW stage (regression bug: old pool was reused)
+    // CLEAR the question pool so next GET /quiz/question generates fresh
+    // questions for the NEW stage
     newQuestionPool = [];
-    // ✅ FIX: KEEP retryQueue across stages — wrong answers must reappear later
-    // ✅ FIX: KEEP correctIds permanently — never show an already-correct question again
+    // KEEP retryQueue across stages — wrong answers must reappear later
+    // KEEP correctIds permanently — never show an already-correct question again
     // (newRetryQueue and newCorrectIds already have the right values from above)
-
-    // Award loyalty points (fire-and-forget)
-    db.update(usersTable)
-      .set({ loyaltyPoints: sql`${usersTable.loyaltyPoints} + ${pointsAwarded}` })
-      .where(eq(usersTable.telegramId, telegramId))
-      .catch(() => {});
   }
 
   // ── Persist progress ───────────────────────────────────────────────────
