@@ -220,7 +220,7 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
     if (newCorrectCount >= 5) stageComplete = true;
   } else {
     if (isFromRetry) {
-      newRetryQueue = [...retryQueue.slice(1), question.id]; // cycle to back
+      newRetryQueue = retryQueue.slice(1); // one retry only — remove if wrong again
     } else {
       newPoolIndex++;
       newRetryQueue = [...retryQueue, question.id];
