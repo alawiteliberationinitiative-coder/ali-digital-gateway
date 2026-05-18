@@ -1490,6 +1490,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
   const [civicRole,    setCivicRole]    = useState<string | null>(userData.civicRole ?? null);
   const [savingRole,   setSavingRole]   = useState(false);
+  const [isEditingRole, setIsEditingRole] = useState(false);
 
   // Custom profile photo (DB-stored, overrides Telegram photo)
   const [customPhoto,  setCustomPhoto]  = useState<string | null>(userData.photoUrl ?? null);
@@ -1554,10 +1555,18 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     setEditValue(pseudonym);
     setEditError("");
     setIsEditing(true);
+    setIsEditingRole(false);
   }
   function cancelEdit() {
     setIsEditing(false);
     setEditError("");
+  }
+  function startEditRole() {
+    setIsEditingRole(true);
+    setIsEditing(false);
+  }
+  function cancelEditRole() {
+    setIsEditingRole(false);
   }
   function handleSave() {
     const trimmed = editValue.trim();
@@ -2035,41 +2044,50 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               </AnimatePresence>
             </div>
 
-            {/* Shield column — smaller, no wrapper, 3D glassy; label + pencil (edit) below */}
+            {/* Shield column — role picker on pencil press */}
             {civicRole && (
               <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
-                {/* Shield SVG only — bare, glassy 3D look */}
+                {/* Shield SVG — updates live when civicRole changes */}
                 <CivicRoleShield role={civicRole} size="sm" noWrapper />
 
-                {/* Label + pencil OR edit form */}
+                {/* Role picker OR label+pencil */}
                 <AnimatePresence mode="wait">
-                  {isEditing ? (
-                    <motion.div key="shield-edit"
+                  {isEditingRole ? (
+                    <motion.div key="role-picker"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                      className="w-28 space-y-1.5">
-                      <input
-                        dir="auto" value={editValue}
-                        onChange={e => { setEditValue(e.target.value); setEditError(""); }}
-                        onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
-                        maxLength={30} autoFocus
-                        placeholder="اللقب"
-                        className="w-full rounded-lg px-2 py-1 font-mono text-[11px] text-white outline-none placeholder:text-white/25 text-center"
-                        style={{ background: "rgba(255,255,255,0.07)", border: `1.5px solid ${editError ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.5)"}`, caretColor: "#d4af37" }}
-                      />
-                      {editError && <p className="font-arabic text-[9px] text-red-400 text-center">{editError}</p>}
-                      <div className="flex gap-1">
-                        <button onClick={handleSave} disabled={updateMutation.isPending}
-                          className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg font-arabic text-[10px] font-bold active:scale-95 disabled:opacity-60"
-                          style={{ background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.45)", color: "#4ade80" }}>
-                          {updateMutation.isPending ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Check className="w-2.5 h-2.5" />}
-                          {updateMutation.isPending ? "..." : "حفظ"}
-                        </button>
-                        <button onClick={cancelEdit} disabled={updateMutation.isPending}
-                          className="px-2 py-1 rounded-lg active:scale-95 disabled:opacity-60"
-                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}>
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
+                      className="flex flex-col gap-1 w-28 mt-0.5">
+                      {/* Option: حارس الأرض */}
+                      <button
+                        onClick={() => { saveCivicRole("guardian"); cancelEditRole(); }}
+                        disabled={savingRole}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-60"
+                        style={{
+                          background: civicRole === "guardian" ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.07)",
+                          border: `1px solid ${civicRole === "guardian" ? "rgba(34,197,94,0.65)" : "rgba(34,197,94,0.28)"}`,
+                          color: "#4ade80",
+                        }}>
+                        {civicRole === "guardian" && <Check className="w-2.5 h-2.5 flex-shrink-0" />}
+                        <span className="font-arabic text-[10px] font-bold">حارس الأرض</span>
+                      </button>
+                      {/* Option: سفير القضية */}
+                      <button
+                        onClick={() => { saveCivicRole("ambassador"); cancelEditRole(); }}
+                        disabled={savingRole}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-60"
+                        style={{
+                          background: civicRole === "ambassador" ? "rgba(212,175,55,0.2)" : "rgba(212,175,55,0.07)",
+                          border: `1px solid ${civicRole === "ambassador" ? "rgba(212,175,55,0.65)" : "rgba(212,175,55,0.28)"}`,
+                          color: GOLD,
+                        }}>
+                        {civicRole === "ambassador" && <Check className="w-2.5 h-2.5 flex-shrink-0" />}
+                        <span className="font-arabic text-[10px] font-bold">سفير القضية</span>
+                      </button>
+                      {/* Cancel */}
+                      <button onClick={cancelEditRole}
+                        className="self-center flex items-center justify-center rounded-full mt-0.5 active:scale-90 transition-transform"
+                        style={{ width: 20, height: 20, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }}>
+                        <X className="w-2.5 h-2.5" style={{ color: "rgba(255,255,255,0.45)" }} />
+                      </button>
                     </motion.div>
                   ) : (
                     <motion.div key="shield-label" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -2077,7 +2095,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                       <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>
                         {civicRole === "guardian" ? "حارس الأرض" : "سفير القضية"}
                       </span>
-                      <button onClick={startEdit}
+                      <button onClick={startEditRole}
                         className="flex items-center justify-center rounded active:scale-90 transition-transform"
                         style={{ width: 18, height: 18, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)" }}>
                         <Pencil className="w-2.5 h-2.5" style={{ color: GOLD }} />
