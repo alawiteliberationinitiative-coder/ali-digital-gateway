@@ -398,10 +398,10 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
       {/* ── 4. إحصائيات ── */}
       <div className="w-full grid grid-cols-2 gap-3">
         {[
-          { label: "إجمالي الصحيح", display: state.totalCorrect.toLocaleString(),                                                                               icon: "✅" },
-          { label: "نسبة الدقة",    display: (state.totalAnswered > 0 ? Math.round(state.totalCorrect / state.totalAnswered * 100) : 0).toString() + "%",        icon: "🎯" },
-          { label: "نقاط الولاء",   display: state.loyaltyPoints.toLocaleString(),                                                                              icon: "💚" },
-          { label: "الإجابات",      display: state.totalAnswered.toLocaleString(),                                                                               icon: "📝" },
+          { label: "نقاط الولاء",       display: state.loyaltyPoints.toLocaleString(),                                                                              icon: "💚" },
+          { label: "نسبة الدقة",        display: (state.totalAnswered > 0 ? Math.round(state.totalCorrect / state.totalAnswered * 100) : 0).toString() + "%",        icon: "🎯" },
+          { label: "الإجابات الصحيحة", display: state.totalCorrect.toLocaleString(),                                                                               icon: "✅" },
+          { label: "الإجابات",          display: state.totalAnswered.toLocaleString(),                                                                               icon: "📝" },
         ].map(({ label, display, icon }) => (
           <div key={label} className="rounded-2xl p-3 flex flex-col gap-1"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
