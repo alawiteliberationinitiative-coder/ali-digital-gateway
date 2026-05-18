@@ -1268,17 +1268,38 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/** Generate a pool of question IDs for a given stage */
-export function generatePoolForStage(stage: number, poolSize = 10): number[] {
+/**
+ * Generate a pool of question IDs for a given stage.
+ * @param excludeIds - IDs of questions already answered correctly (globally) — never repeat
+ */
+export function generatePoolForStage(
+  stage: number,
+  poolSize = 10,
+  excludeIds: number[] = [],
+): number[] {
   const diff = stageToDifficulty(stage);
-  const available = getQuestionsByDifficulty(diff);
-  if (available.length === 0) {
-    // Fallback to difficulty 1 if none found
-    return shuffle(getQuestionsByDifficulty(1))
-      .slice(0, poolSize)
-      .map(q => q.id);
+  const excludeSet = new Set(excludeIds);
+
+  let candidates = getQuestionsByDifficulty(diff).filter(q => !excludeSet.has(q.id));
+
+  // Fallback: if too few questions remain at this difficulty, widen to nearby difficulty
+  if (candidates.length < 5) {
+    const fallbackDiff = diff > 1 ? diff - 1 : diff + 1;
+    const extra = getQuestionsByDifficulty(fallbackDiff).filter(q => !excludeSet.has(q.id));
+    candidates = [...candidates, ...extra];
   }
-  return shuffle(available)
-    .slice(0, Math.min(poolSize, available.length))
+
+  // Last resort: any question not already answered
+  if (candidates.length === 0) {
+    candidates = QUESTION_BANK.filter(q => !excludeSet.has(q.id));
+  }
+
+  // Absolute last resort: full bank (user answered everything!)
+  if (candidates.length === 0) {
+    candidates = [...QUESTION_BANK];
+  }
+
+  return shuffle(candidates)
+    .slice(0, Math.min(poolSize, candidates.length))
     .map(q => q.id);
 }

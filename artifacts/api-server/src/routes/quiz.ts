@@ -123,21 +123,22 @@ router.get("/quiz/question", async (req, res): Promise<void> => {
   const progress    = await getOrCreateProgress(telegramId);
   const pool        = (progress.questionPool  ?? []) as number[];
   const retryQueue  = (progress.retryQueue    ?? []) as number[];
+  const correctIds  = (progress.correctIds    ?? []) as number[];
 
   let questionId: number;
 
   if (pool.length === 0 || (progress.poolIndex >= pool.length && retryQueue.length === 0)) {
-    // Generate a fresh pool for the current stage
-    const newPool = generatePoolForStage(progress.currentStage);
+    // Generate a fresh pool for the current stage, excluding globally-correct questions
+    const newPool = generatePoolForStage(progress.currentStage, 10, correctIds);
     await db
       .update(quizProgressTable)
-      .set({ questionPool: newPool, poolIndex: 0, retryQueue: [], updatedAt: new Date() })
+      .set({ questionPool: newPool, poolIndex: 0, updatedAt: new Date() })
       .where(eq(quizProgressTable.telegramId, telegramId));
     questionId = newPool[0] ?? QUESTION_BANK[0].id;
   } else if (progress.poolIndex < pool.length) {
     questionId = pool[progress.poolIndex];
   } else {
-    // Retry queue
+    // Retry queue (carries wrong answers across stages)
     questionId = retryQueue[0];
   }
 
@@ -230,6 +231,7 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
   let newStage          = progress.currentStage;
   let pointsAwarded     = 0;
   let tierAdvanced      = false;
+  let newQuestionPool: number[] | null = null; // null = no change
 
   if (stageComplete) {
     const oldTierIdx = Math.floor((progress.currentStage - 1) / 5);
@@ -241,9 +243,13 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
     pointsAwarded = diff * 50;
 
     newPoolIndex    = 0;
-    newRetryQueue   = [];
-    newCorrectIds   = [];
     newCorrectCount = 0;
+    // ✅ FIX: CLEAR the question pool so next GET /quiz/question generates fresh
+    //         questions for the NEW stage (regression bug: old pool was reused)
+    newQuestionPool = [];
+    // ✅ FIX: KEEP retryQueue across stages — wrong answers must reappear later
+    // ✅ FIX: KEEP correctIds permanently — never show an already-correct question again
+    // (newRetryQueue and newCorrectIds already have the right values from above)
 
     // Award loyalty points (fire-and-forget)
     db.update(usersTable)
@@ -264,6 +270,8 @@ router.post("/quiz/answer", async (req, res): Promise<void> => {
       poolIndex:         newPoolIndex,
       retryQueue:        newRetryQueue,
       correctIds:        newCorrectIds,
+      // Only update questionPool when completing a stage (clear it for next stage)
+      ...(newQuestionPool !== null ? { questionPool: newQuestionPool } : {}),
       updatedAt:         new Date(),
     })
     .where(eq(quizProgressTable.telegramId, telegramId));

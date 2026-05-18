@@ -276,9 +276,15 @@ function StageAdScreen({ stage, tierName, tierIcon, tierColor, loyaltyPoints, on
   );
 }
 
+// ── Tier road pills ───────────────────────────────────────────────────────────
+
+const TIER_NAMES_SHORT = ["مبتدئ","نحاسي","برونزي","فضي","ذهبي","بلاتيني","ياقوتي","ألماسي"];
+
 // ── Map Screen (خريطة المستوى) ────────────────────────────────────────────────
 
 function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () => void }) {
+  const [showTiers, setShowTiers] = useState(false);
+
   if (!state) return (
     <div className="flex items-center justify-center h-full">
       <div className="w-8 h-8 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
@@ -286,35 +292,99 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
   );
 
   return (
-    <motion.div {...fadeUp} className="flex flex-col items-center gap-5 px-5 py-8 overflow-y-auto h-full">
+    <motion.div {...fadeUp} className="flex flex-col gap-4 px-4 py-5 overflow-y-auto h-full" dir="rtl">
 
-      {/* Tier showcase */}
-      <motion.div className="w-full rounded-3xl p-6 flex flex-col items-center gap-3"
-        style={{ background: `linear-gradient(135deg, ${state.tierColor}18, ${state.tierColor}08)`, border: `1px solid ${state.tierColor}44` }}
-        initial={{ scale: 0.95 }} animate={{ scale: 1 }}>
-        <motion.span className="text-6xl" animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 3 }}>
-          {state.tierIcon}
-        </motion.span>
-        <h2 className="font-arabic font-black text-2xl" style={{ color: state.tierColor }}>{state.tierName}</h2>
-        <p className="font-arabic text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-          المرحلة {state.stage} · ({state.stageInTier}/5 في الرتبة)
-        </p>
-      </motion.div>
+      {/* ── 1. زر العب الآن (أعلى الواجهة) ── */}
+      <motion.button
+        whileTap={{ scale: 0.97, y: 2 }}
+        onClick={onStart}
+        className="w-full rounded-2xl font-arabic font-black text-xl text-black relative overflow-hidden"
+        style={{
+          padding: "16px 0",
+          background: "linear-gradient(135deg,#d4af37 0%,#f0c040 50%,#d4af37 100%)",
+          boxShadow: "0 6px 28px rgba(212,175,55,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",
+        }}>
+        <span className="relative z-10">العب الآن ◀</span>
+        {/* shimmer sweep */}
+        <motion.div className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent 20%, rgba(255,255,255,0.35) 50%, transparent 80%)" }}
+          animate={{ x: ["-100%", "100%"] }}
+          transition={{ repeat: Infinity, duration: 2.4, ease: "linear", repeatDelay: 1.2 }} />
+      </motion.button>
 
-      {/* Progress row */}
+      {/* ── 2. تبويب المستوى ── */}
+      <div className="w-full rounded-2xl overflow-hidden"
+        style={{ border: `1.5px solid ${state.tierColor}55`, background: `linear-gradient(135deg, ${state.tierColor}12, rgba(0,0,0,0.3))` }}>
+
+        {/* صف المستوى الحالي */}
+        <button
+          onClick={() => setShowTiers(p => !p)}
+          className="w-full flex items-center gap-3 px-4 py-3 active:opacity-80 transition-opacity">
+          <motion.span className="text-3xl flex-shrink-0"
+            animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 3 }}>
+            {state.tierIcon}
+          </motion.span>
+          <div className="flex-1 text-right">
+            <p className="font-arabic font-black text-base" style={{ color: state.tierColor }}>
+              {state.tierName}
+            </p>
+            <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+              المرحلة {state.stage} · {state.stageInTier}/5 مراحل في الرتبة
+            </p>
+          </div>
+          <div className="flex-shrink-0 flex items-center gap-1.5">
+            <span className="font-arabic text-xs px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              {showTiers ? "▲ إخفاء" : "▼ الرتب"}
+            </span>
+          </div>
+        </button>
+
+        {/* خريطة الرتب القابلة للطي */}
+        <AnimatePresence>
+          {showTiers && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
+              style={{ overflow: "hidden" }}>
+              <div className="px-4 pb-3 border-t" style={{ borderColor: `${state.tierColor}22` }}>
+                <div className="flex flex-wrap gap-2 pt-3 justify-center">
+                  {TIER_NAMES_SHORT.map((t, i) => {
+                    const current = i === Math.min(state.tierIndex, 7);
+                    const done    = i < Math.min(state.tierIndex, 7);
+                    return (
+                      <span key={t} className="font-arabic text-xs px-2.5 py-1 rounded-full"
+                        style={{
+                          background: current ? `${state.tierColor}33` : done ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.04)",
+                          border: `1px solid ${current ? state.tierColor : done ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.1)"}`,
+                          color: current ? state.tierColor : done ? "rgba(212,175,55,0.65)" : "rgba(255,255,255,0.25)",
+                          fontWeight: current ? 800 : 400,
+                        }}>
+                        {done ? "✓ " : current ? "◉ " : ""}{t}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── 3. تقدم المرحلة ── */}
       <div className="w-full rounded-2xl p-4 flex flex-col gap-3"
         style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center justify-between">
-          <p className="font-arabic text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>تقدّم المرحلة</p>
+          <p className="font-arabic text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>تقدّم المرحلة الحالية</p>
           <p className="font-arabic text-sm font-bold" style={{ color: "#d4af37" }}>{state.correctCount}/5 صحيح</p>
         </div>
         <ProgressHearts count={state.correctCount} total={5} />
       </div>
 
-      {/* Stats */}
+      {/* ── 4. إحصائيات ── */}
       <div className="w-full grid grid-cols-2 gap-3">
         {[
-          { label: "إجمالي الصحيح", value: state.totalCorrect, icon: "✅" },
+          { label: "إجمالي الصحيح", value: state.totalCorrect,  icon: "✅" },
           { label: "نقاط الدقة",    value: state.accuracyScore, icon: "🎯" },
           { label: "نقاط الولاء",   value: state.loyaltyPoints, icon: "💚" },
           { label: "الإجابات",      value: state.totalAnswered,  icon: "📝" },
@@ -327,37 +397,6 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
         ))}
       </div>
 
-      {/* Tier road preview */}
-      <div className="w-full rounded-2xl p-4 space-y-2"
-        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-        <p className="font-arabic text-xs text-center" style={{ color: "rgba(255,255,255,0.35)" }}>الرتب السابقة والقادمة</p>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {["مبتدئ","نحاسي","برونزي","فضي","ذهبي","بلاتيني","ياقوتي","ألماسي"].map((t, i) => {
-            const current = i === Math.min(state.tierIndex, 7);
-            const done    = i < Math.min(state.tierIndex, 7);
-            return (
-              <span key={t} className="font-arabic text-xs px-2 py-1 rounded-full"
-                style={{
-                  background: current ? `${state.tierColor}33` : done ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${current ? state.tierColor : done ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.1)"}`,
-                  color: current ? state.tierColor : done ? "rgba(212,175,55,0.7)" : "rgba(255,255,255,0.3)",
-                  fontWeight: current ? 700 : 400,
-                }}>
-                {t}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Start button */}
-      <motion.button
-        whileTap={{ scale: 0.96 }}
-        onClick={onStart}
-        className="w-full py-4 rounded-2xl font-arabic font-black text-xl text-black"
-        style={{ background: "linear-gradient(135deg,#d4af37,#f0c040)", boxShadow: "0 4px 24px rgba(212,175,55,0.4)" }}>
-        العب الآن ◀
-      </motion.button>
     </motion.div>
   );
 }
