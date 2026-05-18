@@ -1911,6 +1911,67 @@ export function CommunitySection({ onBack, initialSpaceId }: { onBack: () => voi
           </div>
         ) : (
           <div className="px-4 py-5 pb-24 space-y-4">
+
+            {/* ── لوحة ملاحظة المجلس الاجتماعي ── */}
+            <div className="rounded-2xl overflow-hidden" dir="rtl"
+              style={{ background: "linear-gradient(135deg,rgba(96,165,250,0.07),rgba(96,165,250,0.03))", border: `1px solid ${BLUE}22` }}>
+
+              {/* رأس اللوحة */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: `${BLUE}14` }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: `${BLUE}14`, border: `1px solid ${BLUE}28` }}>
+                  <Mic size={18} style={{ color: BLUE }} />
+                </div>
+                <div>
+                  <p className="font-arabic font-black text-sm text-white/90">المجلس الاجتماعي</p>
+                  <p className="font-arabic text-[10px]" style={{ color: `${BLUE}99` }}>كيفية عمل الجلسات</p>
+                </div>
+              </div>
+
+              {/* بنود الملاحظة */}
+              <div className="px-4 py-3 space-y-3">
+
+                {/* الجلسات العامة */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: `${BLUE}12`, border: `1px solid ${BLUE}22` }}>
+                    <Globe size={12} style={{ color: BLUE }} />
+                  </div>
+                  <p className="font-arabic text-[12px] leading-relaxed text-white/65">
+                    <span className="font-bold text-white/85">الجلسات العامة</span>
+                    {" "}مفتوحة للاستماع إلى مداخلاتها واجتماعاتها الصوتية لجميع المشتركين.
+                  </p>
+                </div>
+
+                {/* الجلسات الخاصة */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: "rgba(212,175,55,0.10)", border: "1px solid rgba(212,175,55,0.20)" }}>
+                    <Lock size={12} style={{ color: GOLD }} />
+                  </div>
+                  <p className="font-arabic text-[12px] leading-relaxed text-white/65">
+                    <span className="font-bold text-white/85">الجلسات الخاصة</span>
+                    {" "}متاحة فقط للضيوف المدعوين.
+                  </p>
+                </div>
+
+                {/* الاستضافة — قريباً */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: "rgba(74,222,128,0.10)", border: "1px solid rgba(74,222,128,0.20)" }}>
+                    <Radio size={12} style={{ color: GREEN }} />
+                  </div>
+                  <p className="font-arabic text-[12px] leading-relaxed text-white/65">
+                    <span className="font-bold text-white/85">استضافة الجلسات</span>
+                    {" "}سيتم تمكين جميع المشتركين من استضافة جلساتهم الخاصة والعامة بعد مرحلة توسيع التطبيق إلى إصدار محدَّث
+                    {" "}<span className="font-bold" style={{ color: GREEN }}>قريباً</span>.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+            {/* ──────────────────────────────────── */}
+
             <SpaceInvitesBanner telegramId={telegramId} onAccept={handleAcceptInvite} onDismiss={handleDismissInvite} />
             <SpacesList spaces={spaces} canCreate={canCreate} telegramId={telegramId} loading={loading}
               onJoin={handleJoin} onEnter={id => fetchSpaceDetails(id)} onCreateClick={() => setShowCreate(true)} />
