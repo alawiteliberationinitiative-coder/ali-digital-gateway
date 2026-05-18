@@ -1,191 +1,116 @@
-import { useState, useCallback } from "react";
+import { useState, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, CheckCircle, Play, Clock, AlertCircle, Coins } from "lucide-react";
-import { apiFetch } from "@/lib/api";
-import { useRewardedAd } from "@/hooks/use-rewarded-ad";
+import { Tv, Zap } from "lucide-react";
 
-const GOLD   = "#d4af37";
-const GREEN  = "#22c55e";
-const AD_POINTS   = 10;
-const COOLDOWN_MS = 25_000;
+const WatchSection = lazy(() => import("../sections/watch").then(m => ({ default: m.WatchSection })));
+const PlaySection  = lazy(() => import("../sections/play").then(m => ({ default: m.PlaySection })));
 
-const TIPS = [
-  "هذا الإعلان لا يمثّل توجهات المبادرة.",
-  "شاهده حتى النهاية للحصول على نقاطك.",
-  "لا تنقر على الشاشة لتجنّب الانتقال لروابط خارجية.",
-  "كل إعلان تشاهده يدعم المبادرة وأهلنا إنسانياً 💚",
-  "أغلقه فقط عندما ينتهي عداد الثواني.",
-];
+const GOLD  = "#d4af37";
+const GREEN = "#22c55e";
 
-export function EarnSection({ telegramId }: { telegramId: string }) {
-  const [totalEarned, setTotalEarned] = useState(0);
-  const [watchCount,  setWatchCount]  = useState(0);
-  const [apiError,    setApiError]    = useState("");
+type EarnTab = "watch" | "play";
 
-  const ad = useRewardedAd(COOLDOWN_MS, telegramId);
+function TabLoading() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-7 h-7 border-2 rounded-full animate-spin"
+        style={{ borderColor: `${GOLD}35`, borderTopColor: GOLD }} />
+    </div>
+  );
+}
 
-  const rewardOnServer = useCallback(async (challengeToken: string) => {
-    if (!telegramId) return null;
-    const res = await apiFetch("/api/ads/reward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeToken }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string };
-      throw new Error(body.error ?? "فشل الخادم");
-    }
-    return (await res.json()) as { loyaltyPoints: number; pointsAwarded: number };
-  }, [telegramId]);
-
-  async function handleWatch() {
-    if (ad.isActive || !telegramId) return;
-    setApiError("");
-    const token = await ad.show();
-    if (token) {
-      try {
-        const data = await rewardOnServer(token);
-        if (data) {
-          setTotalEarned(t => t + data.pointsAwarded);
-          setWatchCount(c => c + 1);
-        }
-      } catch (e: unknown) {
-        setApiError(e instanceof Error ? e.message : "خطأ في الخادم");
-      }
-    }
-  }
-
-  const cooldownSeconds = Math.ceil((ad.cooldownRemaining ?? 0) / 1000);
-  const canWatch = !ad.isActive && !ad.cooldownRemaining && !!telegramId;
+export function EarnSection({ telegramId: _telegramId }: { telegramId: string }) {
+  const [tab, setTab] = useState<EarnTab>("watch");
 
   return (
-    <div className="h-full overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-      <div className="px-4 pt-4 pb-24 space-y-5" dir="rtl">
+    <div className="h-full flex flex-col overflow-hidden" dir="rtl">
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: "مشاهدات اليوم", value: watchCount,  accent: GOLD  },
-            { label: "نقاط مكتسبة",   value: totalEarned, accent: GREEN },
-            { label: "نقاط لكل إعلان", value: AD_POINTS, accent: "#60a5fa" },
-          ].map(s => (
-            <div key={s.label} className="rounded-2xl p-3 text-center"
-              style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.accent}18` }}>
-              <p className="font-bold text-xl mb-0.5" style={{ color: s.accent }}>{s.value}</p>
-              <p className="font-arabic text-white/35 text-[9px] leading-tight">{s.label}</p>
-            </div>
-          ))}
-        </div>
+      {/* ── Tab switcher ── */}
+      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5"
+        style={{ background: "rgba(2,14,4,0.97)", borderBottom: "1px solid rgba(212,175,55,0.14)" }}>
 
-        {/* Main watch button */}
-        <div className="rounded-3xl p-5 text-center"
-          style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GOLD}18`, backdropFilter: "blur(10px)" }}>
-
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{
-              background: canWatch ? `linear-gradient(135deg, ${GOLD}25, ${GOLD}10)` : "rgba(255,255,255,0.06)",
-              border: `2px solid ${canWatch ? GOLD + "50" : "rgba(255,255,255,0.1)"}`,
-              boxShadow: canWatch ? `0 0 24px ${GOLD}25` : "none",
-            }}>
-            {ad.isActive ? (
-              <div className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: `${GOLD}40`, borderTopColor: GOLD }} />
-            ) : ad.cooldownRemaining ? (
-              <Clock size={26} color="rgba(255,255,255,0.4)" />
-            ) : (
-              <Play size={26} color={GOLD} />
-            )}
-          </div>
-
-          <p className="font-arabic font-bold text-white/90 text-base mb-1">
-            {ad.isActive ? "جاري تشغيل الإعلان..." : ad.cooldownRemaining ? `انتظر ${cooldownSeconds}ث` : "شاهد وادعم"}
-          </p>
-          <p className="font-arabic text-white/40 text-xs mb-4">
-            {ad.isActive ? "أكمل المشاهدة للحصول على نقاطك"
-              : ad.cooldownRemaining ? "ستتاح المشاهدة قريباً"
-              : `اكسب ${AD_POINTS} نقطة مقابل كل مشاهدة`}
-          </p>
-
-          <motion.button
-            onClick={handleWatch}
-            disabled={!canWatch}
-            whileTap={canWatch ? { scale: 0.96 } : {}}
-            className="w-full py-3.5 rounded-2xl font-arabic font-bold text-lg"
-            style={{
-              background: canWatch
-                ? `linear-gradient(135deg, ${GOLD}, #f0d060)`
-                : "rgba(255,255,255,0.07)",
-              color: canWatch ? "#001a10" : "rgba(255,255,255,0.3)",
-              boxShadow: canWatch ? `0 5px 0 rgba(180,140,20,0.5)` : "none",
-              cursor: canWatch ? "pointer" : "not-allowed",
-            }}>
-            {ad.isActive ? "⏳ جاري التشغيل..." : ad.cooldownRemaining ? `⏱ ${cooldownSeconds}ث` : "▶ ابدأ المشاهدة"}
-          </motion.button>
-
-          <AnimatePresence>
-            {apiError && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="mt-3 flex items-center gap-2 justify-center">
-                <AlertCircle size={13} color="#ef4444" />
-                <span className="font-arabic text-red-400 text-xs">{apiError}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Success indicator */}
-        <AnimatePresence>
-          {watchCount > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-              className="rounded-2xl p-4 flex items-center gap-3"
-              style={{ background: `${GREEN}08`, border: `1px solid ${GREEN}25` }} dir="rtl">
-              <CheckCircle size={20} color={GREEN} />
-              <div>
-                <p className="font-arabic font-bold text-sm" style={{ color: GREEN }}>
-                  أحسنت! شاهدتَ {watchCount} إعلان{watchCount > 1 ? "ات" : ""}
-                </p>
-                <p className="font-arabic text-white/45 text-xs">مجموع ما اكتسبته: {totalEarned} نقطة</p>
-              </div>
-            </motion.div>
+        {/* شاهد وادعم */}
+        <motion.button
+          onClick={() => setTab("watch")}
+          whileTap={{ scale: 0.94 }}
+          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden transition-all"
+          style={{
+            background: tab === "watch"
+              ? "linear-gradient(135deg, rgba(139,92,246,0.28) 0%, rgba(109,40,217,0.18) 100%)"
+              : "rgba(255,255,255,0.04)",
+            border: tab === "watch"
+              ? "1.5px solid rgba(139,92,246,0.55)"
+              : "1.5px solid rgba(255,255,255,0.08)",
+            boxShadow: tab === "watch"
+              ? "0 0 16px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.12)"
+              : "none",
+          }}>
+          {tab === "watch" && (
+            <motion.div layoutId="earn-tab-pill"
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.12),transparent)" }}
+              transition={{ type: "spring", stiffness: 420, damping: 38 }} />
           )}
+          <Tv size={15}
+            color={tab === "watch" ? "#a78bfa" : "rgba(255,255,255,0.35)"}
+            style={{ filter: tab === "watch" ? "drop-shadow(0 0 5px rgba(167,139,250,0.7))" : "none", flexShrink: 0 }} />
+          <div className="relative z-10 text-right">
+            <p className="font-arabic font-black text-[11px] leading-tight"
+              style={{ color: tab === "watch" ? "#c4b5fd" : "rgba(255,255,255,0.55)" }}>شاهد وادعم</p>
+            <p className="font-arabic text-[9px] leading-tight"
+              style={{ color: tab === "watch" ? "rgba(196,181,253,0.7)" : "rgba(255,255,255,0.25)" }}>الإعلانات الطوعية</p>
+          </div>
+        </motion.button>
+
+        {/* طريق النحل */}
+        <motion.button
+          onClick={() => setTab("play")}
+          whileTap={{ scale: 0.94 }}
+          className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden transition-all"
+          style={{
+            background: tab === "play"
+              ? "linear-gradient(135deg, rgba(34,197,94,0.22) 0%, rgba(0,80,30,0.28) 100%)"
+              : "rgba(255,255,255,0.04)",
+            border: tab === "play"
+              ? `1.5px solid rgba(34,197,94,0.5)`
+              : "1.5px solid rgba(255,255,255,0.08)",
+            boxShadow: tab === "play"
+              ? `0 0 16px rgba(34,197,94,0.2), inset 0 1px 0 rgba(255,255,255,0.12)`
+              : "none",
+          }}>
+          {tab === "play" && (
+            <motion.div layoutId="earn-tab-pill"
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.1),transparent)" }}
+              transition={{ type: "spring", stiffness: 420, damping: 38 }} />
+          )}
+          <Zap size={15}
+            color={tab === "play" ? GREEN : "rgba(255,255,255,0.35)"}
+            fill={tab === "play" ? `${GREEN}50` : "none"}
+            style={{ filter: tab === "play" ? `drop-shadow(0 0 5px ${GREEN}80)` : "none", flexShrink: 0 }} />
+          <div className="relative z-10 text-right">
+            <p className="font-arabic font-black text-[11px] leading-tight"
+              style={{ color: tab === "play" ? "#4ade80" : "rgba(255,255,255,0.55)" }}>اربح 🐝</p>
+            <p className="font-arabic text-[9px] leading-tight"
+              style={{ color: tab === "play" ? "rgba(74,222,128,0.7)" : "rgba(255,255,255,0.25)" }}>طريق النحل</p>
+          </div>
+        </motion.button>
+      </div>
+
+      {/* ── Tab content ── */}
+      <div className="flex-1 min-h-0 overflow-hidden relative">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={tab} className="absolute inset-0"
+            initial={{ opacity: 0, x: tab === "watch" ? -14 : 14 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: tab === "watch" ? 14 : -14 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}>
+            <Suspense fallback={<TabLoading />}>
+              {tab === "watch" && <WatchSection onBack={() => {}} />}
+              {tab === "play"  && <PlaySection  onBack={() => {}} />}
+            </Suspense>
+          </motion.div>
         </AnimatePresence>
-
-        {/* Coins section */}
-        <div className="rounded-2xl p-4"
-          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${GOLD}10` }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Coins size={15} color={GOLD} />
-            <p className="font-arabic text-white/60 text-sm font-bold">نظام المكافآت</p>
-          </div>
-          <div className="space-y-2">
-            {[
-              { action: "مشاهدة إعلان",         pts: "+10",  color: GOLD  },
-              { action: "إتمام اختبار معرفي",   pts: "+25",  color: GREEN },
-              { action: "دعوة صديق",              pts: "+50",  color: "#60a5fa" },
-              { action: "نشر تقرير موثّق",      pts: "+100", color: "#fb923c" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b last:border-0"
-                style={{ borderColor: "rgba(255,255,255,0.05)" }} dir="rtl">
-                <span className="font-arabic text-white/55 text-xs">{item.action}</span>
-                <span className="font-mono font-bold text-sm" style={{ color: item.color }}>{item.pts}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Tips */}
-        <div className="rounded-2xl p-4 space-y-2"
-          style={{ background: `${GOLD}06`, border: `1px solid ${GOLD}12` }}>
-          <p className="font-arabic text-xs font-bold mb-2" style={{ color: GOLD }}>💡 تذكير مهم</p>
-          {TIPS.map((tip, i) => (
-            <div key={i} className="flex gap-2">
-              <span style={{ color: GOLD + "80", fontSize: 10, marginTop: 2 }}>•</span>
-              <p className="font-arabic text-white/50 text-xs leading-relaxed">{tip}</p>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
