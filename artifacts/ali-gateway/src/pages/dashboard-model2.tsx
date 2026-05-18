@@ -4,13 +4,14 @@ import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, FileText, Radio, Archive, Star, MessageSquare, Phone } from "lucide-react";
+import { Play, FileText, Radio, Star, MessageSquare, Phone, Mic } from "lucide-react";
 
 // ── Lazy-loaded tab sections ──────────────────────────────────────────────────
 const MediaSection         = lazy(() => import("./model2/media").then(m => ({ default: m.MediaSection })));
 const ReportsSection       = lazy(() => import("./model2/reports").then(m => ({ default: m.ReportsSection })));
 const FieldMonitorSection  = lazy(() => import("./model2/field-monitor").then(m => ({ default: m.FieldMonitorSection })));
 const DocumentationSection = lazy(() => import("./model2/documentation").then(m => ({ default: m.DocumentationSection })));
+const CommunitySection     = lazy(() => import("./sections/community").then(m => ({ default: m.CommunitySection })));
 const EarnSection          = lazy(() => import("./model2/earn").then(m => ({ default: m.EarnSection })));
 const ProfileSection       = lazy(() => import("./sections/profile").then(m => ({ default: m.ProfileSection })));
 
@@ -21,15 +22,15 @@ const HEADER_H  = 68;   // px — must never change to prevent layout shift
 const TABBAR_H  = 64;   // px — must never change
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
-type Tab = "media" | "reports" | "field" | "docs" | "earn" | "messages" | "calls" | "about";
+type Tab = "media" | "reports" | "field" | "community" | "earn" | "messages" | "calls" | "about";
 type TabIcon = (props: { size?: number; color?: string }) => JSX.Element | null;
 
 const TABS: { id: Tab; label: string; Icon: TabIcon }[] = [
-  { id: "media",   label: "ميديا",       Icon: Play     },
-  { id: "reports", label: "تقارير",      Icon: FileText },
-  { id: "field",   label: "رصد ميداني", Icon: Radio    },
-  { id: "docs",    label: "توثيق",       Icon: Archive  },
-  { id: "earn",    label: "اربح",        Icon: Star     },
+  { id: "media",     label: "ميديا",       Icon: Play     },
+  { id: "reports",   label: "تقارير",      Icon: FileText },
+  { id: "field",     label: "رصد ميداني",  Icon: Radio    },
+  { id: "community", label: "المجلس",      Icon: Mic      },
+  { id: "earn",      label: "اربح",        Icon: Star     },
 ];
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
@@ -458,10 +459,10 @@ export default function DashboardModel2() {
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}>
                 <Suspense fallback={<TabLoading />}>
-                  {activeTab === "media"    && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
+                  {activeTab === "media"     && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
                   {activeTab === "reports"  && <ReportsSection      telegramId={telegramId} />}
                   {activeTab === "field"    && <FieldMonitorSection telegramId={telegramId} />}
-                  {activeTab === "docs"     && <DocumentationSection telegramId={telegramId} />}
+                  {activeTab === "community"&& <CommunitySection    onBack={() => setActiveTab("media")} />}
                   {activeTab === "earn"     && <EarnSection         telegramId={telegramId} />}
                   {activeTab === "messages" && <ComingSoonSection icon={<MessageSquare size={40} color={GOLD} />} label="الرسائل" />}
                   {activeTab === "calls"    && <ComingSoonSection icon={<Phone          size={40} color={GOLD} />} label="المكالمات" />}
@@ -488,7 +489,7 @@ export default function DashboardModel2() {
                     userData={userData}
                     initialChatPartnerId={undefined}
                     initialTab={profileInitialTab}
-                    onOpenCommunity={() => {}}
+                    onOpenCommunity={() => { setShowProfile(false); setActiveTab("community"); }}
                   />
                 </Suspense>
               </motion.div>
