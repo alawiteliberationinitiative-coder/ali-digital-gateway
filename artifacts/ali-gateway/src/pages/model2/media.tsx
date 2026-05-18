@@ -483,16 +483,16 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
   const [draft,    setDraft]    = useState(comment.text);
   return (
     <div className="flex gap-2" dir="rtl">
-      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold flex-shrink-0 mt-0.5"
         style={{ background: `${GOLD}20`, color: GOLD }}>✦</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-          <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>{comment.pseudonym || "عضو"}</span>
-          {isOwn && !editMode && <span className="font-arabic text-[9px] text-white/30">(أنت)</span>}
+          <span className="font-arabic text-[15px] font-bold" style={{ color: GOLD }}>{comment.pseudonym || "عضو"}</span>
+          {isOwn && !editMode && <span className="font-arabic text-[14px] text-white/30">(أنت)</span>}
         </div>
         {editMode ? (
           <div className="flex items-center gap-1.5">
-            <input className="flex-1 rounded-xl px-3 py-1.5 text-sm font-arabic text-white/80 outline-none"
+            <input className="flex-1 rounded-xl px-3 py-1.5 text-[21px] font-arabic text-white/80 outline-none"
               style={{ background: "rgba(255,255,255,0.09)", border: `1px solid ${GOLD}30` }}
               value={draft} onChange={e => setDraft(e.target.value)}
               onKeyDown={e => {
@@ -500,21 +500,21 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
                 if (e.key === "Escape") { setDraft(comment.text); setEditMode(false); }
               }} />
             <button onClick={() => { onEdit(comment.id, draft); setEditMode(false); }}
-              className="w-7 h-7 rounded-full flex items-center justify-center"
+              className="w-10 h-10 rounded-full flex items-center justify-center"
               style={{ background: `${GOLD}20` }}>
-              <Check size={13} color={GOLD} />
+              <Check size={20} color={GOLD} />
             </button>
           </div>
         ) : (
-          <p className="font-arabic text-white/75 text-[13px] leading-relaxed">{comment.text}</p>
+          <p className="font-arabic text-white/75 text-[20px] leading-relaxed">{comment.text}</p>
         )}
         <div className="flex items-center gap-3 mt-1.5">
           <motion.button whileTap={{ scale: 1.2 }} onClick={() => onLike(comment.id)}
             className="flex items-center gap-1">
-            <Heart size={11} color={comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)"}
+            <Heart size={17} color={comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)"}
               fill={comment.likedByMe ? GOLD : "none"} />
             {(comment.likeCount ?? 0) > 0 && (
-              <span className="font-mono text-[9px]" style={{ color: comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)" }}>
+              <span className="font-mono text-[14px]" style={{ color: comment.likedByMe ? GOLD : "rgba(255,255,255,0.35)" }}>
                 {comment.likeCount}
               </span>
             )}
@@ -524,12 +524,12 @@ function CommentRow({ comment, isOwn, isAdmin, onEdit, onDelete, onLike }: {
               {isOwn && (
                 <button onClick={() => setEditMode(true)}
                   className="flex items-center gap-1 text-white/30 hover:text-white/60">
-                  <Pencil size={10} /><span className="font-arabic text-[9px]">تعديل</span>
+                  <Pencil size={15} /><span className="font-arabic text-[14px]">تعديل</span>
                 </button>
               )}
               <button onClick={() => onDelete(comment.id)}
                 className="flex items-center gap-1 text-red-400/40 hover:text-red-400/70">
-                <Trash2 size={10} /><span className="font-arabic text-[9px]">حذف</span>
+                <Trash2 size={15} /><span className="font-arabic text-[14px]">حذف</span>
               </button>
             </>
           )}
@@ -1054,29 +1054,29 @@ function ReelCard({
             transition={{ type: "spring", stiffness: 360, damping: 36 }}>
             <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
               style={{ borderColor: `${GOLD}12` }} dir="rtl">
-              <span className="font-arabic text-white/80 text-sm font-bold">التعليقات ({articleComments.length})</span>
-              <button onClick={onToggleComment} className="w-7 h-7 rounded-full flex items-center justify-center"
+              <span className="font-arabic text-white/80 text-[21px] font-bold">التعليقات ({articleComments.length})</span>
+              <button onClick={onToggleComment} className="w-9 h-9 rounded-full flex items-center justify-center"
                 style={{ background: "rgba(255,255,255,0.08)" }}>
-                <X size={14} color="rgba(255,255,255,0.6)" />
+                <X size={21} color="rgba(255,255,255,0.6)" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" dir="rtl">
               {article.body && (
                 <div className="flex gap-2 pb-3 border-b" style={{ borderColor: `${GOLD}15` }}>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold flex-shrink-0 mt-0.5"
                     style={{ background: `${GOLD}28`, color: GOLD }}>✦</div>
                   <div className="rounded-2xl rounded-tr-sm px-3 py-2 flex-1"
                     style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}18` }}>
                     <div className="flex items-center gap-1 mb-1.5">
-                      <span className="text-[9px]">📌</span>
-                      <span className="font-arabic text-[10px] font-bold" style={{ color: GOLD }}>تعليق مثبّت</span>
+                      <span className="text-[14px]">📌</span>
+                      <span className="font-arabic text-[15px] font-bold" style={{ color: GOLD }}>تعليق مثبّت</span>
                     </div>
-                    <p className="font-arabic text-white/80 leading-relaxed text-[13px]">{article.body}</p>
+                    <p className="font-arabic text-white/80 leading-relaxed text-[20px]">{article.body}</p>
                   </div>
                 </div>
               )}
               {articleComments.length === 0
-                ? <p className="font-arabic text-white/30 text-sm text-center py-6">لا توجد تعليقات بعد</p>
+                ? <p className="font-arabic text-white/30 text-[21px] text-center py-6">لا توجد تعليقات بعد</p>
                 : articleComments.map(c => (
                     <CommentRow key={c.id} comment={c} isOwn={c.isOwn ?? false} isAdmin={isAdmin}
                       articleId={article.id}
@@ -1086,7 +1086,7 @@ function ReelCard({
             <div className="flex items-center gap-2 px-3 py-3 border-t flex-shrink-0"
               style={{ borderColor: `${GOLD}10` }} dir="rtl">
               <input
-                className="flex-1 rounded-2xl px-4 py-2 text-sm font-arabic text-white/80 outline-none"
+                className="flex-1 rounded-2xl px-4 py-2 text-[21px] font-arabic text-white/80 outline-none"
                 style={{ background: "rgba(255,255,255,0.07)", border: `1px solid ${GOLD}18` }}
                 placeholder="اكتب تعليقاً..."
                 value={commentText}
@@ -1094,9 +1094,9 @@ function ReelCard({
                 onKeyDown={e => e.key === "Enter" && onAddComment()}
               />
               <motion.button whileTap={{ scale: 0.9 }} onClick={onAddComment}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: commentText.trim() ? `linear-gradient(135deg,${GOLD},#f0d060)` : "rgba(255,255,255,0.08)" }}>
-                <Send size={15} color={commentText.trim() ? "#001a10" : "rgba(255,255,255,0.35)"} />
+                <Send size={23} color={commentText.trim() ? "#001a10" : "rgba(255,255,255,0.35)"} />
               </motion.button>
             </div>
           </motion.div>
