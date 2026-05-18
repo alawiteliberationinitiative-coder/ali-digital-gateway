@@ -2172,7 +2172,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                   style={{ background: "rgba(38,161,123,0.18)", border: "1px solid rgba(38,161,123,0.45)", color: "#26a17b" }}>USDT</span>
                 <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md"
                   style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)" }}>
-                  <img src="/mdd-token.jpg" className="w-3.5 h-3.5 rounded-full object-cover" style={{ boxShadow: "0 0 6px rgba(212,175,55,0.6)" }} alt="MDD" />
+                  <img src="/mdd-token.png" className="w-3.5 h-3.5 rounded-full object-cover" style={{ boxShadow: "0 0 6px rgba(212,175,55,0.6)" }} alt="MDD" />
                   <span className="font-mono text-[10px] font-black" style={{ color: GOLD, textShadow: "0 0 8px rgba(212,175,55,0.7)" }}>$MDD</span>
                 </div>
               </div>
@@ -2200,7 +2200,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     <div className="relative z-10 flex flex-col items-center gap-3">
                       <div className="flex flex-col items-center gap-2">
                         {/* MDD token coin — centred, 50% larger, no border, no lock */}
-                        <img src="/mdd-token.jpg" className="w-24 h-24 rounded-full object-cover"
+                        <img src="/mdd-token.png" className="w-24 h-24 rounded-full object-cover"
                           style={{
                             border: "3px solid rgba(212,175,55,0.85)",
                             boxShadow: `0 0 28px rgba(212,175,55,0.6), 0 0 52px rgba(212,175,55,0.3), 0 0 0 6px rgba(212,175,55,0.12)`,
@@ -2286,7 +2286,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                     <div className="flex items-center justify-end gap-2 mb-3">
                       <p className="font-arabic text-sm font-black"
                         style={{ color: GOLD, textShadow: `0 0 12px rgba(212,175,55,0.7)` }}>🏆 جوائز وإيردروب $MDD</p>
-                      <img src="/mdd-token.jpg" className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                      <img src="/mdd-token.png" className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                         style={{ boxShadow: "0 0 10px rgba(212,175,55,0.6)" }} alt="MDD" />
                     </div>
                     <div className="space-y-3 font-arabic text-[12px] leading-7" dir="rtl">
