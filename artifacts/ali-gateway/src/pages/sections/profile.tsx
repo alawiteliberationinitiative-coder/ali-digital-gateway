@@ -1045,31 +1045,31 @@ function ChatView({
       {/* Incoming call overlay — shown when the caller is this partner */}
       <AnimatePresence>
         {incomingCallActive && (
-          <motion.div className="absolute inset-0 z-50 flex items-center justify-center px-6"
+          <motion.div className="absolute inset-0 z-50 flex items-center justify-center px-4"
             style={{ background: "rgba(0,20,12,0.92)", backdropFilter: "blur(12px)" }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="w-full max-w-xs flex flex-col items-center gap-6 text-center">
+            <div className="w-full flex flex-col items-center gap-12 text-center">
               <motion.div
-                className="w-24 h-24 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.5)" }}
-                animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.4)", "0 0 0 24px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
+                className="w-48 h-48 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(34,197,94,0.15)", border: "3px solid rgba(34,197,94,0.5)" }}
+                animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.4)", "0 0 0 48px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
                 transition={{ repeat: Infinity, duration: 1.8 }}>
-                <PhoneIncoming className="w-10 h-10 text-green-400" />
+                <PhoneIncoming className="w-20 h-20 text-green-400" />
               </motion.div>
               <div>
-                <p className="font-arabic font-bold text-white text-lg">{partner.pseudonym}</p>
-                <p className="font-arabic text-white/50 text-sm mt-1">مكالمة صوتية واردة</p>
+                <p className="font-arabic font-bold text-white text-4xl">{partner.pseudonym}</p>
+                <p className="font-arabic text-white/50 text-xl mt-2">مكالمة صوتية واردة</p>
               </div>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-12">
                 <button onClick={onRejectCall}
-                  className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-all"
-                  style={{ background: "rgba(239,68,68,0.25)", border: "2px solid rgba(239,68,68,0.5)" }}>
-                  <PhoneOff className="w-7 h-7 text-red-400" />
+                  className="w-32 h-32 rounded-full flex items-center justify-center active:scale-90 transition-all"
+                  style={{ background: "rgba(239,68,68,0.25)", border: "3px solid rgba(239,68,68,0.5)" }}>
+                  <PhoneOff className="w-14 h-14 text-red-400" />
                 </button>
                 <button onClick={onAnswerCall}
-                  className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-all"
-                  style={{ background: "rgba(34,197,94,0.25)", border: "2px solid rgba(34,197,94,0.5)" }}>
-                  <Phone className="w-7 h-7 text-green-400" />
+                  className="w-32 h-32 rounded-full flex items-center justify-center active:scale-90 transition-all"
+                  style={{ background: "rgba(34,197,94,0.25)", border: "3px solid rgba(34,197,94,0.5)" }}>
+                  <Phone className="w-14 h-14 text-green-400" />
                 </button>
               </div>
             </div>
