@@ -43,6 +43,16 @@ export async function runMigrations(): Promise<void> {
 
   try {
     await execDdl(`
+      ALTER TABLE ali_calls
+        ADD COLUMN IF NOT EXISTS seen_by_callee BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    logger.info("ali_calls seen_by_callee migration: OK");
+  } catch (err) {
+    logger.warn({ err }, "ali_calls seen_by_callee migration skipped");
+  }
+
+  try {
+    await execDdl(`
       CREATE TABLE IF NOT EXISTS quiz_progress (
         id                   SERIAL PRIMARY KEY,
         telegram_id          TEXT NOT NULL UNIQUE,

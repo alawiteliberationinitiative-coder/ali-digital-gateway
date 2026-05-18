@@ -7,13 +7,14 @@ export const presenceTable = pgTable("ali_presence", {
 });
 
 export const callsTable = pgTable("ali_calls", {
-  id:         serial("id").primaryKey(),
-  callerId:   text("caller_id").notNull(),
-  calleeId:   text("callee_id").notNull(),
-  status:     text("status").notNull().default("ringing"),
-  createdAt:  timestamp("created_at",  { withTimezone: true }).notNull().defaultNow(),
-  answeredAt: timestamp("answered_at", { withTimezone: true }),
-  endedAt:    timestamp("ended_at",    { withTimezone: true }),
+  id:             serial("id").primaryKey(),
+  callerId:       text("caller_id").notNull(),
+  calleeId:       text("callee_id").notNull(),
+  status:         text("status").notNull().default("ringing"),
+  seenByCallee:   boolean("seen_by_callee").notNull().default(false),
+  createdAt:      timestamp("created_at",  { withTimezone: true }).notNull().defaultNow(),
+  answeredAt:     timestamp("answered_at", { withTimezone: true }),
+  endedAt:        timestamp("ended_at",    { withTimezone: true }),
 });
 
 export const callSignalsTable = pgTable("ali_call_signals", {

@@ -5,8 +5,6 @@ import {
   usersTable, messagesTable, blocksTable,
 } from "@workspace/db";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
-import { sendBotNotification } from "../lib/telegram-notify.js";
-
 const router = Router();
 
 // ── SSE client registry ───────────────────────────────────────────────────────
@@ -29,17 +27,6 @@ function pushSSE(telegramId: string, event: string, data: object) {
   for (const res of [...clients]) {
     try { res.write(payload); } catch { removeSSEClient(telegramId, res); }
   }
-}
-
-// ── Telegram notification helper ──────────────────────────────────────────────
-function sendTelegramNotification(toTelegramId: string, senderName: string, preview: string, fromTelegramId: string) {
-  const text = `💬 *رسالة جديدة*\n\nوصلتك رسالة من *${senderName}*\n_"${preview.slice(0, 60)}${preview.length > 60 ? "…" : ""}"_`;
-  sendBotNotification({
-    toTelegramId,
-    text,
-    buttonText: "📨 فتح المحادثة",
-    navParam:   `msg_${fromTelegramId}`,
-  });
 }
 
 /* ── SSE ticket for messages ─────────────────────────────────────────────── */
@@ -218,13 +205,6 @@ router.post("/messages/send", async (req, res): Promise<void> => {
 
   // Real-time: push SSE event to recipient
   pushSSE(toTelegramId, "new_message", { fromTelegramId: myId });
-
-  // Async: send Telegram bot notification to recipient
-  const [sender] = await db
-    .select({ pseudonym: usersTable.pseudonym })
-    .from(usersTable)
-    .where(eq(usersTable.telegramId, myId));
-  sendTelegramNotification(toTelegramId, sender?.pseudonym ?? "عضو", trimmed, myId);
 
   res.status(201).json(msg);
 });

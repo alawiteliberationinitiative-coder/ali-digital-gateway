@@ -5,7 +5,6 @@ import {
   usersTable, presenceTable, callsTable, callSignalsTable,
 } from "@workspace/db";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
-import { sendBotNotification } from "../lib/telegram-notify.js";
 
 const router = Router();
 const PRESENCE_TTL_MS = 35_000;
@@ -78,6 +77,44 @@ router.get("/calls/events", (req, res): void => {
   req.on("close", () => { clearInterval(keepalive); removeCallClient(telegramId, res); });
 });
 
+/* ── Missed call count (badge) ───────────────────────────────────────────── */
+router.get("/calls/missed-count", async (req, res): Promise<void> => {
+  const myId = req.telegramId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(callsTable)
+      .where(and(
+        eq(callsTable.calleeId, myId),
+        eq(callsTable.status, "missed"),
+        eq(callsTable.seenByCallee, false),
+      ));
+    res.json({ count: result?.count ?? 0 });
+  } catch {
+    res.json({ count: 0 });
+  }
+});
+
+/* ── Mark missed calls as seen (clears badge) ────────────────────────────── */
+router.post("/calls/missed-seen", async (req, res): Promise<void> => {
+  const myId = req.telegramId;
+  if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    await db
+      .update(callsTable)
+      .set({ seenByCallee: true })
+      .where(and(
+        eq(callsTable.calleeId, myId),
+        eq(callsTable.status, "missed"),
+        eq(callsTable.seenByCallee, false),
+      ));
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true });
+  }
+});
+
 /* ── Initiate call ───────────────────────────────────────────────────────── */
 router.post("/calls/initiate", async (req, res): Promise<void> => {
   const myId = req.telegramId;
@@ -118,13 +155,6 @@ router.post("/calls/initiate", async (req, res): Promise<void> => {
         callerId: myId,
         callerPseudonym: caller.pseudonym,
         callerAliId: caller.aliId,
-      });
-    } else {
-      sendBotNotification({
-        toTelegramId: calleeId,
-        text: `📞 *مكالمة فائتة*\n\nحاول *${caller.pseudonym}* الاتصال بك`,
-        buttonText: "📲 فتح التطبيق",
-        navParam: `msg_${myId}`,
       });
     }
 

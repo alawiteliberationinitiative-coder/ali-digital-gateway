@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, lazy, Suspense, memo } from "react";
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, memo } from "react";
 import { useLocation } from "wouter";
 import { useTelegram } from "@/lib/telegram";
 import { useGetMe } from "@workspace/api-client-react";
+import { apiFetch } from "@/lib/api";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, FileText, Radio, Star, MessageSquare, Phone, Mic } from "lucide-react";
@@ -198,12 +199,28 @@ const GLASS_ICON: React.CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center",
 };
 
-function GlassZone({ onClick, label, width = 64, children }: {
-  onClick: () => void; label: string; width?: number; children: React.ReactNode;
+function GlassZone({ onClick, label, width = 64, badge = 0, children }: {
+  onClick: () => void; label: string; width?: number; badge?: number; children: React.ReactNode;
 }) {
   return (
     <button onClick={onClick} aria-label={label} className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform" style={{ width }}>
-      <div style={GLASS_ICON}>{children}</div>
+      <div style={{ position: "relative" }}>
+        <div style={GLASS_ICON}>{children}</div>
+        {badge > 0 && (
+          <div style={{
+            position: "absolute", top: -5, left: -5,
+            minWidth: 18, height: 18, borderRadius: 9,
+            background: "#ef4444",
+            border: "2px solid rgba(2,14,4,0.97)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "0 4px",
+          }}>
+            <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 10, color: "#fff", lineHeight: 1 }}>
+              {badge > 99 ? "99+" : badge}
+            </span>
+          </div>
+        )}
+      </div>
     </button>
   );
 }
@@ -211,12 +228,15 @@ function GlassZone({ onClick, label, width = 64, children }: {
 // ── Header (fixed height = HEADER_H px, never shifts) ────────────────────────
 const Model2Header = memo(function Model2Header({
   userData, onOpenProfile, onOpenMessages, onOpenCalls, onOpenAbout,
+  unreadMsgs, missedCalls,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
   onOpenProfile:  () => void;
   onOpenMessages: () => void;
   onOpenCalls:    () => void;
   onOpenAbout:    () => void;
+  unreadMsgs:  number;
+  missedCalls: number;
 }) {
   return (
     <div className="flex-shrink-0 flex items-stretch" style={{
@@ -239,7 +259,7 @@ const Model2Header = memo(function Model2Header({
       </button>
 
       {/* ── Zone 2: Messages ── golden stroke + white-tinted interior, 3D glass */}
-      <GlassZone onClick={onOpenMessages} label="الرسائل">
+      <GlassZone onClick={onOpenMessages} label="الرسائل" badge={unreadMsgs}>
         <MessageSquare
           size={22} color={GOLD}
           fill="rgba(255,255,255,0.10)"
@@ -248,7 +268,7 @@ const Model2Header = memo(function Model2Header({
       </GlassZone>
 
       {/* ── Zone 3: Calls ── fully golden, 3D glass */}
-      <GlassZone onClick={onOpenCalls} label="المكالمات">
+      <GlassZone onClick={onOpenCalls} label="المكالمات" badge={missedCalls}>
         <Phone
           size={22} color={GOLD}
           fill={`${GOLD}30`}
@@ -383,6 +403,29 @@ export default function DashboardModel2() {
   const [showProfile,  setShowProfile]  = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<"profile" | "inbox" | "friends" | "calls">("profile");
 
+  // ── Notification badges ──────────────────────────────────────────────────────
+  const [unreadMsgs,  setUnreadMsgs]  = useState(0);
+  const [missedCalls, setMissedCalls] = useState(0);
+  const badgeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchBadges = useCallback(async () => {
+    if (!telegramId) return;
+    try {
+      const [msgRes, callRes] = await Promise.all([
+        apiFetch("/api/messages/unread-count"),
+        apiFetch("/api/calls/missed-count"),
+      ]);
+      if (msgRes.ok)  { const d = await msgRes.json();  setUnreadMsgs(d.count  ?? 0); }
+      if (callRes.ok) { const d = await callRes.json(); setMissedCalls(d.count ?? 0); }
+    } catch { /* non-critical */ }
+  }, [telegramId]);
+
+  useEffect(() => {
+    fetchBadges();
+    badgeIntervalRef.current = setInterval(fetchBadges, 30_000);
+    return () => { if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current); };
+  }, [fetchBadges]);
+
   // Timeout guard for missing telegramId
   const [noAuthReady, setNoAuthReady] = useState(false);
   useEffect(() => {
@@ -405,6 +448,21 @@ export default function DashboardModel2() {
   }, [isError, setLocation]);
 
   const handleCloseProfile = useCallback(() => { setShowProfile(false); setProfileInitialTab("profile"); }, []);
+
+  const handleOpenMessages = useCallback(() => {
+    setProfileInitialTab("inbox");
+    setShowProfile(true);
+    // refresh badge after a short delay (user may read threads)
+    setTimeout(fetchBadges, 2_000);
+  }, [fetchBadges]);
+
+  const handleOpenCalls = useCallback(() => {
+    setProfileInitialTab("calls");
+    setShowProfile(true);
+    // clear missed-call badge immediately
+    setMissedCalls(0);
+    apiFetch("/api/calls/missed-seen", { method: "POST" }).catch(() => {});
+  }, []);
 
   // صلاحية الأدمن: تُحدَّد من telegramId أو من دور المستخدم
   const isAdmin = !!telegramId && (
@@ -443,9 +501,11 @@ export default function DashboardModel2() {
           <Model2Header
             userData={userData}
             onOpenProfile={() => { setProfileInitialTab("profile"); setShowProfile(true); }}
-            onOpenMessages={() => { setProfileInitialTab("inbox"); setShowProfile(true); }}
-            onOpenCalls={() => { setProfileInitialTab("calls"); setShowProfile(true); }}
+            onOpenMessages={handleOpenMessages}
+            onOpenCalls={handleOpenCalls}
             onOpenAbout={() => setActiveTab("about")}
+            unreadMsgs={unreadMsgs}
+            missedCalls={missedCalls}
           />
 
           {/* ── Tab content area — fills remaining space ── */}
