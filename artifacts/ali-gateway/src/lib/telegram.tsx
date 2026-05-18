@@ -98,13 +98,6 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
     const app = window.Telegram?.WebApp;
     // Use real Telegram context only when user data is actually populated
     if (app && app.initDataUnsafe?.user?.id) {
-      // ready() and expand() already called in main.tsx before React mounts
-      app.enableClosingConfirmation();
-      // توحيد لون شريط الحالة مع لون هيدر التطبيق
-      const APP_BG = "#001a10";
-      app.setHeaderColor(APP_BG);
-      app.setBackgroundColor(APP_BG);
-      app.setBottomBarColor(APP_BG);
       const userId = String(app.initDataUnsafe.user.id);
       configureApi(userId, app.initData);
       // Propagate auth headers to the generated API client fetcher
@@ -112,7 +105,18 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
       if (userId)         authHeaders["x-telegram-id"]        = userId;
       if (app.initData)   authHeaders["x-telegram-init-data"] = app.initData;
       setAuthHeaders(authHeaders);
+      // setWebApp FIRST — must not be blocked by any optional styling calls below
       setWebApp(app);
+      // Optional UI tweaks — some may be unavailable in older Telegram versions
+      try { app.enableClosingConfirmation(); } catch { /* not supported */ }
+      try {
+        const APP_BG = "#001a10";
+        app.setHeaderColor(APP_BG);
+        app.setBackgroundColor(APP_BG);
+        if (typeof (app as Record<string, unknown>).setBottomBarColor === "function") {
+          app.setBottomBarColor(APP_BG);
+        }
+      } catch { /* not supported */ }
     } else {
       console.warn("Telegram WebApp is not available.");
       // Fallback mock user for local development outside Telegram
