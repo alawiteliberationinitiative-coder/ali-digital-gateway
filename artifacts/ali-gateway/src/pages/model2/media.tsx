@@ -578,6 +578,7 @@ function ReelCard({
   networkQuality: VideoQuality;
   globalMuted: boolean;
   onToggleMute: () => void;
+  onForceMute: () => void;
   onBecameActive: (idx: number) => void;
 }) {
   const isVideo      = !!article.mediaUrl && isVideoUrl(article.mediaUrl);
@@ -607,6 +608,7 @@ function ReelCard({
   // refs that mirror React props so IntersectionObserver callbacks (stale closures) read current values
   const globalMutedRef2  = useRef(globalMuted);
   const isLowDataRef     = useRef(false);
+  const onForceMuteRef   = useRef(onForceMute);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -635,6 +637,7 @@ function ReelCard({
   // Keep stale-closure refs in sync with current prop/computed values
   useEffect(() => { globalMutedRef2.current = globalMuted; }, [globalMuted]);
   useEffect(() => { isLowDataRef.current = isLowData; }, [isLowData]);
+  useEffect(() => { onForceMuteRef.current = onForceMute; }, [onForceMute]);
 
   // Sync muted state to video element whenever globalMuted changes
   useEffect(() => {
@@ -671,6 +674,8 @@ function ReelCard({
               // Autoplay with sound blocked → mute and retry (always succeeds)
               v.muted = true;
               globalMutedRef2.current = true;
+              // Notify parent so the mute icon matches reality
+              onForceMuteRef.current();
               v.play().catch(() => {});
             });
           }
@@ -1369,6 +1374,12 @@ export function MediaSection({
     });
   }, []);
 
+  // Called by ReelCard when autoplay with sound is blocked — syncs icon to reality
+  const handleForceMute = useCallback(() => {
+    setGlobalMuted(true);
+    globalMutedRef.current = true;
+  }, []);
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -1430,6 +1441,7 @@ export function MediaSection({
             networkQuality={networkState.quality}
             globalMuted={globalMuted}
             onToggleMute={handleToggleMute}
+            onForceMute={handleForceMute}
             onBecameActive={handleBecameActive}
           />
         ))}
