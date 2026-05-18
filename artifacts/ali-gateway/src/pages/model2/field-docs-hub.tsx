@@ -591,7 +591,7 @@ function TabLoading() {
 export function FieldDocsHub({ telegramId }: { telegramId: string }) {
   const { user } = useTelegram();
   const tid = telegramId || user?.id?.toString() || "";
-  const [tab, setTab] = useState<DocTab>("violations");
+  const [tab, setTab] = useState<DocTab>("urgent");
 
   return (
     <div className="h-full flex flex-col overflow-hidden" dir="rtl">
@@ -625,8 +625,8 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
             <ShieldAlert size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
           </div>
           <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>رصد عاجل</p>
-            <p className="font-arabic text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>خطف · فصائل · قتل · اعتقال</p>
+            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: GOLD, textShadow: `0 0 8px ${GOLD}80` }}>رصد عاجل</p>
+            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.6)" }}>خطف · فصائل · قتل · اعتقال</p>
           </div>
         </motion.button>
 
@@ -653,8 +653,8 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
             <Shield size={17} color={GOLD} style={{ filter: `drop-shadow(0 0 4px ${GOLD}cc)` }} />
           </div>
           <div className="relative z-10 text-right flex-1">
-            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: "#22c55e", textShadow: "0 0 8px rgba(34,197,94,0.4)" }}>توثيق الانتهاكات</p>
-            <p className="font-arabic text-[9px] leading-tight" style={{ color: "rgba(34,197,94,0.55)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
+            <p className="font-arabic font-black text-[12px] leading-tight" style={{ color: GOLD, textShadow: `0 0 8px ${GOLD}80` }}>توثيق الانتهاكات</p>
+            <p className="font-arabic font-bold text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.6)" }}>مختطفات · تهجير · مفقودون · شهداء</p>
           </div>
         </motion.button>
       </div>

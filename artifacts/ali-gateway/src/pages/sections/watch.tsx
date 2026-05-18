@@ -90,42 +90,58 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto flex flex-col items-center px-5 py-8 gap-8">
+      <div className="flex-1 overflow-y-auto flex flex-col items-center px-5 py-5 gap-6">
 
-        {/* Watch hero banner */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-          className="w-full rounded-3xl flex flex-col items-center justify-center gap-3 py-7 px-4 text-center"
+        {/* ── Watch Button — في الأعلى دائماً ── */}
+        <motion.button
+          onClick={handleWatch}
+          disabled={ad.isActive || cooldownLeft > 0 || !telegramId}
+          whileTap={{ scale: (ad.isActive || cooldownLeft > 0) ? 1 : 0.96 }}
+          className="w-full flex items-center justify-center gap-3 rounded-3xl font-arabic font-bold text-xl"
           style={{
-            background: "linear-gradient(135deg, rgba(0,43,27,0.9) 0%, rgba(6,13,26,0.95) 100%)",
-            border: "2px solid rgba(212,175,55,0.45)",
-            boxShadow: "0 0 40px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
+            padding: "22px 0",
+            background:
+              ad.isActive || cooldownLeft > 0
+                ? "rgba(212,175,55,0.15)"
+                : "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)",
+            boxShadow:
+              ad.isActive || cooldownLeft > 0
+                ? "none"
+                : "0 6px 0 rgba(180,140,20,0.55)",
+            border:
+              ad.isActive || cooldownLeft > 0
+                ? "1.5px solid rgba(212,175,55,0.35)"
+                : "none",
+            color:
+              ad.isActive || cooldownLeft > 0 ? "#d4af37" : "#002b1b",
+            opacity: !telegramId ? 0.5 : 1,
           }}>
-          <motion.div
-            animate={{ scale: [1, 1.06, 1] }} transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut" }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{
-              background: "linear-gradient(145deg, rgba(212,175,55,0.35), rgba(212,175,55,0.08))",
-              border: "1.5px solid rgba(212,175,55,0.6)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 0 20px rgba(212,175,55,0.3)",
-            }}>
-            <Play className="w-8 h-8" color="#d4af37" fill="#d4af37" style={{ filter: "drop-shadow(0 0 6px rgba(212,175,55,0.8))" }} />
-          </motion.div>
-          <div>
-            <p className="font-arabic font-black text-xl leading-tight" style={{ color: "#d4af37", textShadow: "0 0 12px rgba(212,175,55,0.5)" }}>
-              شاهد الآن وادعم المبادرة
-            </p>
-            <p className="font-arabic text-xs mt-1" style={{ color: "rgba(34,197,94,0.8)" }}>
-              مشاهدتك تترجم دعماً حقيقياً لأهلنا
-            </p>
-          </div>
-          <motion.div
-            className="h-px w-3/4"
-            style={{ background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.6), transparent)" }}
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          />
-        </motion.div>
+          {ad.isActive ? (
+            <>
+              <motion.div
+                className="w-6 h-6 border-[2.5px] border-[#d4af37] border-t-transparent rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
+              />
+              <span>{phase === "loading" ? "يُحضَّر الإعلان..." : "جارٍ العرض..."}</span>
+            </>
+          ) : cooldownLeft > 0 ? (
+            <>
+              <Clock className="w-6 h-6" />
+              <span>متاح بعد {cooldownLeft}ث</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-6 h-6" fill="currentColor" />
+              <span>شاهد الآن وادعم المبادرة</span>
+            </>
+          )}
+        </motion.button>
+
+        {/* Points note */}
+        <p className="font-arabic text-xs text-muted-foreground text-center -mt-2">
+          كل مشاهدة <span className="text-red-400 font-bold">مكتملة</span> = <span className="text-[#d4af37] font-bold">+{AD_POINTS} نقاط ولاء</span> تُضاف فوراً
+        </p>
 
         {/* Watch count badge */}
         {watchCount > 0 && (
@@ -244,56 +260,6 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
           />
         </motion.div>
 
-        {/* ── Watch Button ── */}
-        <motion.button
-          onClick={handleWatch}
-          disabled={ad.isActive || cooldownLeft > 0 || !telegramId}
-          whileTap={{ scale: (ad.isActive || cooldownLeft > 0) ? 1 : 0.96 }}
-          className="w-full flex items-center justify-center gap-3 rounded-3xl font-arabic font-bold text-xl"
-          style={{
-            padding: "20px 0",
-            background:
-              ad.isActive || cooldownLeft > 0
-                ? "rgba(212,175,55,0.15)"
-                : "linear-gradient(135deg,#d4af37 0%,#f0d060 50%,#d4af37 100%)",
-            boxShadow:
-              ad.isActive || cooldownLeft > 0
-                ? "none"
-                : "0 6px 0 rgba(180,140,20,0.55)",
-            border:
-              ad.isActive || cooldownLeft > 0
-                ? "1.5px solid rgba(212,175,55,0.35)"
-                : "none",
-            color:
-              ad.isActive || cooldownLeft > 0 ? "#d4af37" : "#002b1b",
-            opacity: !telegramId ? 0.5 : 1,
-          }}>
-          {ad.isActive ? (
-            <>
-              <motion.div
-                className="w-6 h-6 border-[2.5px] border-[#d4af37] border-t-transparent rounded-full"
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
-              />
-              <span>{phase === "loading" ? "يُحضَّر الإعلان..." : "جارٍ العرض..."}</span>
-            </>
-          ) : cooldownLeft > 0 ? (
-            <>
-              <Clock className="w-6 h-6" />
-              <span>متاح بعد {cooldownLeft}ث</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-6 h-6" fill="currentColor" />
-              <span>شاهد الآن وادعم المبادرة</span>
-            </>
-          )}
-        </motion.button>
-
-        {/* Points note */}
-        <p className="font-arabic text-xs text-muted-foreground text-center -mt-4">
-          كل مشاهدة <span className="text-red-400 font-bold">مكتملة</span> = <span className="text-[#d4af37] font-bold">+{AD_POINTS} نقاط ولاء</span> تُضاف فوراً
-        </p>
 
       </div>
     </motion.div>
