@@ -614,6 +614,7 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
               style={{
                 borderRadius: 10,
                 padding: "10px 12px",
+                minHeight: 62,
                 /* ── 3D glass gold body ── */
                 background: active
                   ? "linear-gradient(180deg, rgba(255,235,120,0.28) 0%, rgba(212,175,55,0.38) 35%, rgba(160,120,10,0.32) 65%, rgba(100,70,0,0.45) 100%)"
@@ -630,7 +631,7 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
                       "inset 1px 0 0 rgba(255,235,100,0.18)",
                       "inset -1px 0 0 rgba(0,0,0,0.25)",
                       "0 4px 14px rgba(0,0,0,0.55)",
-                      `0 0 16px rgba(212,175,55,0.30)`,
+                      "0 0 16px rgba(212,175,55,0.35)",
                     ].join(", ")
                   : [
                       "inset 0 1.5px 0 rgba(255,245,160,0.30)",
@@ -650,6 +651,20 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
                   background: "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 100%)",
                 }} />
 
+              {/* ── خط ذهبي سفلي يشير للزر المفتوح ── */}
+              {active && (
+                <motion.div
+                  layoutId="activeTabLine"
+                  className="absolute bottom-0 inset-x-3 pointer-events-none"
+                  style={{
+                    height: 3,
+                    borderRadius: "3px 3px 0 0",
+                    background: "linear-gradient(90deg, rgba(212,175,55,0.3) 0%, #ffd700 40%, #ffec80 60%, rgba(212,175,55,0.3) 100%)",
+                    boxShadow: "0 0 8px rgba(255,215,0,0.8), 0 0 16px rgba(212,175,55,0.5)",
+                  }}
+                />
+              )}
+
               {/* ── icon ── */}
               <div className="relative z-10 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
                 style={{
@@ -667,10 +682,10 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
                   fontWeight: 900,
                   fontSize: 14,
                   lineHeight: 1.2,
-                  color: active ? "#16a34a" : "#15803d",
+                  color: active ? "#ffd700" : "#d4af37",
                   textShadow: active
-                    ? "0 0 12px rgba(22,163,74,0.65), 0 1px 0 rgba(0,0,0,0.4)"
-                    : "0 1px 0 rgba(0,0,0,0.4)",
+                    ? "0 0 10px rgba(255,215,0,0.9), 0 0 20px rgba(212,175,55,0.6), 0 1px 0 rgba(0,0,0,0.5)"
+                    : "0 0 6px rgba(212,175,55,0.35), 0 1px 0 rgba(0,0,0,0.4)",
                   letterSpacing: "0.01em",
                 }}>{label}</p>
                 <p style={{
@@ -678,7 +693,7 @@ export function FieldDocsHub({ telegramId }: { telegramId: string }) {
                   fontWeight: 700,
                   fontSize: 9,
                   lineHeight: 1.3,
-                  color: active ? "rgba(22,163,74,0.70)" : "rgba(21,128,61,0.55)",
+                  color: active ? "rgba(255,215,0,0.65)" : "rgba(212,175,55,0.45)",
                   marginTop: 1,
                 }}>{sub}</p>
               </div>
