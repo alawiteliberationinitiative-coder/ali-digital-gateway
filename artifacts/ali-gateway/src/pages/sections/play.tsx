@@ -398,15 +398,15 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
       {/* ── 4. إحصائيات ── */}
       <div className="w-full grid grid-cols-2 gap-3">
         {[
-          { label: "إجمالي الصحيح", value: state.totalCorrect,  icon: "✅" },
-          { label: "نقاط الدقة",    value: state.accuracyScore, icon: "🎯" },
-          { label: "نقاط الولاء",   value: state.loyaltyPoints, icon: "💚" },
-          { label: "الإجابات",      value: state.totalAnswered,  icon: "📝" },
-        ].map(({ label, value, icon }) => (
+          { label: "إجمالي الصحيح", display: state.totalCorrect.toLocaleString(),                                                                               icon: "✅" },
+          { label: "نسبة الدقة",    display: (state.totalAnswered > 0 ? Math.round(state.totalCorrect / state.totalAnswered * 100) : 0).toString() + "%",        icon: "🎯" },
+          { label: "نقاط الولاء",   display: state.loyaltyPoints.toLocaleString(),                                                                              icon: "💚" },
+          { label: "الإجابات",      display: state.totalAnswered.toLocaleString(),                                                                               icon: "📝" },
+        ].map(({ label, display, icon }) => (
           <div key={label} className="rounded-2xl p-3 flex flex-col gap-1"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
             <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{icon} {label}</p>
-            <p className="font-arabic font-black text-xl" style={{ color: "#d4af37" }}>{value.toLocaleString()}</p>
+            <p className="font-arabic font-black text-xl" style={{ color: "#d4af37" }}>{display}</p>
           </div>
         ))}
       </div>
@@ -646,7 +646,7 @@ function FeedbackScreen({ question, result, onContinue }: {
         {result.correct && result.pts > 0 && (
           <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             className="font-arabic text-sm" style={{ color: "#d4af37" }}>
-            +{result.pts} نقطة دقة ⭐
+            +{result.pts} نقطة ⭐
           </motion.p>
         )}
       </div>
