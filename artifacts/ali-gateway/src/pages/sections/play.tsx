@@ -276,15 +276,9 @@ function StageAdScreen({ stage, tierName, tierIcon, tierColor, loyaltyPoints, on
   );
 }
 
-// ── Tier road pills ───────────────────────────────────────────────────────────
-
-const TIER_NAMES_SHORT = ["مبتدئ","نحاسي","برونزي","فضي","ذهبي","بلاتيني","ياقوتي","ألماسي"];
-
 // ── Map Screen (خريطة المستوى) ────────────────────────────────────────────────
 
 function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () => void }) {
-  const [showTiers, setShowTiers] = useState(false);
-
   if (!state) return (
     <div className="flex items-center justify-center h-full">
       <div className="w-8 h-8 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
@@ -316,10 +310,7 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
       <div className="w-full rounded-2xl overflow-hidden"
         style={{ border: `1.5px solid ${state.tierColor}55`, background: `linear-gradient(135deg, ${state.tierColor}12, rgba(0,0,0,0.3))` }}>
 
-        {/* صف المستوى الحالي */}
-        <button
-          onClick={() => setShowTiers(p => !p)}
-          className="w-full flex items-center gap-3 px-4 py-3 active:opacity-80 transition-opacity">
+        <div className="flex items-center gap-3 px-4 py-3">
           <motion.span className="text-3xl flex-shrink-0"
             animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 3 }}>
             {state.tierIcon}
@@ -332,43 +323,7 @@ function MapScreen({ state, onStart }: { state: QuizState | null; onStart: () =>
               المرحلة {state.stage} · {state.stageInTier}/5 مراحل في الرتبة
             </p>
           </div>
-          <div className="flex-shrink-0 flex items-center gap-1.5">
-            <span className="font-arabic text-xs px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
-              {showTiers ? "▲ إخفاء" : "▼ الرتب"}
-            </span>
-          </div>
-        </button>
-
-        {/* خريطة الرتب القابلة للطي */}
-        <AnimatePresence>
-          {showTiers && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-              style={{ overflow: "hidden" }}>
-              <div className="px-4 pb-3 border-t" style={{ borderColor: `${state.tierColor}22` }}>
-                <div className="flex flex-wrap gap-2 pt-3 justify-center">
-                  {TIER_NAMES_SHORT.map((t, i) => {
-                    const current = i === Math.min(state.tierIndex, 7);
-                    const done    = i < Math.min(state.tierIndex, 7);
-                    return (
-                      <span key={t} className="font-arabic text-xs px-2.5 py-1 rounded-full"
-                        style={{
-                          background: current ? `${state.tierColor}33` : done ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.04)",
-                          border: `1px solid ${current ? state.tierColor : done ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.1)"}`,
-                          color: current ? state.tierColor : done ? "rgba(212,175,55,0.65)" : "rgba(255,255,255,0.25)",
-                          fontWeight: current ? 800 : 400,
-                        }}>
-                        {done ? "✓ " : current ? "◉ " : ""}{t}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
 
       {/* ── 3. تقدم المرحلة ── */}
