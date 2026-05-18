@@ -96,7 +96,8 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const app = window.Telegram?.WebApp;
-    if (app) {
+    // Use real Telegram context only when user data is actually populated
+    if (app && app.initDataUnsafe?.user?.id) {
       // ready() and expand() already called in main.tsx before React mounts
       app.enableClosingConfirmation();
       // توحيد لون شريط الحالة مع لون هيدر التطبيق
@@ -104,7 +105,7 @@ export const TelegramProvider = ({ children }: { children: ReactNode }) => {
       app.setHeaderColor(APP_BG);
       app.setBackgroundColor(APP_BG);
       app.setBottomBarColor(APP_BG);
-      const userId = String(app.initDataUnsafe?.user?.id ?? "");
+      const userId = String(app.initDataUnsafe.user.id);
       configureApi(userId, app.initData);
       // Propagate auth headers to the generated API client fetcher
       const authHeaders: Record<string, string> = {};

@@ -40,7 +40,7 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
         if (computed === hash) {
           const authDate = Number(params.get("auth_date") ?? 0);
           const ageSecs  = Date.now() / 1000 - authDate;
-          if (ageSecs < 3600) {
+          if (ageSecs < 86400) {
             const userStr = params.get("user");
             if (userStr) {
               const user = JSON.parse(userStr) as {
