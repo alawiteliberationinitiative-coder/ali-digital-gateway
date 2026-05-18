@@ -237,29 +237,38 @@ export default function Splash() {
 
     // ── بدء تسجيل المستخدم مع شريط تحميل ───────────────────────────────────
     (async () => {
-      // نتيح للـ splash animation وقتاً كافياً للظهور واستحضار البيانات
-      await new Promise<void>((r) => setTimeout(r, 4_500));
+      // تشغيل الـ API call فوراً مع تطبيق تأخير بصري أدنى (2 ثانية فقط)
+      // كلاهما يعمل بالتوازي: المستخدم يرى الـ animation ويتحرك فور اكتمال
+      // أحدهما، بدلاً من انتظار 4.5 ثانية ثم بدء الطلب.
+      const MIN_DISPLAY_MS = 2_000;
+      const startTime = Date.now();
+
       setLoadingMsg("جاري الاتصال بالبوابة...");
 
+      const minDelayPromise = new Promise<void>((r) => setTimeout(r, MIN_DISPLAY_MS));
+
       try {
-        const res = await fetchWithRetry(
-          "/api/users/register",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":         "application/json",
-              "x-telegram-init-data": initData,
+        const [res] = await Promise.all([
+          fetchWithRetry(
+            "/api/users/register",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":         "application/json",
+                "x-telegram-init-data": initData,
+              },
+              body: JSON.stringify({
+                telegramUsername: telegramUser?.username   ?? null,
+                firstName:        telegramUser?.first_name ?? null,
+                lastName:         telegramUser?.last_name  ?? null,
+                referredBy:       isNavLink ? null : startParam,
+              }),
             },
-            body: JSON.stringify({
-              telegramUsername: telegramUser?.username   ?? null,
-              firstName:        telegramUser?.first_name ?? null,
-              lastName:         telegramUser?.last_name  ?? null,
-              referredBy:       isNavLink ? null : startParam,
-            }),
-          },
-          3,
-          10_000,
-        );
+            3,
+            10_000,
+          ),
+          minDelayPromise,
+        ]);
 
         if (res.ok) {
           const data = await res.json() as { keysConfirmed?: boolean };
@@ -274,11 +283,16 @@ export default function Splash() {
         } else {
           // 4xx/5xx → go to dashboard anyway, don't leave user stuck
           console.warn("[ALI] register returned", res.status, "→ /dashboard");
+          await minDelayPromise; // ensure min visual time even on fast errors
           go("/dashboard");
         }
       } catch (err) {
         // Network failure after retries → go to dashboard
         console.warn("[ALI] register failed:", err, "→ /dashboard");
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_DISPLAY_MS) {
+          await new Promise<void>((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
+        }
         go("/dashboard");
       }
     })();

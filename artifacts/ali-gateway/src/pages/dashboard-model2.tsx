@@ -454,9 +454,12 @@ export default function DashboardModel2() {
     if (!isLoading && userData && !userData.keysConfirmed) setLocation("/onboarding");
   }, [userData, isLoading, setLocation]);
 
+  // فقط نعيد التوجيه إلى "/" عند انعدام هوية المستخدم (خطأ 401).
+  // إذا كان telegramId موجوداً لكن الخادم أخفق (Supabase down) → نعرض
+  // شاشة إعادة المحاولة بدلاً من إنشاء حلقة redirect لا نهائية.
   useEffect(() => {
-    if (isError) setLocation("/");
-  }, [isError, setLocation]);
+    if (isError && !telegramId) setLocation("/");
+  }, [isError, telegramId, setLocation]);
 
   const handleCloseProfile = useCallback(() => { setShowProfile(false); setProfileInitialTab("profile"); }, []);
 
@@ -484,7 +487,8 @@ export default function DashboardModel2() {
 
   // ── Loading state ────────────────────────────────────────────────────────────
   if (isLoading || !userData) {
-    if (noAuthReady && !telegramId) return <NoAuthScreen />;
+    // عرض شاشة إعادة المحاولة عند: انعدام الهوية بعد المهلة، أو فشل الخادم مع هوية موجودة
+    if ((noAuthReady && !telegramId) || (isError && !!telegramId)) return <NoAuthScreen />;
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3"
         style={{ background: ROYAL_BG }} dir="rtl">

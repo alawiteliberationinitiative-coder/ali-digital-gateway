@@ -29,10 +29,11 @@ export default function Onboarding() {
     if (userData?.keysConfirmed) setLocation("/dashboard");
   }, [userData, setLocation]);
 
-  // If user not found (404) — send back to splash for registration
+  // فقط نعيد التوجيه إلى "/" عند انعدام هوية المستخدم (خطأ 401/404).
+  // إذا كان telegramId موجوداً لكن الخادم أخفق → نبقى هنا ولا ندور بحلقة.
   useEffect(() => {
-    if (isError) setLocation("/");
-  }, [isError, setLocation]);
+    if (isError && !telegramId) setLocation("/");
+  }, [isError, telegramId, setLocation]);
 
   const handleNextStep = () => {
     webApp?.HapticFeedback?.impactOccurred("light");

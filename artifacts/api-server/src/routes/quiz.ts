@@ -63,16 +63,17 @@ function getTierInfo(stage: number) {
 }
 
 async function getOrCreateProgress(telegramId: string) {
-  const [existing] = await db
+  // استخدام INSERT ON CONFLICT DO NOTHING لتجنب race condition عند طلبين
+  // متزامنين: الأول يُدرج، الثاني يتجاهل التعارض ثم يجلب الصف الموجود.
+  await db
+    .insert(quizProgressTable)
+    .values({ telegramId })
+    .onConflictDoNothing();
+  const [row] = await db
     .select()
     .from(quizProgressTable)
     .where(eq(quizProgressTable.telegramId, telegramId));
-  if (existing) return existing;
-  const [created] = await db
-    .insert(quizProgressTable)
-    .values({ telegramId })
-    .returning();
-  return created;
+  return row!;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

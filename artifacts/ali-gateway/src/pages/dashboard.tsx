@@ -377,10 +377,11 @@ export default function Dashboard() {
     if (!isLoading && userData && !userData.keysConfirmed) setLocation("/onboarding");
   }, [userData, isLoading, setLocation]);
 
-  // If user not found (404) — send back to splash for re-registration
+  // فقط نعيد التوجيه إلى "/" عند انعدام هوية المستخدم (خطأ 401).
+  // إذا كان telegramId موجوداً لكن الخادم أخفق → نعرض شاشة إعادة المحاولة.
   useEffect(() => {
-    if (isError) setLocation("/");
-  }, [isError, setLocation]);
+    if (isError && !telegramId) setLocation("/");
+  }, [isError, telegramId, setLocation]);
 
   // ── معالجة روابط التوجيه العميق بعد اكتمال شاشة الترحيب ─────────────────
   useEffect(() => {
@@ -405,8 +406,8 @@ export default function Dashboard() {
 
   // ── شاشة التحميل أو الخطأ ─────────────────────────────────────────────────
   if (isLoading || !userData) {
-    // لا يوجد telegramId بعد انتهاء المهلة → شاشة retry
-    if (noAuthReady && !telegramId) return <NoAuthScreen />;
+    // عرض شاشة إعادة المحاولة عند: انعدام الهوية بعد المهلة، أو فشل الخادم مع هوية موجودة
+    if ((noAuthReady && !telegramId) || (isError && !!telegramId)) return <NoAuthScreen />;
 
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3"

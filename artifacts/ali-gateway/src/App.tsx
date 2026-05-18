@@ -27,7 +27,7 @@ console.log(`[ALI] Active model: ${ACTIVE_MODEL}`);
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry: 1,
       retryDelay: (attempt) => Math.min(400 * (attempt + 1), 3000),
       staleTime: 120_000,
     },
