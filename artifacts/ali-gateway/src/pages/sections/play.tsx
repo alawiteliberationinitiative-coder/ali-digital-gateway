@@ -4,6 +4,52 @@ import { ChevronRight, Tv } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { apiFetch } from "../../lib/api";
 
+// ── Quiz sounds (Web Audio API — no external files needed) ────────────────────
+function playCorrectSound() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    // arpeggio: do–mi–sol ascending chime
+    [[523.25, 0], [659.25, 0.12], [783.99, 0.24]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t + delay);
+      gain.gain.setValueAtTime(0, t + delay);
+      gain.gain.linearRampToValueAtTime(0.28, t + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.45);
+      osc.start(t + delay);
+      osc.stop(t + delay + 0.5);
+    });
+    setTimeout(() => ctx.close(), 1200);
+  } catch { /* silent if audio blocked */ }
+}
+
+function playWrongSound() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    // two descending buzzes
+    [[220, 0], [180, 0.18]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, t + delay);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, t + delay + 0.22);
+      gain.gain.setValueAtTime(0, t + delay);
+      gain.gain.linearRampToValueAtTime(0.22, t + delay + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.28);
+      osc.start(t + delay);
+      osc.stop(t + delay + 0.32);
+    });
+    setTimeout(() => ctx.close(), 900);
+  } catch { /* silent if audio blocked */ }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface QuizState {
@@ -692,6 +738,8 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ questionId: question.id, answer }),
       });
+      if (result.correct) playCorrectSound();
+      else playWrongSound();
       setAnswerResult(result);
       setGameState("feedback");
     } catch (err) {
@@ -785,7 +833,7 @@ export function PlaySection({ onBack }: { onBack: () => void }) {
             <ChevronRight className="w-5 h-5" style={{ color: "rgba(255,255,255,0.7)" }} />
           </button>
           <div className="flex-1">
-            <h2 className="font-arabic font-black text-base" style={{ color: "#d4af37" }}>تحدي المعرفة</h2>
+            <h2 className="font-arabic font-black text-base" style={{ color: "#d4af37" }}>طريق النحل</h2>
             {quizState && (
               <p className="font-arabic text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
                 المرحلة {quizState.stage} · {quizState.tierName} {quizState.tierIcon}
