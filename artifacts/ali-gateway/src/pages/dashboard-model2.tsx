@@ -71,9 +71,20 @@ function WelcomeSequence({ onDone }: { onDone: () => void }) {
         <motion.div
           initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="w-24 h-24 rounded-full overflow-hidden border-2 mb-6 flex-shrink-0"
-          style={{ borderColor: `${GOLD}50`, boxShadow: `0 0 50px ${GOLD}25, 0 0 100px ${GOLD}10` }}>
-          <img src="/ali-emblem.jpg" alt="ALI" className="w-full h-full object-cover object-top" />
+          className="flex flex-col items-center mb-6 gap-2">
+          <div style={{
+            width: 96, height: 96, borderRadius: "50%", padding: 3,
+            background: `linear-gradient(145deg,${GOLD}60,${GOLD}20)`,
+            boxShadow: `0 0 50px ${GOLD}25, 0 0 100px ${GOLD}10`,
+          }}>
+            <img src="/adar-logo.png" alt="ADAR"
+              className="w-full h-full rounded-full object-cover"
+              style={{ border: `2px solid ${GOLD}40` }} />
+          </div>
+          <p className="font-mono font-black text-lg tracking-[0.3em]" style={{ color: GOLD }}>ADAR</p>
+          <p className="font-arabic text-xs text-center leading-snug" style={{ color: `${GOLD}99` }}>
+            المنصة الإعلامية لمبادرة التحرير العلوي
+          </p>
         </motion.div>
 
         <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}

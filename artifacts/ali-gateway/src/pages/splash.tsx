@@ -319,69 +319,38 @@ export default function Splash() {
             key="splash-content"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-10 flex flex-col items-center justify-between px-6 pt-10 pb-14">
+            className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center pb-14 px-6">
 
-            {/* ── شعار ADAR — منتصف الشاشة ── */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.3, duration: 0.9 }}
+              className="text-center mb-8">
+              <h1 className="text-4xl font-serif text-[#d4af37] tracking-[0.3em] uppercase mb-2">A.L.I.</h1>
+              <p className="text-sm font-mono text-[#d4af37]/80 tracking-[0.2em] uppercase mb-1">
+                Alawite Liberation Initiative
+              </p>
+              <p className="text-[11px] font-mono text-white/40 tracking-widest uppercase">
+                Management of Diversified Development
+              </p>
+            </motion.div>
+
+            <motion.div
+              className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ delay: 1.8, duration: 0.4 }}>
               <motion.div
-                initial={{ opacity: 0, scale: 0.75, y: 20 }}
-                animate={{ opacity: 1, scale: 1,    y: 0  }}
-                transition={{ delay: 0.3, duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-                className="relative">
-                <img
-                  src="/adar-logo.png"
-                  alt="ADAR Logo"
-                  draggable={false}
-                  className="w-44 h-44 object-contain"
-                  style={{ filter: "drop-shadow(0 0 28px rgba(212,175,55,0.55))" }}
-                />
-              </motion.div>
+                className="h-full bg-[#d4af37]"
+                initial={{ width: "0%" }} animate={{ width: "100%" }}
+                transition={{ delay: 1.8, duration: 5.4, ease: "easeInOut" }} />
+            </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9, duration: 0.8 }}
-                className="text-center">
-                <p className="text-[28px] font-mono font-black text-[#d4af37] tracking-[0.3em]">ADAR</p>
-                <p className="font-arabic text-sm text-white/70 mt-1 leading-snug tracking-wide">
-                  المنصة الإعلامية لمبادرة التحرير العلوي
-                </p>
-              </motion.div>
-            </div>
-
-            {/* ── نصوص A.L.I. وشريط التحميل (موجودة مسبقاً) ── */}
-            <div className="flex flex-col items-center w-full">
-              <motion.div
-                initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.3, duration: 0.9 }}
-                className="text-center mb-6">
-                <h1 className="text-4xl font-serif text-[#d4af37] tracking-[0.3em] uppercase mb-2">A.L.I.</h1>
-                <p className="text-sm font-mono text-[#d4af37]/80 tracking-[0.2em] uppercase mb-1">
-                  Alawite Liberation Initiative
-                </p>
-                <p className="text-[11px] font-mono text-white/40 tracking-widest uppercase">
-                  Management of Diversified Development
-                </p>
-              </motion.div>
-
-              <motion.div
-                className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                transition={{ delay: 1.8, duration: 0.4 }}>
-                <motion.div
-                  className="h-full bg-[#d4af37]"
-                  initial={{ width: "0%" }} animate={{ width: "100%" }}
-                  transition={{ delay: 1.8, duration: 5.4, ease: "easeInOut" }} />
-              </motion.div>
-
-              <motion.p
-                key={loadingMsg}
-                className="mt-3 text-[10px] font-mono text-white/30 tracking-widest uppercase"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}>
-                {loadingMsg}
-              </motion.p>
-            </div>
+            <motion.p
+              key={loadingMsg}
+              className="mt-3 text-[10px] font-mono text-white/30 tracking-widest uppercase"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}>
+              {loadingMsg}
+            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
