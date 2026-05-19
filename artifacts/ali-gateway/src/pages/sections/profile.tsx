@@ -1225,7 +1225,8 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   // Tabs + chat state
   const [profileTab,   setProfileTab]   = useState<"profile" | "inbox" | "friends" | "calls">(initialTab ?? (initialChatPartnerId ? "inbox" : "profile"));
   const [chatPartner,  setChatPartner]  = useState<ChatPartner | null>(null);
-  const [unreadCount,  setUnreadCount]  = useState(0);
+  const [unreadCount,      setUnreadCount]      = useState(0);
+  const [missedCallsCount, setMissedCallsCount] = useState(0);
   const [friendProfile, setFriendProfile] = useState<NetUser | null>(null);
   const [walletOpen,  setWalletOpen]  = useState(false);
   const [pointsOpen,  setPointsOpen]  = useState(false);
@@ -1534,6 +1535,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     apiFetch("/api/messages/unread-count")
       .then(r => r.ok ? r.json() : { count: 0 })
       .then(d => setUnreadCount(d.count))
+      .catch(() => {});
+    apiFetch("/api/calls/missed-count")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setMissedCallsCount(d.count))
       .catch(() => {});
   }, [profileTab]);
 
@@ -2133,7 +2138,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               <span className="absolute top-2.5 left-2.5 rounded-full font-mono font-black text-white flex items-center justify-center"
                 style={{ background: "#ef4444", minWidth: 20, minHeight: 20, fontSize: 10, padding: "0 4px",
                   boxShadow: "0 0 12px rgba(239,68,68,0.7)" }}>
-                {unreadCount}
+                {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
           </button>
@@ -2159,6 +2164,51 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             <span className="font-arabic font-black text-sm" style={{ color: "#dcfce7", textShadow: "0 0 12px rgba(134,239,172,0.7)" }}>سجل الأصدقاء</span>
           </button>
         </div>
+
+        {/* ── Calls nav card (full-width) ── */}
+        <button
+          onClick={() => {
+            setProfileTab("calls");
+            setMissedCallsCount(0);
+            apiFetch("/api/calls/missed-seen", { method: "POST" }).catch(() => {});
+          }}
+          className="relative w-full flex items-center gap-4 px-5 py-4 rounded-3xl active:scale-[0.98] transition-all"
+          dir="rtl"
+          style={{
+            background: "linear-gradient(140deg, rgba(212,175,55,0.18) 0%, rgba(180,140,20,0.08) 100%)",
+            border: `2px solid ${missedCallsCount > 0 ? "rgba(212,175,55,0.7)" : "rgba(212,175,55,0.3)"}`,
+            backdropFilter: "blur(16px)",
+            boxShadow: missedCallsCount > 0
+              ? "0 4px 28px rgba(212,175,55,0.25), inset 0 1px 0 rgba(255,255,255,0.12)"
+              : "0 4px 16px rgba(212,175,55,0.08), inset 0 1px 0 rgba(255,255,255,0.08)",
+          }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "linear-gradient(135deg, rgba(212,175,55,0.4) 0%, rgba(180,140,20,0.2) 100%)",
+              border: "2px solid rgba(212,175,55,0.55)",
+              boxShadow: "0 4px 18px rgba(212,175,55,0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
+            }}>
+            <Phone className="w-6 h-6" style={{ color: GOLD, filter: `drop-shadow(0 0 6px ${GOLD}80)` }} />
+          </div>
+          <div className="flex flex-col text-right flex-1">
+            <span className="font-arabic font-black text-sm" style={{ color: GOLD, textShadow: `0 0 10px ${GOLD}60` }}>
+              مكالماتي
+            </span>
+            <span className="font-arabic text-[11px]" style={{ color: "rgba(212,175,55,0.55)" }}>
+              {missedCallsCount > 0 ? `${missedCallsCount} مكالمة فائتة` : "سجل المكالمات"}
+            </span>
+          </div>
+          {missedCallsCount > 0 && (
+            <span className="flex-shrink-0 rounded-full font-mono font-black text-white flex items-center justify-center"
+              style={{
+                background: "#ef4444",
+                minWidth: 22, minHeight: 22, fontSize: 11, padding: "0 5px",
+                boxShadow: "0 0 14px rgba(239,68,68,0.8)",
+              }}>
+              {missedCallsCount > 99 ? "99+" : missedCallsCount}
+            </span>
+          )}
+        </button>
 
         {/* ── Card 1: محفظتي (Wallet) ── */}
         <div className="rounded-2xl overflow-hidden" style={{

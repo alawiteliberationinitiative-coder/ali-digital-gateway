@@ -433,8 +433,13 @@ export default function DashboardModel2() {
 
   useEffect(() => {
     fetchBadges();
-    badgeIntervalRef.current = setInterval(fetchBadges, 30_000);
-    return () => { if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current); };
+    badgeIntervalRef.current = setInterval(fetchBadges, 15_000);
+    const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [fetchBadges]);
 
   // Timeout guard for missing telegramId
@@ -461,7 +466,11 @@ export default function DashboardModel2() {
     if (isError && !telegramId) setLocation("/");
   }, [isError, telegramId, setLocation]);
 
-  const handleCloseProfile = useCallback(() => { setShowProfile(false); setProfileInitialTab("profile"); }, []);
+  const handleCloseProfile = useCallback(() => {
+    setShowProfile(false);
+    setProfileInitialTab("profile");
+    setTimeout(fetchBadges, 500);
+  }, [fetchBadges]);
 
   const handleOpenMessages = useCallback(() => {
     setProfileInitialTab("inbox");
