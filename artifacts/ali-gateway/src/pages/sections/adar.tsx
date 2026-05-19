@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "../../lib/api";
+import { getArticlesCache, setArticlesCache, type RawArticle } from "../../lib/prefetch-cache";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wifi, Pin, BookOpen, Calendar, Radio,
@@ -455,19 +456,35 @@ function ArticlesTab({ telegramId }: { telegramId: string }) {
   useEffect(() => {
     const init = async () => {
       try {
+        // استخدام الـ cache المُحمَّل مسبقاً من شاشة البداية (إن وُجد)
+        const cached = getArticlesCache();
+        if (cached) {
+          setArticles((cached as unknown as ArticleData[]).slice().reverse());
+          // نجلب بيانات المستخدم فقط (لا حاجة لطلب المقالات مجدداً)
+          if (telegramId) {
+            const userRes = await apiFetch("/api/users/me");
+            if (userRes.ok) {
+              const u = await userRes.json() as { role?: string; aliId?: string };
+              setUserRole(u.role ?? "member");
+              setUserAliId(u.aliId ?? null);
+            }
+          }
+          return;
+        }
+
+        // لا cache — المسار الأصلي مع طلب متوازٍ
         const promises: Promise<Response>[] = [fetch("/api/articles")];
         if (telegramId) {
-          promises.push(
-            apiFetch("/api/users/me")
-          );
+          promises.push(apiFetch("/api/users/me"));
         }
         const [artsRes, userRes] = await Promise.all(promises);
         if (artsRes.ok) {
           const data: ArticleData[] = await artsRes.json();
+          setArticlesCache(data as unknown as RawArticle[]);
           setArticles(data.slice().reverse());
         }
         if (userRes?.ok) {
-          const u = await userRes.json();
+          const u = await userRes.json() as { role?: string; aliId?: string };
           setUserRole(u.role ?? "member");
           setUserAliId(u.aliId ?? null);
         }

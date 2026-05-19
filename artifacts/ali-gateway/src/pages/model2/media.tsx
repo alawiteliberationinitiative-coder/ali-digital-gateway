@@ -9,6 +9,7 @@ import {
   Share2, Link2, Check, Eye, Pencil, Volume2, VolumeX,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getArticlesCache, setArticlesCache, type RawArticle } from "@/lib/prefetch-cache";
 
 const GOLD = "#d4af37";
 
@@ -1163,8 +1164,15 @@ export function MediaSection({
 
   // ── Load articles ──────────────────────────────────────────────────────────
   const loadArticles = useCallback(() => {
-    return apiFetch("/api/articles")
-      .then(r => (r.ok ? r.json() as Promise<Article[]> : Promise.reject()))
+    // استخدام الـ cache المُحمَّل مسبقاً من شاشة البداية (إن وُجد)
+    const cached = getArticlesCache();
+    const articlesPromise: Promise<Article[]> = cached
+      ? Promise.resolve(cached as unknown as Article[])
+      : apiFetch("/api/articles")
+          .then(r => (r.ok ? r.json() as Promise<Article[]> : Promise.reject()))
+          .then(data => { setArticlesCache(data as unknown as RawArticle[]); return data; });
+
+    return articlesPromise
       .then(async (data) => {
         const list = data.length > 0 ? data : FALLBACK;
         setArticles(list);

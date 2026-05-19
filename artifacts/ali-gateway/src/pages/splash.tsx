@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield } from "lucide-react";
+import { setArticlesCache, type RawArticle } from "@/lib/prefetch-cache";
 
 // ─── Human Verification ────────────────────────────────────────────────────────
 type Op = "+" | "−" | "×";
@@ -237,13 +238,24 @@ export default function Splash() {
 
     // ── بدء تسجيل المستخدم مع شريط تحميل ───────────────────────────────────
     (async () => {
-      // تشغيل الـ API call فوراً مع تطبيق تأخير بصري أدنى (2 ثانية فقط)
-      // كلاهما يعمل بالتوازي: المستخدم يرى الـ animation ويتحرك فور اكتمال
-      // أحدهما، بدلاً من انتظار 4.5 ثانية ثم بدء الطلب.
-      const MIN_DISPLAY_MS = 2_000;
+      // 3 ثوانٍ كحدٍّ أدنى — تتيح للمستخدم رؤية الشعار وقراءة العنوان،
+      // وتُستغلّ في الخلفية لتحميل مؤقت للمقالات/الريلزات قبل فتح الداشبورد.
+      const MIN_DISPLAY_MS = 3_000;
       const startTime = Date.now();
 
+      // ── رسائل تحميل متدرّجة (3 مراحل خلال الـ 3 ثواني) ─────────────────────
       setLoadingMsg("جاري الاتصال بالبوابة...");
+      const msg2Timer = setTimeout(() => setLoadingMsg("جاري تحميل المحتوى..."),   1_200);
+      const msg3Timer = setTimeout(() => setLoadingMsg("البوابة جاهزة، تفضّل..."), 2_500);
+
+      // ── تحميل مؤقت للمقالات في الخلفية (fire-and-forget) ────────────────────
+      // يُدفأ module-level cache حتى تظهر الريلزات فورياً بلا طلب جديد
+      if (initData) {
+        fetch("/api/articles", { headers: { "x-telegram-init-data": initData } })
+          .then(r => r.ok ? r.json() as Promise<RawArticle[]> : null)
+          .then(data => { if (Array.isArray(data)) setArticlesCache(data); })
+          .catch(() => {});
+      }
 
       const minDelayPromise = new Promise<void>((r) => setTimeout(r, MIN_DISPLAY_MS));
 
@@ -270,6 +282,8 @@ export default function Splash() {
           minDelayPromise,
         ]);
 
+        clearTimeout(msg2Timer);
+        clearTimeout(msg3Timer);
         if (res.ok) {
           const data = await res.json() as { keysConfirmed?: boolean };
           // Fire-and-forget ping to record last_seen in users_activity
@@ -289,6 +303,8 @@ export default function Splash() {
       } catch (err) {
         // Network failure after retries → go to dashboard
         console.warn("[ALI] register failed:", err, "→ /dashboard");
+        clearTimeout(msg2Timer);
+        clearTimeout(msg3Timer);
         const elapsed = Date.now() - startTime;
         if (elapsed < MIN_DISPLAY_MS) {
           await new Promise<void>((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
@@ -355,7 +371,7 @@ export default function Splash() {
               <motion.div
                 className="h-full bg-[#d4af37]"
                 initial={{ width: "0%" }} animate={{ width: "100%" }}
-                transition={{ delay: 1.8, duration: 5.4, ease: "easeInOut" }} />
+                transition={{ delay: 0.8, duration: 2.5, ease: "easeInOut" }} />
             </motion.div>
 
             <motion.p
