@@ -1704,7 +1704,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           </button>
           <div className="flex-1" dir="rtl">
             <h1 className="font-arabic font-bold text-[#d4af37] text-lg leading-tight">الملف الشخصي</h1>
-            <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="font-arabic text-white/35 text-xs">{userData.aliId}</p>
+              <CopyButton text={userData.aliId} label="" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Points pill */}
@@ -2023,8 +2026,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
 
             {/* Identity info — name (fixed) + aliId/rank OR edit form */}
             <div className="flex-1 min-w-0 pt-1">
-              {/* Pseudonym — always visible, no badge, no pencil here */}
-              <h2 className="font-arabic font-black text-white text-lg leading-tight">{pseudonym}</h2>
+              {/* Pseudonym */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-arabic font-black text-white text-lg leading-tight">{pseudonym}</h2>
+              </div>
 
               {/* aliId + rank (clean vertical) OR edit input when isEditing AND no civicRole */}
               <AnimatePresence mode="wait">
@@ -2059,8 +2064,10 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
                 ) : (
                   <motion.div key="id-rank" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="mt-2 flex flex-col gap-0.5">
-                    <span className="font-mono text-xs font-black tracking-wider"
-                      style={{ color: GOLD, textShadow: `0 0 14px rgba(212,175,55,0.8), 0 0 6px rgba(212,175,55,0.5)` }}>{userData.aliId}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-black tracking-wider"
+                        style={{ color: GOLD, textShadow: `0 0 14px rgba(212,175,55,0.8), 0 0 6px rgba(212,175,55,0.5)` }}>{userData.aliId}</span>
+                    </div>
                     <span className="font-mono text-[10px] font-bold"
                       style={{ color: rankInfo.current.color, textShadow: `0 0 8px ${rankInfo.current.color}60` }}>{userData.rank}</span>
                     {/* Pencil fallback when no civicRole */}
