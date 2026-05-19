@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield } from "lucide-react";
 import { setArticlesCache, type RawArticle } from "@/lib/prefetch-cache";
+import { isNativeContext } from "@/lib/env";
 
 const TG_BOT      = "ALI_MDD_BOT";
 const TG_APP      = "app";
@@ -382,9 +383,16 @@ export default function Splash() {
     console.log("[ALI] Splash init — telegramId:", telegramId, "| initData:", !!initData);
 
     // لا سياق Telegram:
+    //   في بيئة Capacitor (أندرويد/iOS) → تخطَّ صفحة الهبوط بالكامل؛
+    //     المصادقة تتم عبر JWT من شاشة NativeLoginScreen
     //   في بيئة التطوير → dashboard مباشرةً (للاختبار)
-    //   في الإنتاج → صفحة هبوط تُعيد التوجيه لـ t.me
+    //   في الإنتاج (متصفح عادي) → صفحة هبوط تُعيد التوجيه لـ t.me
     if (!initData && !telegramId) {
+      if (isNativeContext()) {
+        // بيئة Capacitor بدون initData → NativeAuthGate في App.tsx يتولى الأمر
+        console.log("[ALI] No Telegram context — Capacitor native → letting NativeAuthGate handle auth");
+        return;
+      }
       if (import.meta.env.DEV) {
         console.log("[ALI] No Telegram context → /dashboard (dev mode)");
         setTimeout(() => go("/dashboard"), 500);
