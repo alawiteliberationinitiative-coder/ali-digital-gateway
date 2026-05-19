@@ -389,8 +389,10 @@ export default function Splash() {
     //   في الإنتاج (متصفح عادي) → صفحة هبوط تُعيد التوجيه لـ t.me
     if (!initData && !telegramId) {
       if (isNativeContext()) {
-        // بيئة Capacitor بدون initData → NativeAuthGate في App.tsx يتولى الأمر
-        console.log("[ALI] No Telegram context — Capacitor native → letting NativeAuthGate handle auth");
+        // بيئة Capacitor — المستخدم مصادق بالفعل (عبر NativeAuthGate)
+        // ننتقل مباشرةً للداشبورد بدون عرض صفحة الهبوط أو العداد التنازلي
+        console.log("[ALI] Native context — authenticated → /dashboard");
+        go("/dashboard");
         return;
       }
       if (import.meta.env.DEV) {
