@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, ExternalLink, Search, Plus, X, Heart, Share2,
   Eye, Upload, Type, CheckCircle, AlertCircle, FileUp, Shield,
+  Trash2, Pencil,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -632,12 +633,15 @@ function AddCommunityReportModal({ onClose, onPublished }: {
 /* ══════════════════════════════════════════════════════
    Article Card
 ══════════════════════════════════════════════════════ */
-function ArticleCard({ article, idx, likedByMe, onLikeToggle, onOpen }: {
+function ArticleCard({ article, idx, likedByMe, onLikeToggle, onOpen, isAdmin, onDelete, onEdit }: {
   article: Article;
   idx: number;
   likedByMe: boolean;
   onLikeToggle: (id: number, liked: boolean, count: number) => void;
   onOpen: (a: Article) => void;
+  isAdmin?: boolean;
+  onDelete?: (id: number) => void;
+  onEdit?: (a: Article) => void;
 }) {
   const [liked,      setLiked]      = useState(likedByMe);
   const [likeCount,  setLikeCount]  = useState(article.likeCount ?? 0);
@@ -778,6 +782,35 @@ function ArticleCard({ article, idx, likedByMe, onLikeToggle, onOpen }: {
           </span>
         </button>
       </div>
+
+      {/* Admin action bar — تظهر فقط للمشرفين */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 px-4 pb-3 pt-0 border-t border-white/[0.06]">
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Shield size={9} color="rgba(239,68,68,0.55)" />
+            <span className="font-arabic text-[9px]" style={{ color: "rgba(239,68,68,0.45)" }}>إدارة</span>
+          </div>
+          <div className="flex-1" />
+          {/* زر التعديل */}
+          {!article.mediaUrl && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit?.(article); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all active:scale-90"
+              style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.22)" }}>
+              <Pencil size={11} color="#60a5fa" />
+              <span className="font-arabic text-[11px]" style={{ color: "#60a5fa" }}>تعديل</span>
+            </button>
+          )}
+          {/* زر الحذف */}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete?.(article.id); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all active:scale-90"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)" }}>
+            <Trash2 size={11} color="#ef4444" />
+            <span className="font-arabic text-[11px]" style={{ color: "#ef4444" }}>حذف</span>
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -798,6 +831,134 @@ function EmptyState({ label, isAdar }: { label: string; isAdar: boolean }) {
 }
 
 /* ══════════════════════════════════════════════════════
+   Edit Report Modal  (admin only)
+══════════════════════════════════════════════════════ */
+function EditReportModal({ article, onClose, onSaved }: {
+  article: Article;
+  onClose: () => void;
+  onSaved: (updated: Article) => void;
+}) {
+  const [title,   setTitle]   = useState(article.title);
+  const [body,    setBody]    = useState(article.body ?? "");
+  const [phase,   setPhase]   = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [errMsg,  setErrMsg]  = useState("");
+  const accent = article.isAdar ? GOLD : PURPLE;
+
+  const canSave =
+    phase !== "saving" &&
+    title.trim().length > 0 &&
+    (title.trim() !== article.title || body.trim() !== (article.body ?? "").trim());
+
+  const handleSave = async () => {
+    if (!canSave) return;
+    setPhase("saving"); setErrMsg("");
+    try {
+      const res = await apiFetch(`/api/admin/articles/${article.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), body: body.trim() }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(e.error ?? "فشل الحفظ");
+      }
+      setPhase("done");
+      setTimeout(() => onSaved({ ...article, title: title.trim(), body: body.trim() }), 400);
+    } catch (e: unknown) {
+      setErrMsg(e instanceof Error ? e.message : "فشل الاتصال");
+      setPhase("error");
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-40 flex flex-col justify-end"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: "spring", damping: 28, stiffness: 280 }}
+        className="rounded-t-3xl px-5 pt-4 pb-10 overflow-y-auto"
+        style={{ background: "#13121f", border: `1px solid ${accent}18`, maxHeight: "90dvh", scrollbarWidth: "none" } as React.CSSProperties}
+        dir="rtl" onClick={e => e.stopPropagation()}>
+
+        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "rgba(255,255,255,0.12)" }} />
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.25)" }}>
+              <Pencil size={13} color="#60a5fa" />
+            </div>
+            <span className="font-arabic font-bold text-sm text-white/80">تعديل التقرير</span>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.06)" }}>
+            <X size={17} color="rgba(255,255,255,0.5)" />
+          </button>
+        </div>
+
+        {/* Badge */}
+        <div className="flex items-center gap-1.5 mb-5 px-3 py-1.5 rounded-xl w-fit"
+          style={{ background: `${accent}10`, border: `1px solid ${accent}25` }}>
+          {article.isAdar ? <Shield size={11} color={accent} /> : <FileText size={11} color={accent} />}
+          <span className="font-arabic text-[11px] font-bold" style={{ color: accent }}>
+            {article.isAdar ? "تقرير ADAR" : "تقرير مجتمعي"}
+          </span>
+        </div>
+
+        {/* Title field */}
+        <div className="mb-4">
+          <label className="font-arabic text-xs text-white/40 block mb-1.5">عنوان التقرير *</label>
+          <input
+            className="w-full rounded-2xl py-3 px-4 font-arabic text-sm text-white/85 outline-none"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: `1px solid ${title.trim() ? accent + "40" : "rgba(255,255,255,0.08)"}`,
+            }}
+            value={title} onChange={e => setTitle(e.target.value)}
+            maxLength={300} placeholder="عنوان التقرير..." />
+        </div>
+
+        {/* Body field */}
+        <div className="mb-5">
+          <label className="font-arabic text-xs text-white/40 block mb-1.5">محتوى التقرير</label>
+          <textarea
+            className="w-full rounded-2xl py-3 px-4 font-arabic text-sm text-white/85 outline-none resize-none leading-relaxed"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: `1px solid ${body.trim() ? accent + "40" : "rgba(255,255,255,0.08)"}`,
+              minHeight: 160,
+            }}
+            value={body} onChange={e => setBody(e.target.value)}
+            maxLength={50000} placeholder="محتوى التقرير..." dir="rtl" />
+          <p className="text-left text-[10px] text-white/20 mt-1">{body.length.toLocaleString()} / 50,000</p>
+        </div>
+
+        {phase === "error" && errMsg && (
+          <div className="mb-4 px-4 py-3 rounded-2xl"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <p className="font-arabic text-sm text-red-400">{errMsg}</p>
+          </div>
+        )}
+
+        <button onClick={handleSave} disabled={!canSave}
+          className="w-full py-3.5 rounded-2xl font-arabic text-sm font-black transition-all active:scale-[0.98]"
+          style={{
+            background: canSave ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)",
+            border: `1.5px solid ${canSave ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.07)"}`,
+            color: canSave ? "#60a5fa" : "rgba(255,255,255,0.2)",
+          }}>
+          {phase === "saving" ? "جاري الحفظ..." : phase === "done" ? "✓ تم الحفظ" : "حفظ التعديلات"}
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
    Main Section
 ══════════════════════════════════════════════════════ */
 export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
@@ -813,6 +974,9 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
   const [showAddCommunity,setShowAddCommunity]= useState(false);
   const [viewer,          setViewer]          = useState<Article | null>(null);
   const [userRole,        setUserRole]        = useState("member");
+  const [editingArticle,  setEditingArticle]  = useState<Article | null>(null);
+  const [deletingId,      setDeletingId]      = useState<number | null>(null);
+  const [deleteConfirm,   setDeleteConfirm]   = useState<number | null>(null);
 
   const isAdmin = isAdminProp || ADMIN_IDS.includes(telegramId) || userRole === "admin" || userRole === "staff";
 
@@ -862,6 +1026,27 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
     setArticles(prev => [article, ...prev]);
     setShowAddCommunity(false);
     setTab("community");
+  }, []);
+
+  const handleDeleteRequest = useCallback((id: number) => {
+    setDeleteConfirm(id);
+  }, []);
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!deleteConfirm) return;
+    const id = deleteConfirm;
+    setDeleteConfirm(null);
+    setDeletingId(id);
+    try {
+      const res = await apiFetch(`/api/admin/articles/${id}`, { method: "DELETE" });
+      if (res.ok) setArticles(prev => prev.filter(a => a.id !== id));
+    } catch {}
+    finally { setDeletingId(null); }
+  }, [deleteConfirm]);
+
+  const handleArticleSaved = useCallback((updated: Article) => {
+    setArticles(prev => prev.map(a => a.id === updated.id ? updated : a));
+    setEditingArticle(null);
   }, []);
 
   const q = query.toLowerCase();
@@ -960,6 +1145,9 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
                   likedByMe={likedIds.has(a.id)}
                   onLikeToggle={handleLikeToggle}
                   onOpen={setViewer}
+                  isAdmin={isAdmin}
+                  onDelete={handleDeleteRequest}
+                  onEdit={setEditingArticle}
                 />
               ))}
             </div>
@@ -992,6 +1180,9 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
                   likedByMe={likedIds.has(a.id)}
                   onLikeToggle={handleLikeToggle}
                   onOpen={setViewer}
+                  isAdmin={isAdmin}
+                  onDelete={handleDeleteRequest}
+                  onEdit={setEditingArticle}
                 />
               ))}
             </div>
@@ -1029,6 +1220,60 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
             onClose={() => setShowAddCommunity(false)}
             onPublished={handleCommunityPublished}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Edit report modal */}
+      <AnimatePresence>
+        {editingArticle && (
+          <EditReportModal
+            key={editingArticle.id}
+            article={editingArticle}
+            onClose={() => setEditingArticle(null)}
+            onSaved={handleArticleSaved}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirmation dialog */}
+      <AnimatePresence>
+        {deleteConfirm !== null && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center pb-10 px-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+            onClick={() => setDeleteConfirm(null)}>
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="w-full max-w-sm rounded-3xl p-6 text-center"
+              style={{ background: "#13121f", border: "1px solid rgba(239,68,68,0.22)" }}
+              dir="rtl" onClick={e => e.stopPropagation()}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                <Trash2 size={22} color="#ef4444" />
+              </div>
+              <p className="font-arabic font-bold text-white/85 text-base mb-2">حذف التقرير</p>
+              <p className="font-arabic text-white/40 text-sm mb-6">هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-3 rounded-2xl font-arabic text-sm font-bold transition-all active:scale-95"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
+                  إلغاء
+                </button>
+                <button
+                  onClick={handleDeleteConfirmed}
+                  disabled={deletingId !== null}
+                  className="flex-1 py-3 rounded-2xl font-arabic text-sm font-bold transition-all active:scale-95"
+                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#ef4444" }}>
+                  {deletingId !== null ? "جاري الحذف..." : "حذف"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

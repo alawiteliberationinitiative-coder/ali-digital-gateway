@@ -110,6 +110,29 @@ router.patch("/admin/users/:telegramId/ban", async (req, res): Promise<void> => 
   }
 });
 
+// ── PATCH /api/admin/articles/:id — تعديل عنوان / نص منشور ─────────────────
+router.patch("/admin/articles/:id", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "معرّف غير صالح" }); return; }
+
+  const { title, body } = req.body as { title?: string; body?: string };
+  if (!title?.trim() && !body?.trim()) {
+    res.status(400).json({ error: "لا توجد حقول للتعديل" }); return;
+  }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (title?.trim()) updates.title = title.trim().slice(0, 300);
+  if (body  !== undefined) updates.body = body.trim().slice(0, 50000);
+
+  try {
+    await db.update(articlesTable).set(updates).where(eq(articlesTable.id, id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "DB error" });
+  }
+});
+
 // ── DELETE /api/admin/articles/:id — حذف أي منشور ───────────────────────────
 router.delete("/admin/articles/:id", async (req, res): Promise<void> => {
   if (!requireAdmin(req, res)) return;
