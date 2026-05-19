@@ -939,7 +939,7 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
               <div className="flex items-center gap-2 px-1">
                 <FileText size={12} color={PURPLE + "80"} />
                 <p className="font-arabic text-white/30 text-xs leading-relaxed">
-                  آراء ومنشورات من المجتمع العلوي حول كل القضايا المتعلقة بالقضية العلوية
+                  آراء ومنشورات من أبناء المجتمع العلوي حول كل الجوانب المتعلقة بالقضية العلوية
                 </p>
               </div>
               {loading && (
