@@ -28,10 +28,28 @@ const authLimiter = rateLimit({
 /* ── Shared helpers (mirrors users.ts — kept local to avoid circular imports) ── */
 
 function generateAliId(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let suffix = "";
-  for (let i = 0; i < 4; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
-  return `ALI-2026-${suffix}`;
+  const year    = new Date().getFullYear();
+  // Character pools — ambiguous chars (I/O/0/1/l) removed to prevent confusion
+  const UPPER   = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const LOWER   = "abcdefghjklmnpqrstuvwxyz";
+  const DIGITS  = "23456789";
+  const SYMBOLS = "@#!";
+  const pick    = (s: string) => s[Math.floor(Math.random() * s.length)];
+
+  // Guarantee composition: 2 upper + 2 lower + 2 digit + 1 symbol + 1 extra alphanumeric
+  const chars = [
+    pick(UPPER), pick(UPPER),
+    pick(LOWER), pick(LOWER),
+    pick(DIGITS), pick(DIGITS),
+    pick(SYMBOLS),
+    pick(UPPER + LOWER + DIGITS),
+  ];
+  // Fisher-Yates shuffle
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return `ALI-${year}-${chars.join("")}`;
 }
 
 function generateKey(prefix: string): string {
@@ -197,38 +215,34 @@ router.get("/auth/captcha", authLimiter, (req, res): void => {
  * POST /api/auth/login-by-aliid
  *
  * Login for existing members who don't have Telegram on their device.
- * Body: { aliId: string, pseudonym: string }
+ * Body: { aliId: string }
  * Returns: { token, telegramId }
  */
 router.post("/auth/login-by-aliid", authLimiter, async (req, res): Promise<void> => {
-  const { aliId, pseudonym } = req.body as { aliId?: unknown; pseudonym?: unknown };
+  const { aliId } = req.body as { aliId?: unknown };
 
-  if (typeof aliId !== "string" || !/^ALI-\d{4}-[A-Z0-9]{4}$/i.test(aliId.trim())) {
-    res.status(400).json({ error: "صيغة رقم العضوية غير صحيحة (مثال: ALI-2026-AB12)" }); return;
+  if (typeof aliId !== "string") {
+    res.status(400).json({ error: "صيغة رقم العضوية غير صحيحة — انسخ الرقم كاملاً من ملفك الشخصي" }); return;
   }
-  if (typeof pseudonym !== "string" || pseudonym.trim().length < 3) {
-    res.status(400).json({ error: "الاسم المستعار مطلوب" }); return;
+  // Accept new format (8 chars, mixed-case + symbol) AND legacy (4 chars uppercase)
+  const aliIdTrimmed = aliId.trim();
+  const isNewFormat  = /^ALI-\d{4}-[A-Za-z0-9@#!]{8}$/.test(aliIdTrimmed);
+  const isOldFormat  = /^ALI-\d{4}-[A-Z0-9]{4}$/i.test(aliIdTrimmed);
+  if (!isNewFormat && !isOldFormat) {
+    res.status(400).json({ error: "صيغة رقم العضوية غير صحيحة — انسخ الرقم كاملاً من ملفك الشخصي" }); return;
   }
-
-  const normalizedAliId = aliId.trim().toUpperCase();
-  const normalizedPseudonym = pseudonym.trim();
 
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(
-      and(
-        eq(usersTable.aliId, normalizedAliId),
-        eq(usersTable.pseudonym, normalizedPseudonym),
-      ),
-    );
+    .where(eq(usersTable.aliId, aliIdTrimmed));
 
   if (!user) {
-    res.status(401).json({ error: "رقم العضوية أو الاسم المستعار غير صحيح" }); return;
+    res.status(401).json({ error: "رقم العضوية غير موجود — تحقق من الرقم أو سجّل حساباً جديداً" }); return;
   }
 
   const token = signNativeJwt(user.telegramId);
-  req.log.info({ aliId: normalizedAliId }, "login-by-aliid succeeded");
+  req.log.info({ aliId: aliIdTrimmed }, "login-by-aliid succeeded");
   res.json({ token, telegramId: user.telegramId });
 });
 

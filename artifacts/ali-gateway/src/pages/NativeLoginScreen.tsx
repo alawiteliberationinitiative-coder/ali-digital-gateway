@@ -210,7 +210,7 @@ export default function NativeLoginScreen() {
       const res  = await apiFetch("/api/auth/login-by-aliid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aliId: aliId.trim().toUpperCase() }),
+        body: JSON.stringify({ aliId: aliId.trim() }),
       });
       const data = await res.json() as { token?: string; telegramId?: string; error?: string };
       if (!res.ok || !data.token || !data.telegramId) throw new Error(data.error ?? "فشل تسجيل الدخول");
@@ -416,24 +416,24 @@ export default function NativeLoginScreen() {
               <Field
                 label="رقم العضوية"
                 value={aliId}
-                onChange={(v) => setAliId(v.toUpperCase().replace(/[^A-Z0-9\-]/g, "").slice(0, 13))}
-                placeholder="ALI-2026-XXXX"
+                onChange={(v) => setAliId(v.replace(/[^A-Za-z0-9@#!\-]/g, "").slice(0, 17))}
+                placeholder="ALI-2026-Xx0!XxX9"
                 mono
                 dir="ltr"
-                maxLength={13}
+                maxLength={17}
               />
 
               <div style={{ marginTop: 8 }}>
                 <GoldButton
                   onClick={handleLoginByAliId}
-                  disabled={aliId.trim().length < 11}
+                  disabled={aliId.trim().length < 17}
                 >
                   تسجيل الدخول
                 </GoldButton>
               </div>
 
               <p style={{ fontSize: 11, color: "rgba(255,255,255,.2)", textAlign: "center", marginTop: 16, lineHeight: 1.7 }}>
-                رقم العضوية يبدأ بـ ALI-2026- متبوعاً بأربعة أحرف/أرقام
+                انسخ رقم عضويتك كاملاً من ملفك الشخصي — مثال: ALI-2026-Kp7!nA3B
               </p>
             </motion.div>
           )}

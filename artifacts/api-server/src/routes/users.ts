@@ -7,12 +7,24 @@ const ADMIN_IDS = new Set(["6213952907"]);
 const router = Router();
 
 function generateAliId(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let suffix = "";
-  for (let i = 0; i < 4; i++) {
-    suffix += chars[Math.floor(Math.random() * chars.length)];
+  const year    = new Date().getFullYear();
+  const UPPER   = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const LOWER   = "abcdefghjklmnpqrstuvwxyz";
+  const DIGITS  = "23456789";
+  const SYMBOLS = "@#!";
+  const pick    = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const chars   = [
+    pick(UPPER), pick(UPPER),
+    pick(LOWER), pick(LOWER),
+    pick(DIGITS), pick(DIGITS),
+    pick(SYMBOLS),
+    pick(UPPER + LOWER + DIGITS),
+  ];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
   }
-  return `ALI-2026-${suffix}`;
+  return `ALI-${year}-${chars.join("")}`;
 }
 
 const PSEUDONYMS = [
@@ -67,7 +79,7 @@ router.post("/users/register", async (req, res): Promise<void> => {
   }
 
   let validReferredBy: string | null = null;
-  if (referredBy && typeof referredBy === "string" && /^ALI-\d{4}-[A-Z0-9]{4}$/.test(referredBy)) {
+  if (referredBy && typeof referredBy === "string" && /^ALI-\d{4}-([A-Za-z0-9@#!]{8}|[A-Z0-9]{4})$/i.test(referredBy)) {
     const [referrer] = await db.select({ aliId: usersTable.aliId }).from(usersTable).where(eq(usersTable.aliId, referredBy));
     if (referrer) validReferredBy = referrer.aliId;
   }
