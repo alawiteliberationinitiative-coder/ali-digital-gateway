@@ -37,7 +37,8 @@ function isOnline(updatedAt: Date) {
 router.post("/calls/presence", async (req, res): Promise<void> => {
   const myId = req.telegramId;
   if (!myId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { context = "app" } = req.body as { context?: string };
+  const rawCtx = (req.body as { context?: string }).context ?? "app";
+  const context = String(rawCtx).slice(0, 32); // guard against oversized strings
   try {
     await db.insert(presenceTable)
       .values({ telegramId: myId, context, updatedAt: new Date() })

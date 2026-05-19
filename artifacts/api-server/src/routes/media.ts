@@ -56,7 +56,7 @@ router.get("/media/:fileId", async (req: Request, res: Response): Promise<void> 
           const gfJson = await gfRes.json() as { ok: boolean; result?: { file_path?: string } };
           if (gfJson.ok && gfJson.result?.file_path) {
             filePath = gfJson.result.file_path;
-            pathCache.set(fileId, { path: filePath, cachedAt: Date.now() });
+            setCached(fileId, filePath);
           }
         }
       }

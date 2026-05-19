@@ -40,8 +40,9 @@ export async function apiFetch(
   { timeoutMs = 12_000, retries = 2, ...init }: ApiFetchOptions = {},
 ): Promise<Response> {
   const headers = new Headers(init.headers);
-  if (_telegramId) headers.set("x-telegram-id", _telegramId);
-  if (_initData)   headers.set("x-telegram-init-data", _initData);
+  // x-telegram-init-data is the only header the server trusts for identity.
+  // x-telegram-id is not sent — the server derives the ID from verified initData only.
+  if (_initData) headers.set("x-telegram-init-data", _initData);
 
   // Auto-set Content-Type for JSON string bodies so express.json() parses them
   if (typeof init.body === "string" && !headers.has("content-type")) {
