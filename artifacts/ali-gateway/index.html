@@ -13,8 +13,20 @@
     <meta name="twitter:title" content="بوابة A.L.I الرقمية" />
     <meta name="twitter:description" content="بوابة مبادرة التحرير العلوي — تطبيق تيليغرام المصغر للهوية الرقمية السيادية." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- DNS prefetch — resolves hostnames in parallel before requests are made -->
+    <link rel="dns-prefetch" href="//api.telegram.org" />
+    <link rel="dns-prefetch" href="//telegram.org" />
+    <link rel="dns-prefetch" href="//sad.adsgram.ai" />
+    <link rel="dns-prefetch" href="//libtl.com" />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+    <!-- Preconnect — opens TCP+TLS to critical origins early (saves ~200-400ms) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://telegram.org" />
+
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@400;600;700;900&family=Cinzel:wght@400;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <!-- Telegram Mini App SDK — synchronous so window.Telegram.WebApp is ready before React mounts -->

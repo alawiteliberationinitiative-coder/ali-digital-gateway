@@ -2,6 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import pinoHttp from "pino-http";
+import compression from "compression";
 import { logger } from "./lib/logger.js";
 import router from "./routes/index.js";
 import { verifyTelegram } from "./middleware/telegram-auth.js";
@@ -10,6 +11,17 @@ const app = express();
 
 // ── Trust Replit's reverse proxy (required for express-rate-limit) ───────────
 app.set("trust proxy", 1);
+
+// ── Gzip/Brotli compression — reduces response size 60-80% on slow networks ──
+app.use(compression({ threshold: 512 })); // only compress responses > 512 bytes
+
+// ── Request timeout — prevents hung connections from blocking worker threads ──
+app.use((req, res, next) => {
+  res.setTimeout(30_000, () => {
+    if (!res.headersSent) res.status(503).json({ error: "Request timeout — حاول مجدداً" });
+  });
+  next();
+});
 
 // ── Security headers ─────────────────────────────────────────────────────────
 app.use(
@@ -77,6 +89,20 @@ app.use("/api/articles/:id/like",        strictLimiter);
 app.use("/api/articles/:id/comments",    strictLimiter);
 // Prevent call spam (10 per min max)
 app.use("/api/calls/initiate",           strictLimiter);
+
+// ── Cache-Control for public read-only endpoints ─────────────────────────────
+// These are safe to cache for a short period — reduces round-trips on slow networks
+const SHORT_CACHE = "public, max-age=30, stale-while-revalidate=60";
+const MED_CACHE   = "public, max-age=120, stale-while-revalidate=300";
+app.use("/api/users/leaderboard",  (_req, res, next) => { res.setHeader("Cache-Control", MED_CACHE);   next(); });
+app.use("/api/articles",           (req,  res, next) => {
+  // Only cache GET list — not individual views/likes/comments (POST)
+  if (req.method === "GET" && !req.path.includes("/view") && !req.path.includes("/like") && !req.path.includes("/comments")) {
+    res.setHeader("Cache-Control", SHORT_CACHE);
+  }
+  next();
+});
+app.use("/api/healthz",            (_req, res, next) => { res.setHeader("Cache-Control", "no-store");   next(); });
 
 // ── API router ───────────────────────────────────────────────────────────────
 app.use("/api", router);

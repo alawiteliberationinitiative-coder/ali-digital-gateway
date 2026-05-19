@@ -27,9 +27,15 @@ console.log(`[ALI] Active model: ${ACTIVE_MODEL}`);
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      retryDelay: (attempt) => Math.min(400 * (attempt + 1), 3000),
-      staleTime: 120_000,
+      retry: 2,
+      // Exponential backoff: 800ms → 3.2s → max 8s
+      retryDelay: (attempt) => Math.min(800 * Math.pow(2, attempt), 8_000),
+      // Keep cached data for 3 minutes before re-fetching (helps on weak connections)
+      staleTime: 180_000,
+      // Keep data in memory for 10 minutes even if component unmounts
+      gcTime: 600_000,
+      // Don't re-fetch on window focus — reduces unnecessary requests on Telegram Mini App
+      refetchOnWindowFocus: false,
     },
   },
 });

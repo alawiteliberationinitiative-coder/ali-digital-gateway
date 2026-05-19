@@ -56,7 +56,8 @@ export async function apiFetch(
 
   let lastError: unknown;
   for (let i = 0; i < maxAttempts; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 400 * i));
+    // Exponential backoff with jitter: 600ms, 1.8s, 4.5s … (max 8s)
+    if (i > 0) await new Promise(r => setTimeout(r, Math.min(600 * Math.pow(2, i - 1) + Math.random() * 300, 8_000)));
     try {
       return await doFetch(input, reqInit, timeoutMs);
     } catch (err) {
@@ -64,7 +65,7 @@ export async function apiFetch(
       if (err instanceof DOMException && err.name === "AbortError") continue;
       const isNetworkError =
         err instanceof TypeError &&
-        (err.message.includes("fetch") || err.message.includes("network"));
+        (err.message.includes("fetch") || err.message.includes("network") || err.message.includes("Failed"));
       if (!isNetworkError) throw err;
     }
   }
