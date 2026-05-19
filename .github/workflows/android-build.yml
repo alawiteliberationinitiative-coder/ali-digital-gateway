@@ -47,7 +47,7 @@ jobs:
       # ── 3. Capacitor sync — generates cordova.variables.gradle + native files ─
       - name: Capacitor sync (generates Android native files)
         working-directory: artifacts/ali-gateway
-        run: pnpm exec cap sync android --no-open
+        run: pnpm exec cap sync android
 
       # ── 4. Java 17 ───────────────────────────────────────────────────────────
       - name: Set up JDK 17
