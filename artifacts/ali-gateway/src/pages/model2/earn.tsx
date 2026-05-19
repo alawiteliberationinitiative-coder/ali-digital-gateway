@@ -77,40 +77,44 @@ export function EarnSection({ telegramId: _telegramId }: { telegramId: string })
                 </div>
               </motion.button>
 
-              {/* اربح */}
+              {/* اربح — دائماً مملوء بالذهبي مع توهج ونبضة متكررة */}
               <motion.button
                 onClick={() => setTab("play")}
                 whileTap={{ scale: 0.96 }}
-                className="relative flex-1 flex items-center justify-center gap-2.5 rounded-2xl px-4 py-4 overflow-hidden transition-all"
+                className="relative flex-1 flex items-center justify-center gap-2.5 rounded-2xl px-4 py-4 overflow-hidden"
                 style={{
-                  background: tab === "play"
-                    ? "linear-gradient(135deg, rgba(212,175,55,0.22) 0%, rgba(180,140,20,0.12) 60%, rgba(212,175,55,0.08) 100%)"
-                    : "rgba(255,255,255,0.04)",
-                  border: tab === "play"
-                    ? "1.5px solid rgba(212,175,55,0.65)"
-                    : "1.5px solid rgba(255,255,255,0.08)",
-                  boxShadow: tab === "play"
-                    ? "0 0 22px rgba(212,175,55,0.35), 0 0 8px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.14)"
-                    : "none",
-                  backdropFilter: tab === "play" ? "blur(8px)" : "none",
+                  background: "linear-gradient(135deg, #d4af37 0%, #b8962a 55%, #d4af37 100%)",
+                  border: "1.5px solid rgba(212,175,55,0.9)",
+                  boxShadow: "0 0 24px rgba(212,175,55,0.6), 0 0 8px rgba(212,175,55,0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
                 }}>
+
+                {/* نبضة متكررة — طبقة توهج داخلية */}
+                <motion.div
+                  className="absolute inset-0 rounded-2xl pointer-events-none"
+                  style={{ background: "radial-gradient(ellipse at 60% 50%, rgba(255,255,255,0.28) 0%, transparent 65%)" }}
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                />
+
                 {tab === "play" && (
                   <motion.div layoutId="earn-tab-pill"
                     className="absolute inset-0 rounded-2xl pointer-events-none"
-                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.1),transparent)" }}
+                    style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.12),transparent)" }}
                     transition={{ type: "spring", stiffness: 420, damping: 38 }} />
                 )}
+
                 <Zap size={18}
-                  color={tab === "play" ? GOLD : "rgba(255,255,255,0.35)"}
-                  fill={tab === "play" ? `${GOLD}40` : "none"}
-                  style={{ filter: tab === "play" ? `drop-shadow(0 0 6px ${GOLD}90)` : "none", flexShrink: 0 }} />
+                  color="#14532d"
+                  fill="#14532d55"
+                  style={{ filter: "drop-shadow(0 0 5px rgba(20,83,45,0.7))", flexShrink: 0 }} />
+
                 <div className="relative z-10 text-right">
                   <p className="font-arabic font-black text-[13px] leading-snug"
-                    style={{ color: tab === "play" ? "#16a34a" : "rgba(255,255,255,0.55)" }}>
+                    style={{ color: "#14532d", textShadow: "0 1px 2px rgba(255,255,255,0.3)" }}>
                     اربح 🐝
                   </p>
-                  <p className="font-arabic text-[10px] leading-tight mt-0.5"
-                    style={{ color: tab === "play" ? "#15803d" : "rgba(255,255,255,0.25)" }}>
+                  <p className="font-arabic font-bold text-[10px] leading-tight mt-0.5"
+                    style={{ color: "#166534" }}>
                     طريق النحل
                   </p>
                 </div>

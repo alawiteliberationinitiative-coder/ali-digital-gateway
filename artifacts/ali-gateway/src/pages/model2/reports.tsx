@@ -209,22 +209,43 @@ function ReportViewer({ article, onClose, onView }: {
             )}
 
             {/* Footer */}
-            <div className="mt-12 pt-6 text-center space-y-1"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="font-arabic text-white/20 text-[11px]">— نهاية التقرير —</p>
-              {article.isAdar ? (
-                <p className="font-arabic text-[10px]" style={{ color: GOLD + "45" }}>
-                  © ADAR {new Date().getFullYear()} — جميع حقوق النشر محفوظة للمنصة
+            {article.isAdar ? (
+              /* ── ختام تقارير مجتمع ADAR — تذييل مميز ── */
+              <div className="mt-12 pt-8 text-center space-y-3"
+                style={{ borderTop: "1px solid rgba(212,175,55,0.18)" }}>
+                {/* فاصل ذهبي مع نجمة */}
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px flex-1" style={{ background: "linear-gradient(to left, rgba(212,175,55,0.35), transparent)" }} />
+                  <span style={{ color: GOLD, fontSize: "11px", opacity: 0.7 }}>✦</span>
+                  <div className="h-px flex-1" style={{ background: "linear-gradient(to right, rgba(212,175,55,0.35), transparent)" }} />
+                </div>
+                <p className="font-arabic text-[11px] tracking-widest" style={{ color: GOLD + "70" }}>
+                  — نهاية التقرير —
                 </p>
-              ) : (
-                <>
-                  <p className="font-arabic text-white/20 text-[10px]">نُشر عبر منصة ALI Digital Gateway</p>
-                  <p className="font-arabic text-[10px]" style={{ color: PURPLE + "55" }}>
-                    الناشر: {article.authorPseudonym}
-                  </p>
-                </>
-              )}
-            </div>
+                <p className="font-arabic font-bold text-[12px]" style={{ color: GOLD + "99" }}>
+                  نُشر عبر منصة ADAR
+                </p>
+                <p className="font-mono text-[10px] tracking-wide" style={{ color: GOLD + "55" }}>
+                  ADAR Media Monitoring Center
+                </p>
+                <p className="font-mono text-[9px]" style={{ color: GOLD + "38" }}>
+                  Alawite Liberation Initiative — {new Date().getFullYear()}
+                </p>
+              </div>
+            ) : (
+              /* ── ختام التقارير العامة ── */
+              <div className="mt-12 pt-6 text-center space-y-1"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <p className="font-arabic text-white/20 text-[11px]">— نهاية التقرير —</p>
+                <p className="font-arabic text-white/20 text-[10px]">نُشر عبر منصة A.L.I Digital Gateway</p>
+                <p className="font-mono text-[9px]" style={{ color: PURPLE + "55" }}>
+                  Alawite Liberation Initiative — Digital Gateway
+                </p>
+                <p className="font-arabic text-[10px]" style={{ color: PURPLE + "55" }}>
+                  الناشر: {article.authorPseudonym}
+                </p>
+              </div>
+            )}
 
           </div>
         </div>
