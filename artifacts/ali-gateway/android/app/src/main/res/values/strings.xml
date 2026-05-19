@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ALI Digital Gateway</string>
-    <string name="title_activity_main">ALI Digital Gateway</string>
+    <string name="app_name">ALI.MDD</string>
+    <string name="title_activity_main">ALI.MDD</string>
     <string name="package_name">com.ali.digitalgateway</string>
     <string name="custom_url_scheme">com.ali.digitalgateway</string>
 </resources>
