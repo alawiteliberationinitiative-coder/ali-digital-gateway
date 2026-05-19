@@ -203,14 +203,14 @@ export default function NativeLoginScreen() {
   /* ── Login by aliId ─────────────────────────────────────────────────── */
 
   const handleLoginByAliId = async () => {
-    if (!aliId.trim() || !pseudonym.trim()) return;
+    if (!aliId.trim()) return;
     setFlow("verifying");
     setErrMsg("");
     try {
       const res  = await apiFetch("/api/auth/login-by-aliid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aliId: aliId.trim().toUpperCase(), pseudonym: pseudonym.trim() }),
+        body: JSON.stringify({ aliId: aliId.trim().toUpperCase() }),
       });
       const data = await res.json() as { token?: string; telegramId?: string; error?: string };
       if (!res.ok || !data.token || !data.telegramId) throw new Error(data.error ?? "فشل تسجيل الدخول");
@@ -410,7 +410,7 @@ export default function NativeLoginScreen() {
                 <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>الدخول برقم العضوية</h2>
               </div>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 20, lineHeight: 1.7 }}>
-                أدخل رقم عضويتك واسمك المستعار كما هو مسجّل في البوابة
+                أدخل رقم عضويتك للدخول مباشرةً إلى حسابك
               </p>
 
               <Field
@@ -422,18 +422,11 @@ export default function NativeLoginScreen() {
                 dir="ltr"
                 maxLength={13}
               />
-              <Field
-                label="الاسم المستعار"
-                value={pseudonym}
-                onChange={setPseudonym}
-                placeholder="مثال: Nexus-1234"
-                maxLength={30}
-              />
 
               <div style={{ marginTop: 8 }}>
                 <GoldButton
                   onClick={handleLoginByAliId}
-                  disabled={aliId.trim().length < 11 || pseudonym.trim().length < 3}
+                  disabled={aliId.trim().length < 11}
                 >
                   تسجيل الدخول
                 </GoldButton>
