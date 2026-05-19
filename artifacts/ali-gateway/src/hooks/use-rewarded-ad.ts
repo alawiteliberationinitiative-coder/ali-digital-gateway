@@ -93,11 +93,13 @@ export function useRewardedAd(
 
     try {
       setPhase("showing");
-      if (typeof window[ZONE_FN] === "function") {
+      // Access via explicit property name (not computed bracket) for type safety
+      const adFn: (() => Promise<void>) | undefined = window.show_11001376;
+      if (typeof adFn === "function") {
         // Race the ad network call against a timeout so users are never
         // permanently stuck if the ad function hangs without resolving.
         await Promise.race([
-          window[ZONE_FN](),
+          adFn.call(window),
           new Promise<void>((resolve) => setTimeout(resolve, AD_TIMEOUT_MS)),
         ]);
       } else {

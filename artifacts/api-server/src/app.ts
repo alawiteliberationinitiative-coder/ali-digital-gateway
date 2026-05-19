@@ -75,6 +75,8 @@ app.use("/api/spaces/:id/signals",       strictLimiter);
 app.use("/api/articles/:id/view",        strictLimiter);
 app.use("/api/articles/:id/like",        strictLimiter);
 app.use("/api/articles/:id/comments",    strictLimiter);
+// Prevent call spam (10 per min max)
+app.use("/api/calls/initiate",           strictLimiter);
 
 // ── API router ───────────────────────────────────────────────────────────────
 app.use("/api", router);

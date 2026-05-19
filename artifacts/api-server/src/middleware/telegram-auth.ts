@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import { logger } from "../lib/logger.js";
 
@@ -34,10 +34,14 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
           .map(([k, v]) => `${k}=${v}`)
           .join("\n");
 
-        const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
-        const computed  = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+        const secretKey    = createHmac("sha256", "WebAppData").update(token).digest();
+        const computedBuf  = createHmac("sha256", secretKey).update(dataCheckString).digest();
+        // Use timing-safe comparison to prevent HMAC oracle / timing attacks
+        let hashBuf: Buffer;
+        try { hashBuf = Buffer.from(hash, "hex"); } catch { next(); return; }
+        const sigValid = computedBuf.length === hashBuf.length && timingSafeEqual(computedBuf, hashBuf);
 
-        if (computed === hash) {
+        if (sigValid) {
           const authDate = Number(params.get("auth_date") ?? 0);
           const ageSecs  = Date.now() / 1000 - authDate;
           if (ageSecs < 86400) {

@@ -411,7 +411,7 @@ function ResearchTab({ telegramId }: { telegramId: string }) {
           <div className="flex-1 h-px" style={{ background: `${GOLD}20` }} />
           <span style={{ fontFamily: "'Cairo', sans-serif", fontSize: 10, color: `${GOLD}80` }}>
             {STAT_CATS.find(c => c.id === activeStatCat)?.emoji}{" "}
-            {STAT_CATS.find(c => c.id === activeStatCat)?.label.replace("\n", " ")}
+            {STAT_CATS.find(c => c.id === activeStatCat)?.label.replace(/\n/g, " ")}
           </span>
           <div className="flex-1 h-px" style={{ background: `${GOLD}20` }} />
         </div>

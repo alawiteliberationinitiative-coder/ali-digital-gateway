@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import {
   db, eq, and, sql,
-  usersTable, presenceTable, callsTable, callSignalsTable,
+  usersTable, presenceTable, callsTable, callSignalsTable, blocksTable,
 } from "@workspace/db";
 import { issueTicket, consumeTicket } from "../lib/sse-ticket.js";
 
@@ -127,6 +127,25 @@ router.post("/calls/initiate", async (req, res): Promise<void> => {
       .select({ pseudonym: usersTable.pseudonym, aliId: usersTable.aliId })
       .from(usersTable).where(eq(usersTable.telegramId, myId));
     if (!caller) { res.status(404).json({ error: "User not found" }); return; }
+
+    // Block check: reject if callee has blocked caller OR caller has blocked callee
+    try {
+      const [block] = await db.select({ id: blocksTable.id })
+        .from(blocksTable)
+        .where(
+          and(
+            // callee blocked caller
+            eq(blocksTable.blockerTelegramId, calleeId),
+            eq(blocksTable.blockedTelegramId, myId),
+          )
+        )
+        .limit(1);
+      if (block) {
+        // Do not reveal that the user is blocked — return 200 with reachable:false
+        res.json({ callId: null, reachable: false });
+        return;
+      }
+    } catch { /* blocks table may not exist yet */ }
 
     // Check presence
     let calleePresence: "chat" | "app" | "offline" = "offline";

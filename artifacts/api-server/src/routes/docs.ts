@@ -5,6 +5,27 @@ const router = Router();
 
 const MAX_BINARY_BYTES = 4 * 1024 * 1024; // 4 MB max actual binary size
 
+// Allowlist of valid form types — prevents injection via user-controlled field
+const ALLOWED_FORM_TYPES = new Set([
+  "unknown", "identity", "citizenship", "property",
+  "financial", "legal", "medical", "academic", "other",
+]);
+
+/** Escape HTML special chars to neutralise injection in Telegram HTML captions */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+/** Strip path separators and control chars; keep only safe filename chars */
+function sanitizeFilename(s: string): string {
+  return s.replace(/[^\w\s.\-()[\]]/g, "").slice(0, 128) || "document.jpg";
+}
+
 router.post("/docs/upload-file", async (req, res): Promise<void> => {
   const telegramId = req.telegramId;
 
@@ -13,11 +34,15 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
     return;
   }
 
-  const { base64, filename = "document.jpg", formType = "unknown" } = req.body as {
+  const { base64, filename: rawFilename = "document.jpg", formType: rawFormType = "unknown" } = req.body as {
     base64?: string;
     filename?: string;
     formType?: string;
   };
+
+  // Sanitise user-supplied fields that end up in an HTML-parsed Telegram caption
+  const formType = ALLOWED_FORM_TYPES.has(rawFormType) ? rawFormType : "unknown";
+  const filename  = sanitizeFilename(rawFilename);
 
   if (!base64) {
     res.status(400).json({ error: "base64 required" });
@@ -63,7 +88,7 @@ router.post("/docs/upload-file", async (req, res): Promise<void> => {
       "caption",
       `📁 <b>ADAR Sovereign Archive</b>\n` +
       `👤 User: <code>${telegramId}</code>\n` +
-      `📋 Form: ${formType}\n` +
+      `📋 Form: ${escapeHtml(formType)}\n` +
       `🕒 ${new Date().toISOString()}\n` +
       `🔒 AES-256 · Encrypted at rest`
     );
