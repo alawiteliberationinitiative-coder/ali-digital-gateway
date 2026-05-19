@@ -20,37 +20,46 @@ router.get("/articles", async (_req, res): Promise<void> => {
   try {
     const rows = await db
       .select({
-        id:              articlesTable.id,
-        title:           articlesTable.title,
-        body:            articlesTable.body,
-        mediaUrl:        articlesTable.mediaUrl,
-        authorPseudonym: articlesTable.authorPseudonym,
-        authorAliId:     articlesTable.authorAliId,
-        viewCount:       articlesTable.viewCount,
-        downloadCount:   articlesTable.downloadCount,
-        shareCount:      articlesTable.shareCount,
-        likeCount:       sql<number>`(SELECT COALESCE(COUNT(*),0)::int FROM article_likes WHERE article_id = ${articlesTable.id})`,
-        createdAt:       articlesTable.createdAt,
-        updatedAt:       articlesTable.updatedAt,
+        id:               articlesTable.id,
+        title:            articlesTable.title,
+        body:             articlesTable.body,
+        mediaUrl:         articlesTable.mediaUrl,
+        authorPseudonym:  articlesTable.authorPseudonym,
+        authorAliId:      articlesTable.authorAliId,
+        authorTelegramId: articlesTable.authorTelegramId,
+        viewCount:        articlesTable.viewCount,
+        downloadCount:    articlesTable.downloadCount,
+        shareCount:       articlesTable.shareCount,
+        likeCount:        sql<number>`(SELECT COALESCE(COUNT(*),0)::int FROM article_likes WHERE article_id = ${articlesTable.id})`,
+        createdAt:        articlesTable.createdAt,
+        updatedAt:        articlesTable.updatedAt,
       })
       .from(articlesTable)
       .orderBy(sql`${articlesTable.createdAt} DESC`);
-    res.json(rows);
+    res.json(rows.map(({ authorTelegramId, ...rest }) => ({
+      ...rest,
+      isAdar: ADMIN_IDS.includes(authorTelegramId),
+    })));
   } catch {
     const rows = await db
       .select({
-        id:              articlesTable.id,
-        title:           articlesTable.title,
-        body:            articlesTable.body,
-        mediaUrl:        articlesTable.mediaUrl,
-        authorPseudonym: articlesTable.authorPseudonym,
-        authorAliId:     articlesTable.authorAliId,
-        createdAt:       articlesTable.createdAt,
-        updatedAt:       articlesTable.updatedAt,
+        id:               articlesTable.id,
+        title:            articlesTable.title,
+        body:             articlesTable.body,
+        mediaUrl:         articlesTable.mediaUrl,
+        authorPseudonym:  articlesTable.authorPseudonym,
+        authorAliId:      articlesTable.authorAliId,
+        authorTelegramId: articlesTable.authorTelegramId,
+        createdAt:        articlesTable.createdAt,
+        updatedAt:        articlesTable.updatedAt,
       })
       .from(articlesTable)
       .orderBy(sql`${articlesTable.createdAt} DESC`);
-    res.json(rows.map(r => ({ ...r, viewCount: 0, shareCount: 0, likeCount: 0 })));
+    res.json(rows.map(({ authorTelegramId, ...rest }) => ({
+      ...rest,
+      viewCount: 0, shareCount: 0, likeCount: 0,
+      isAdar: ADMIN_IDS.includes(authorTelegramId),
+    })));
   }
 });
 
@@ -325,26 +334,84 @@ router.post("/articles", async (req, res): Promise<void> => {
   const user = await getUser(telegramId);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
-  if (!canPublish(telegramId, user.role)) {
-    res.status(403).json({ error: "ليس لديك صلاحية النشر — هذه الميزة مخصصة لفريق العمل فقط" });
-    return;
-  }
-
-  const { title, body, mediaUrl } = req.body as {
+  const { title, body, mediaUrl, category = "adar", publisherName } = req.body as {
     title?: string;
     body?: string;
     mediaUrl?: string;
+    category?: "adar" | "community";
+    publisherName?: string;
   };
 
-  const hasMedia = !!mediaUrl?.trim();
-  if (!title?.trim() || (!hasMedia && !body?.trim())) {
-    res.status(400).json({ error: "العنوان مطلوب، والمحتوى مطلوب إذا لم يكن هناك وسائط" });
+  const postCategory: "adar" | "community" = category === "community" ? "community" : "adar";
+
+  // ADAR posts require admin/staff privileges
+  if (postCategory === "adar" && !canPublish(telegramId, user.role)) {
+    res.status(403).json({ error: "ليس لديك صلاحية نشر تقارير ADAR — هذه الميزة للمشرفين فقط" });
     return;
   }
-  if (title.length > 200)   { res.status(400).json({ error: "العنوان طويل جداً (200 حرف كحد أقصى)" }); return; }
-  if (body && body.length > 20_000) { res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return; }
 
-  // Validate media URL — must be an absolute https URL (Supabase upload result)
+  if (!title?.trim()) {
+    res.status(400).json({ error: "العنوان مطلوب" }); return;
+  }
+  if (title.length > 200) {
+    res.status(400).json({ error: "العنوان طويل جداً (200 حرف كحد أقصى)" }); return;
+  }
+
+  // ── Community post ────────────────────────────────────────────────────────
+  if (postCategory === "community") {
+    if (!publisherName?.trim()) {
+      res.status(400).json({ error: "اسم الناشر مطلوب لتقارير المجتمع" }); return;
+    }
+    if (publisherName.length > 100) {
+      res.status(400).json({ error: "اسم الناشر طويل جداً (100 حرف كحد أقصى)" }); return;
+    }
+    if (!body?.trim()) {
+      res.status(400).json({ error: "محتوى التقرير مطلوب" }); return;
+    }
+    if (body.length > 50_000) {
+      res.status(400).json({ error: "المحتوى طويل جداً (50,000 حرف كحد أقصى)" }); return;
+    }
+
+    const [article] = await db
+      .insert(articlesTable)
+      .values({
+        title:            title.trim(),
+        body:             body.trim(),
+        mediaUrl:         null,
+        supabaseUrl:      null,
+        authorTelegramId: telegramId,
+        authorPseudonym:  publisherName.trim(),
+        authorAliId:      user.aliId,
+      })
+      .returning();
+
+    const createdAt = article.createdAt instanceof Date
+      ? article.createdAt.toISOString()
+      : String(article.createdAt);
+
+    sendArticleToChannel({
+      id:              article.id,
+      title:           article.title,
+      body:            article.body,
+      mediaUrl:        null,
+      authorPseudonym: article.authorPseudonym,
+      authorAliId:     article.authorAliId,
+      createdAt,
+    });
+
+    res.status(201).json({ ...article, isAdar: false });
+    return;
+  }
+
+  // ── ADAR post ─────────────────────────────────────────────────────────────
+  const hasMedia = !!mediaUrl?.trim();
+  if (!hasMedia && !body?.trim()) {
+    res.status(400).json({ error: "المحتوى مطلوب إذا لم يكن هناك وسائط" }); return;
+  }
+  if (body && body.length > 20_000) {
+    res.status(400).json({ error: "المحتوى طويل جداً (20,000 حرف كحد أقصى)" }); return;
+  }
+
   let safeMediaUrl: string | null = null;
   if (hasMedia) {
     try {
@@ -355,8 +422,7 @@ router.post("/articles", async (req, res): Promise<void> => {
         res.status(400).json({ error: "رابط الوسائط غير صالح" }); return;
       }
     } catch {
-      res.status(400).json({ error: "رابط الوسائط غير صالح" });
-      return;
+      res.status(400).json({ error: "رابط الوسائط غير صالح" }); return;
     }
   }
 
@@ -366,9 +432,9 @@ router.post("/articles", async (req, res): Promise<void> => {
       title:            title.trim(),
       body:             body?.trim() ?? "",
       mediaUrl:         safeMediaUrl,
-      supabaseUrl:      safeMediaUrl,   // رابط Supabase الأصلي — احتياطي دائم
+      supabaseUrl:      safeMediaUrl,
       authorTelegramId: telegramId,
-      authorPseudonym:  user.pseudonym,
+      authorPseudonym:  "منصة ADAR",
       authorAliId:      user.aliId,
     })
     .returning();
@@ -378,9 +444,6 @@ router.post("/articles", async (req, res): Promise<void> => {
     : String(article.createdAt);
 
   if (safeMediaUrl) {
-    // Archive media to Telegram storage channel; keep Supabase copy as fallback.
-    // On success: store telegramFileId + switch mediaUrl to the proxy endpoint.
-    // On failure: mediaUrl stays as the Supabase URL — still works directly.
     archiveMediaToTelegram({
       id:              article.id,
       title:           article.title,
@@ -391,17 +454,12 @@ router.post("/articles", async (req, res): Promise<void> => {
       supabaseUrl:     safeMediaUrl,
     }).then(async (fileId) => {
       if (!fileId) return;
-      // Store telegramFileId for backup reference ONLY.
-      // mediaUrl stays as the Supabase URL — it is permanent, public, and always
-      // reachable directly. Switching to /api/media/:fileId caused videos to
-      // disappear because getFile fails for files >20 MB on Telegram's Bot API.
       await db
         .update(articlesTable)
         .set({ telegramFileId: fileId })
         .where(eq(articlesTable.id, article.id));
     }).catch(() => {});
   } else {
-    // Text-only article — archive to channel as before
     sendArticleToChannel({
       id:              article.id,
       title:           article.title,
@@ -413,7 +471,7 @@ router.post("/articles", async (req, res): Promise<void> => {
     });
   }
 
-  res.status(201).json(article);
+  res.status(201).json({ ...article, isAdar: true });
 });
 
 // ── GET /api/articles/:id/likes ───────────────────────────────────────────────
