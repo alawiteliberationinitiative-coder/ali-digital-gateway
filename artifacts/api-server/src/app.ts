@@ -83,10 +83,12 @@ app.use("/api/quiz/complete-level",      strictLimiter);
 app.use("/api/docs/submit",              strictLimiter);
 app.use("/api/docs/upload-file",         strictLimiter);
 app.use("/api/spaces/:id/signals",       strictLimiter);
-// Prevent view/like/comment botting
+// Prevent view/like/comment/download/share botting
 app.use("/api/articles/:id/view",        strictLimiter);
 app.use("/api/articles/:id/like",        strictLimiter);
 app.use("/api/articles/:id/comments",    strictLimiter);
+app.use("/api/articles/:id/download",    strictLimiter);
+app.use("/api/articles/:id/share",       strictLimiter);
 // Prevent call spam (10 per min max)
 app.use("/api/calls/initiate",           strictLimiter);
 

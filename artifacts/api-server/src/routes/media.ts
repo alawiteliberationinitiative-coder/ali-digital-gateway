@@ -21,8 +21,19 @@ import { db, eq, articlesTable } from "@workspace/db";
 const router = Router();
 
 // Cache file_path per file_id for 55 min (Telegram CDN paths are stable for hours)
-const pathCache = new Map<string, { path: string; cachedAt: number }>();
-const CACHE_TTL = 55 * 60 * 1_000;
+// Size is bounded to prevent unbounded memory growth under heavy load.
+const pathCache    = new Map<string, { path: string; cachedAt: number }>();
+const CACHE_TTL    = 55 * 60 * 1_000;
+const CACHE_MAX    = 2_000;   // evict oldest entry when limit is reached
+
+function setCached(fileId: string, path: string) {
+  if (pathCache.size >= CACHE_MAX) {
+    // Evict the oldest inserted entry (Map preserves insertion order)
+    const oldest = pathCache.keys().next().value;
+    if (oldest) pathCache.delete(oldest);
+  }
+  pathCache.set(fileId, { path, cachedAt: Date.now() });
+}
 
 router.get("/media/:fileId", async (req: Request, res: Response): Promise<void> => {
   const token  = process.env.TELEGRAM_BOT_TOKEN;
