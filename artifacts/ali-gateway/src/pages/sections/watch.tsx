@@ -7,8 +7,8 @@ import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 import aliEmblem from "@assets/1778653138813_1779158145086.png";
 
 // ── روابط التطبيق ────────────────────────────────────────────────────────────
-// رابط APK أندرويد — حدّثه عند نشر الإصدار الأول في القناة
-const ANDROID_APK_URL = "https://t.me/ALI_MDD_BOT";
+// رابط APK أندرويد — GitHub Release عام (يُحدَّث تلقائياً مع كل بناء)
+const ANDROID_APK_URL = "https://github.com/alawiteliberationinitiative-coder/ali-digital-gateway/releases/latest/download/ALI-Gateway.apk";
 const MINI_APP_LINK   = "https://t.me/ALI_MDD_BOT/app";
 
 function AppInstallBanner() {
