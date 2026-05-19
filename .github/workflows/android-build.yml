@@ -9,22 +9,18 @@ on:
       - 'artifacts/ali-gateway/capacitor.config.ts'
       - '.github/workflows/android-build.yml'
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Release signing — PKCS12 keystore (base64-encoded, generated via openssl)
+  KEYSTORE_B64: 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
+  KEYSTORE_PASS: ALIgateway2026
+  KEY_ALIAS: ali-gateway
+  KEY_PASS: ALIgateway2026
 
 jobs:
   build:
-    name: Build APK (${{ github.event.inputs.build_type || 'debug' }})
+    name: Build Signed Release APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -46,7 +42,7 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # ── 3. Capacitor sync — generates cordova.variables.gradle + native files ─
+      # ── 3. Capacitor sync ─────────────────────────────────────────────────────
       - name: Create required Android assets directory
         run: mkdir -p artifacts/ali-gateway/android/app/src/main/assets
 
@@ -66,47 +62,44 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # ── 6. Write local.properties with SDK path ───────────────────────────────
+      # ── 6. Decode signing keystore ────────────────────────────────────────────
+      - name: Decode release keystore
+        run: echo "$KEYSTORE_B64" | base64 -d > /tmp/ali-release.keystore
+
+      # ── 7. local.properties + Gradle permission ───────────────────────────────
       - name: Create local.properties
         working-directory: artifacts/ali-gateway/android
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-      # ── 7. Make gradlew executable ────────────────────────────────────────────
       - name: Grant Gradle execute permission
         working-directory: artifacts/ali-gateway/android
         run: chmod +x gradlew
 
-      # ── 8. Build APK ─────────────────────────────────────────────────────────
-      - name: Build Debug APK
-        if: ${{ github.event.inputs.build_type != 'release' }}
+      # ── 8. Build signed release APK ──────────────────────────────────────────
+      - name: Build Signed Release APK
         working-directory: artifacts/ali-gateway/android
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Build Release APK (unsigned)
-        if: ${{ github.event.inputs.build_type == 'release' }}
-        working-directory: artifacts/ali-gateway/android
+        env:
+          KEYSTORE_PATH: /tmp/ali-release.keystore
+          KEYSTORE_PASS: ${{ env.KEYSTORE_PASS }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASS: ${{ env.KEY_PASS }}
         run: ./gradlew assembleRelease --no-daemon
 
       # ── 9. Prepare APK for release ────────────────────────────────────────────
       - name: Locate and rename APK
         id: apk
         run: |
-          TYPE=${{ github.event.inputs.build_type || 'debug' }}
-          if [ "$TYPE" = "release" ]; then
-            SRC=$(find artifacts/ali-gateway/android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          else
-            SRC=$(find artifacts/ali-gateway/android/app/build/outputs/apk/debug -name "*.apk" | head -1)
-          fi
+          SRC=$(find artifacts/ali-gateway/android/app/build/outputs/apk/release -name "*.apk" | head -1)
           DATE=$(date +%Y%m%d)
           SHORT_SHA=${GITHUB_SHA::7}
-          VERSIONED="ALI-Gateway-${TYPE}-${DATE}-${SHORT_SHA}.apk"
+          VERSIONED="ALI-Gateway-release-${DATE}-${SHORT_SHA}.apk"
           cp "$SRC" "$VERSIONED"
           cp "$SRC" "ALI-Gateway.apk"
           echo "versioned=$VERSIONED" >> $GITHUB_OUTPUT
           echo "size=$(du -sh $VERSIONED | cut -f1)" >> $GITHUB_OUTPUT
           ls -lh "$VERSIONED"
 
-      # ── 10. Publish as GitHub Release (رابط عام مجاني لأي مستخدم) ────────────
+      # ── 10. Publish as GitHub Release ─────────────────────────────────────────
       - name: Delete old android-latest release (if exists)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -118,18 +111,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TYPE=${{ github.event.inputs.build_type || 'debug' }}
           DATE=$(date "+%Y-%m-%d %H:%M UTC")
           gh release create android-latest \
-            --title "ALI Gateway — آخر إصدار أندرويد" \
+            --title "ALI Gateway — آخر إصدار أندرويد (موقّع)" \
             --notes "**تاريخ البناء:** ${DATE}
-          **النوع:** ${TYPE}
+          **النوع:** release (موقّع — يُثبَّت بدون تحذيرات Play Protect)
           **الإصدار:** ${{ steps.apk.outputs.versioned }}
 
           ### كيفية التثبيت
           1. حمّل ملف \`ALI-Gateway.apk\`
           2. افتح الملف على هاتفك
-          3. اسمح بتثبيت التطبيقات من مصادر غير معروفة إذا طُلب ذلك
+          3. عند ظهور رسالة \"السماح بالتثبيت من هذا المصدر\" → اضغط **موافق**
+          4. اضغط **تثبيت**
 
           > التطبيق يحمّل المحتوى من الخادم مباشرةً — أي تحديث يصل فوراً بدون إعادة تثبيت" \
             --latest \
@@ -139,13 +132,11 @@ jobs:
       # ── 11. ملخص البناء ───────────────────────────────────────────────────────
       - name: Job summary
         run: |
-          echo "## ✅ APK نُشر بنجاح كـ GitHub Release" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ APK موقّع نُشر بنجاح كـ GitHub Release" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**الحجم:** ${{ steps.apk.outputs.size }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### رابط التحميل المباشر (عام لأي مستخدم)" >> $GITHUB_STEP_SUMMARY
+          echo "### رابط التحميل المباشر" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "https://github.com/alawiteliberationinitiative-coder/ali-digital-gateway/releases/latest/download/ALI-Gateway.apk" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> أي تحديث على Replit يصل للمستخدمين فوراً بدون إعادة تثبيت الـ APK" >> $GITHUB_STEP_SUMMARY
