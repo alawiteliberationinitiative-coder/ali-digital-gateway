@@ -230,14 +230,11 @@ function ReportViewer({ article, onClose, onView }: {
                 <p className="font-arabic text-[11px] tracking-widest" style={{ color: GOLD + "70" }}>
                   — نهاية التقرير —
                 </p>
-                <p className="font-arabic font-bold text-[12px]" style={{ color: GOLD + "99" }}>
-                  نُشر عبر منصة ADAR
+                <p className="font-arabic font-bold text-[13px]" style={{ color: GOLD + "cc" }}>
+                  حقوق النشر محفوظة — ADAR —
                 </p>
-                <p className="font-mono text-[10px] tracking-wide" style={{ color: GOLD + "55" }}>
-                  ADAR Media Monitoring Center
-                </p>
-                <p className="font-mono text-[9px]" style={{ color: GOLD + "38" }}>
-                  Alawite Liberation Initiative — {new Date().getFullYear()}
+                <p className="font-mono text-[10px] tracking-wide" style={{ color: GOLD + "88" }}>
+                  Alawite Digital Archive &amp; Research
                 </p>
               </div>
             ) : (
