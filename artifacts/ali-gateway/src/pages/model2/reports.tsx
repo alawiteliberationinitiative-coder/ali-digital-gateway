@@ -683,11 +683,16 @@ function ArticleCard({ article, idx, likedByMe, onLikeToggle, onOpen }: {
       await apiFetch(`/api/articles/${article.id}/share`, { method: "POST" });
       setShareCount(c => c + 1);
       const shareText = article.body?.trim() ? article.body.slice(0, 150) + "..." : article.title;
+      // رابط عميق يفتح التطبيق مباشرةً داخل تيليغرام
+      const tgLink = "https://t.me/ALI_MDD_BOT/app";
       if (navigator.share) {
-        await navigator.share({ title: article.title, text: shareText }).catch(() => {});
+        await navigator.share({ title: article.title, text: shareText, url: tgLink }).catch(() => {});
       } else {
+        // fallback: مشاركة عبر Telegram Mini App API
         const tg = (window as any).Telegram?.WebApp;
-        tg?.showAlert?.(`📄 ${article.title}`);
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(tgLink)}&text=${encodeURIComponent(`📄 ${article.title}\n\n${shareText}`)}`;
+        if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
+        else if (tg?.openLink) tg.openLink(shareUrl);
       }
     } catch {}
     finally { setTimeout(() => setSharing(false), 1200); }

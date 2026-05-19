@@ -217,8 +217,12 @@ function QualityPanel({ current, autoQuality, onSelect, onClose, isBuffering }: 
 }
 
 // ── SharePanel ─────────────────────────────────────────────────────────────────
+const BOT_USERNAME  = "ALI_MDD_BOT";
+const APP_SHORT_NAME = "app";
+
 function buildShareText(article: Article): { text: string; url: string } {
-  const url  = window.location.origin;
+  // رابط عميق يفتح التطبيق مباشرةً داخل تيليغرام — لا يذهب لموقع ويب
+  const url  = `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`;
   const body = article.body.length > 160 ? article.body.slice(0, 160) + "…" : article.body;
   const text = `🌿 *${article.title}*\n\n${body}\n\n📲 انضم إلى بوابة ALI الرقمية — المنصة العلوية للتوثيق والمناصرة والبث الرقمي الحر`;
   return { text, url };

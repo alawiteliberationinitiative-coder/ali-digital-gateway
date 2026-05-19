@@ -4,6 +4,157 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Shield } from "lucide-react";
 import { setArticlesCache, type RawArticle } from "@/lib/prefetch-cache";
 
+const TG_BOT      = "ALI_MDD_BOT";
+const TG_APP      = "app";
+const TG_DEEP_LINK = `https://t.me/${TG_BOT}/${TG_APP}`;
+
+// ── صفحة الهبوط — تُعرض عند فتح التطبيق من المتصفح بدون سياق تيليغرام ──────
+function TelegramLandingPage() {
+  const [count, setCount] = useState(5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCount(c => {
+        if (c <= 1) {
+          clearInterval(interval);
+          window.location.href = TG_DEEP_LINK;
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden"
+      style={{ background: "linear-gradient(160deg, #001a10 0%, #002b1b 55%, #001208 100%)" }}
+      dir="rtl"
+    >
+      {/* خلفية نجمية */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 24 }, (_, i) => (
+          <div key={i}
+            className="absolute rounded-full"
+            style={{
+              width: i % 4 === 0 ? 3 : 2,
+              height: i % 4 === 0 ? 3 : 2,
+              top: `${Math.sin(i * 37.7) * 40 + 50}%`,
+              left: `${Math.cos(i * 47.3) * 45 + 50}%`,
+              background: "#d4af37",
+              opacity: 0.15 + (i % 5) * 0.06,
+            }} />
+        ))}
+      </div>
+
+      {/* الشعار */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col items-center mb-10"
+      >
+        <div
+          className="w-24 h-24 rounded-full flex items-center justify-center mb-5"
+          style={{
+            background: "radial-gradient(circle, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.04) 70%)",
+            border: "1.5px solid rgba(212,175,55,0.35)",
+            boxShadow: "0 0 40px rgba(212,175,55,0.15)",
+          }}
+        >
+          <span className="font-mono text-3xl font-bold" style={{ color: "#d4af37", letterSpacing: "0.05em" }}>
+            ALI
+          </span>
+        </div>
+        <h1 className="text-3xl font-serif mb-1" style={{ color: "#d4af37", letterSpacing: "0.25em" }}>
+          A.L.I.
+        </h1>
+        <p className="text-xs font-mono text-white/40 tracking-widest uppercase mb-1">
+          Alawite Liberation Initiative
+        </p>
+        <p className="text-xs font-arabic text-white/30">
+          بوابة التوثيق الرقمي الحر
+        </p>
+      </motion.div>
+
+      {/* الرسالة الرئيسية */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.8 }}
+        className="flex flex-col items-center gap-5 w-full max-w-xs px-6"
+      >
+        <p className="text-center font-arabic text-white/60 text-sm leading-relaxed">
+          هذا التطبيق يعمل داخل <span style={{ color: "#d4af37" }}>تيليغرام</span> فقط.
+          <br />سيتم فتحه تلقائياً خلال ثوانٍ...
+        </p>
+
+        {/* زر الفتح الرئيسي */}
+        <motion.a
+          href={TG_DEEP_LINK}
+          whileTap={{ scale: 0.96 }}
+          className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-arabic font-bold text-base text-black"
+          style={{
+            background: "linear-gradient(135deg, #d4af37 0%, #f0d060 50%, #b8962a 100%)",
+            boxShadow: "0 6px 32px rgba(212,175,55,0.35)",
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+          </svg>
+          افتح في تيليغرام
+        </motion.a>
+
+        {/* عداد تنازلي */}
+        <div className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold"
+            style={{ background: "rgba(212,175,55,0.12)", color: "#d4af37", border: "1px solid rgba(212,175,55,0.3)" }}
+          >
+            {count}
+          </div>
+          <span className="text-xs font-arabic text-white/30">سيفتح تيليغرام تلقائياً</span>
+        </div>
+
+        {/* فاصل */}
+        <div className="flex items-center gap-3 w-full mt-1">
+          <div className="flex-1 h-px" style={{ background: "rgba(212,175,55,0.12)" }} />
+          <span className="text-xs text-white/20 font-arabic">أو</span>
+          <div className="flex-1 h-px" style={{ background: "rgba(212,175,55,0.12)" }} />
+        </div>
+
+        {/* تعليمات إضافة للشاشة الرئيسية */}
+        <div
+          className="w-full rounded-2xl p-4"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(212,175,55,0.1)" }}
+        >
+          <p className="font-arabic text-center text-white/50 text-xs mb-3">
+            إضافة اختصار التطبيق للشاشة الرئيسية
+          </p>
+          <div className="space-y-2">
+            {[
+              { icon: "🍎", label: "iOS Safari", steps: "اضغط على زر المشاركة ↑ ← «إضافة إلى الشاشة الرئيسية»" },
+              { icon: "🤖", label: "Android Chrome", steps: "اضغط القائمة ⋮ ← «إضافة إلى الشاشة الرئيسية»" },
+            ].map(({ icon, label, steps }) => (
+              <div key={label} className="flex items-start gap-2">
+                <span className="text-base mt-0.5 flex-shrink-0">{icon}</span>
+                <div>
+                  <span className="text-xs font-mono text-white/40 block">{label}</span>
+                  <span className="text-[11px] font-arabic text-white/30 leading-relaxed">{steps}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="font-arabic text-center text-white/30 text-[10px] mt-3 leading-relaxed">
+            عند الفتح من الشاشة الرئيسية سينقلك مباشرةً إلى التطبيق داخل تيليغرام
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Human Verification ────────────────────────────────────────────────────────
 type Op = "+" | "−" | "×";
 
@@ -194,6 +345,7 @@ export default function Splash() {
   const [verified, setVerified] = useState<boolean>(
     () => localStorage.getItem(humanCheckKey) === "1"
   );
+  const [showLanding, setShowLanding] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("جاري تهيئة البوابة الآمنة...");
 
   const initCalled = useRef(false);
@@ -229,10 +381,17 @@ export default function Splash() {
 
     console.log("[ALI] Splash init — telegramId:", telegramId, "| initData:", !!initData);
 
-    // بيئة التطوير أو حالة عدم توفر initData → توجيه مباشر للـ Dashboard
+    // لا سياق Telegram:
+    //   في بيئة التطوير → dashboard مباشرةً (للاختبار)
+    //   في الإنتاج → صفحة هبوط تُعيد التوجيه لـ t.me
     if (!initData && !telegramId) {
-      console.log("[ALI] No Telegram context → /dashboard (dev mode)");
-      setTimeout(() => go("/dashboard"), 500);
+      if (import.meta.env.DEV) {
+        console.log("[ALI] No Telegram context → /dashboard (dev mode)");
+        setTimeout(() => go("/dashboard"), 500);
+      } else {
+        console.log("[ALI] No Telegram context in production → showing landing page");
+        setShowLanding(true);
+      }
       return;
     }
 
@@ -318,6 +477,9 @@ export default function Splash() {
     localStorage.setItem(humanCheckKey, "1");
     setVerified(true);
   }
+
+  // عرض صفحة الهبوط عند الفتح من المتصفح خارج تيليغرام (إنتاج فقط)
+  if (showLanding) return <TelegramLandingPage />;
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
