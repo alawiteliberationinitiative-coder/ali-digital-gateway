@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, CheckCircle, Play, Clock, XCircle, Download, X } from "lucide-react";
@@ -6,63 +6,52 @@ import { useTelegram } from "../../lib/telegram";
 import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 import aliEmblem from "@assets/1778653138813_1779158145086.png";
 
-// ── زر إضافة التطبيق للشاشة الرئيسية (PWA) ────────────────────────────────────
+// ── زر إضافة التطبيق للشاشة الرئيسية (Mini App shortcut) ──────────────────────
+//
+// الهدف: إضافة اختصار يفتح المني آب مباشرةً داخل Telegram (مثل رابط الدعوة تماماً)
+// وليس PWA مستقلاً يفتح الرابط في المتصفح بلا سياق Telegram.
+//
+// الأولوية:
+//   1. WebApp.addToHomeScreen()  — Telegram ≥ 7.10  (يضيف المني آب للشاشة مباشرةً)
+//   2. WebApp.openTelegramLink() — يفتح t.me/ALI_MDD_BOT/app داخل Telegram
+//   3. احتياطي: window.open()   — للمتصفح العادي (نادراً)
+//
+const MINI_APP_LINK = "https://t.me/ALI_MDD_BOT/app";
+
 function PwaInstallBanner() {
-  type Prompt = { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
-  const [prompt, setPrompt]           = useState<Prompt | null>(null);
-  const [showIosTip, setShowIosTip]   = useState(false);
-  const [installed,  setInstalled]    = useState(false);
-  const [dismissed,  setDismissed]    = useState(
+  const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem("ali_pwa_dismissed") === "1"
   );
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [done, setDone] = useState(false);
 
-  useEffect(() => {
-    // قراءة الحدث المحفوظ مسبقاً في main.tsx
-    const stored = (window as Window & { __pwaPrompt?: Prompt }).__pwaPrompt;
-    if (stored) setPrompt(stored);
-
-    // استمع أيضاً في حال وصل متأخراً
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setPrompt(e as unknown as Prompt);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  // اكتمل التثبيت
-  useEffect(() => {
-    const handler = () => setInstalled(true);
-    window.addEventListener("appinstalled", handler);
-    return () => window.removeEventListener("appinstalled", handler);
-  }, []);
-
-  const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
   const isStandalone = window.matchMedia("(display-mode: standalone)").matches
                     || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-  // لا نعرضه إذا مثبّت بالفعل أو تم تجاهله أو مفتوح كـ standalone
-  if (installed || dismissed || isStandalone) return null;
+  if (dismissed || done || isStandalone) return null;
 
-  async function handleClick() {
-    if (prompt) {
-      await prompt.prompt();
-      const choice = await prompt.userChoice;
-      if (choice.outcome === "accepted") setInstalled(true);
+  function handleClick() {
+    const tg = window.Telegram?.WebApp as (typeof window.Telegram.WebApp & {
+      addToHomeScreen?: () => void;
+      openTelegramLink?: (url: string) => void;
+    }) | undefined;
+
+    // الأولوية 1: Telegram native shortcut (Mini App → شاشة الهاتف)
+    if (tg?.addToHomeScreen) {
+      tg.addToHomeScreen();
+      setDone(true);
       return;
     }
-    if (isIOS) {
-      setShowIosTip(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setShowIosTip(false), 8_000);
+
+    // الأولوية 2: فتح رابط t.me/ALI_MDD_BOT/app داخل Telegram
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(MINI_APP_LINK);
+      setDone(true);
       return;
     }
-    // متصفح لا يدعم الحدث — افتح في متصفح خارجي
-    window.open("https://t.me/ALI_MDD_BOT/app", "_blank");
+
+    // الأولوية 3: احتياطي للمتصفح العادي
+    window.open(MINI_APP_LINK, "_blank");
+    setDone(true);
   }
 
   function dismiss(e: React.MouseEvent) {
@@ -120,26 +109,6 @@ function PwaInstallBanner() {
           <X size={12} color="rgba(255,255,255,0.55)" />
         </button>
       </motion.button>
-
-      {/* تلميح iOS */}
-      <AnimatePresence>
-        {showIosTip && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="mt-2 rounded-xl px-4 py-3"
-            style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}
-          >
-            <p className="font-arabic text-xs text-white/80 leading-relaxed text-center">
-              في Safari: اضغط على زر المشاركة{" "}
-              <span style={{ color: "#d4af37" }}>↑</span>
-              {" "}ثم اختر{" "}
-              <span style={{ color: "#d4af37" }}>«إضافة إلى الشاشة الرئيسية»</span>
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
