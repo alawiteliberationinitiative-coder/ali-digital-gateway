@@ -938,8 +938,8 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1">
                 <FileText size={12} color={PURPLE + "80"} />
-                <p className="font-arabic text-white/30 text-xs font-bold tracking-wider">
-                  تقارير ودراسات يشاركها أعضاء المجتمع
+                <p className="font-arabic text-white/30 text-xs leading-relaxed">
+                  آراء ومنشورات من المجتمع العلوي حول كل القضايا المتعلقة بالقضية العلوية
                 </p>
               </div>
               {loading && (
