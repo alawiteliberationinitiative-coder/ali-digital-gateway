@@ -1,3 +1,4 @@
+// v2 — deep link auto-login via @capacitor/app
 import { lazy, Suspense, ReactNode, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
