@@ -45,6 +45,9 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       # ── 3. Capacitor sync — generates cordova.variables.gradle + native files ─
+      - name: Create required Android assets directory
+        run: mkdir -p artifacts/ali-gateway/android/app/src/main/assets
+
       - name: Capacitor sync (generates Android native files)
         working-directory: artifacts/ali-gateway
         run: pnpm exec cap sync android
