@@ -39,10 +39,7 @@ jobs:
           node-version: '22'
 
       - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Approve esbuild build scripts (pnpm v10 requirement)
-        run: echo "approve-builds[]=esbuild" >> .npmrc
+        run: npm install -g pnpm@9
 
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
