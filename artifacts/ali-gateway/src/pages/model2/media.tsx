@@ -372,7 +372,8 @@ function ComposeSheet({ onClose, onPublished }: { onClose: () => void; onPublish
     try {
       const r = await apiFetch("/api/articles", {
         method: "POST",
-        body: JSON.stringify({ title: title.trim(), body: body.trim(), mediaUrl: mediaUrl.trim() || undefined }),
+        // kind:"media" يُميّز هذا المنشور عن تقارير ADAR — يمنع ظهوره في واجهة التقارير
+        body: JSON.stringify({ title: title.trim(), body: body.trim(), mediaUrl: mediaUrl.trim() || undefined, kind: "media" }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({})) as { error?: string };

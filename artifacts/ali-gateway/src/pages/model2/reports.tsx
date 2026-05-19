@@ -12,6 +12,14 @@ const BLUE   = "#60a5fa";
 const PURPLE = "#a78bfa";
 const ADMIN_IDS = ["6213952907"];
 
+// ── فلتر الوسائط: يستثني روابط الفيديو/الصورة من التقارير ──────────────────
+// التقارير تُعرض نصوص + PDF فقط — محتوى الريلزات والوسائط لا ينتمي لهذه الواجهة
+const MEDIA_URL_RE = /\.(mp4|webm|mov|avi|mkv|m4v|ogv|jpg|jpeg|png|gif|webp|svg|bmp|avif)(\?|$)/i;
+function isMediaUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return MEDIA_URL_RE.test(url);
+}
+
 /* ── Types ── */
 interface Article {
   id: number;
@@ -855,8 +863,9 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
   }, []);
 
   const q = query.toLowerCase();
-  const adarArticles      = articles.filter(a => a.isAdar);
-  const communityArticles = articles.filter(a => !a.isAdar);
+  // استثناء محتوى الريلزات (فيديو/صور) — التقارير للنصوص والـ PDF فقط
+  const adarArticles      = articles.filter(a =>  a.isAdar && !isMediaUrl(a.mediaUrl));
+  const communityArticles = articles.filter(a => !a.isAdar && !isMediaUrl(a.mediaUrl));
   const filteredAdar      = adarArticles.filter(a => a.title.toLowerCase().includes(q) || (a.body ?? "").toLowerCase().includes(q));
   const filteredCommunity = communityArticles.filter(a => a.title.toLowerCase().includes(q) || (a.body ?? "").toLowerCase().includes(q));
 
