@@ -432,7 +432,7 @@ export default function Splash() {
                 telegramUsername: telegramUser?.username   ?? null,
                 firstName:        telegramUser?.first_name ?? null,
                 lastName:         telegramUser?.last_name  ?? null,
-                referredBy:       isNavLink ? null : startParam,
+                referredBy:       isNavLink ? null : (startParam?.startsWith("invite_") ? startParam.slice(7) : startParam),
               }),
             },
             3,

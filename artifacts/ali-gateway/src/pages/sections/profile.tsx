@@ -1673,7 +1673,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const referralCode  = userData.aliId;
   const BOT_USERNAME  = "ALI_MDD_BOT";
   const APP_NAME      = "app";
-  const botDeepLink   = `https://t.me/${BOT_USERNAME}/${APP_NAME}?startapp=${referralCode}`;
+  const botDeepLink   = `https://t.me/${BOT_USERNAME}/${APP_NAME}?startapp=invite_${referralCode}`;
   const referralLink  = `https://t.me/share/url?url=${encodeURIComponent(botDeepLink)}&text=${encodeURIComponent(`🔰 A.L.I — مبادرة التحرير العلوي\nانضم إليّ مباشرةً في التطبيق وابدأ رحلتك!`)}`;
 
   function openInviteLink() {
