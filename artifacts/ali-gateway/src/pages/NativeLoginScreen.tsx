@@ -1,313 +1,680 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Smartphone, Send, CheckCircle, AlertCircle, ArrowLeft, RefreshCw } from "lucide-react";
+import {
+  Shield, Smartphone, CheckCircle, AlertCircle, ArrowLeft,
+  RefreshCw, User, Hash, KeyRound, UserPlus, Send,
+} from "lucide-react";
 import { useTelegram } from "@/lib/telegram";
 import { apiFetch } from "@/lib/api";
 
-const GOLD   = "#d4af37";
-const GREEN  = "#22c55e";
-const BG     = "#0b0b14";
-const CARD   = "#13121f";
+const GOLD  = "#d4af37";
+const GREEN = "#22c55e";
+const BG    = "#0b0b14";
+const CARD  = "#13121f";
 
-type Phase = "instructions" | "enter-code" | "verifying" | "success" | "error";
+/* ─────────────────── Types ─────────────────── */
+
+type Flow =
+  | "welcome"           // initial choice screen
+  | "bot-instructions"  // how to get code from Telegram bot
+  | "enter-code"        // enter 8-char one-time code
+  | "login-aliid"       // enter aliId + pseudonym
+  | "register"          // choose pseudonym
+  | "register-captcha"  // solve math CAPTCHA
+  | "verifying"
+  | "success"
+  | "error";
+
+/* ─────────────────── Shared atoms ─────────────────── */
+
+const fadeUp = {
+  initial:  { opacity: 0, y: 18 },
+  animate:  { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  exit:     { opacity: 0, y: -12, transition: { duration: 0.2 } },
+};
+
+function GoldButton({ children, onClick, disabled }: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        background: disabled
+          ? "rgba(212,175,55,.25)"
+          : "linear-gradient(135deg,#d4af37,#b8962e)",
+        color: disabled ? "rgba(11,11,20,.5)" : BG,
+        border: "none",
+        borderRadius: 16,
+        padding: "16px 0",
+        fontSize: 15,
+        fontWeight: 800,
+        width: "100%",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "opacity .15s",
+        letterSpacing: ".02em",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function GhostButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: "rgba(255,255,255,.05)",
+        color: "rgba(255,255,255,.55)",
+        border: "1px solid rgba(255,255,255,.12)",
+        borderRadius: 16,
+        padding: "14px 0",
+        fontSize: 14,
+        fontWeight: 600,
+        width: "100%",
+        cursor: "pointer",
+        transition: "opacity .15s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Field({
+  label, value, onChange, placeholder, mono, maxLength, dir,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  mono?: boolean;
+  maxLength?: number;
+  dir?: "ltr" | "rtl";
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 6, textAlign: "right" }}>
+        {label}
+      </p>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        dir={dir ?? "rtl"}
+        style={{
+          width: "100%",
+          background: "rgba(255,255,255,.06)",
+          border: "1.5px solid rgba(255,255,255,.12)",
+          borderRadius: 12,
+          padding: "13px 14px",
+          color: "#fff",
+          fontSize: mono ? 17 : 15,
+          fontFamily: mono ? "monospace" : "inherit",
+          letterSpacing: mono ? ".05em" : "normal",
+          outline: "none",
+          textAlign: dir === "ltr" ? "left" : "right",
+        }}
+      />
+    </div>
+  );
+}
+
+function BackBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: "none", border: "none", cursor: "pointer",
+        color: "rgba(255,255,255,.4)", display: "flex", alignItems: "center",
+        gap: 4, fontSize: 13, padding: "4px 0", marginBottom: 20,
+      }}
+    >
+      <ArrowLeft size={14} /> رجوع
+    </button>
+  );
+}
+
+/* ─────────────────── Main Component ─────────────────── */
 
 export default function NativeLoginScreen() {
   const { loginNative } = useTelegram();
-  const [phase,    setPhase]    = useState<Phase>("instructions");
-  const [code,     setCode]     = useState("");
-  const [errMsg,   setErrMsg]   = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [flow,      setFlow]      = useState<Flow>("welcome");
+  const [errMsg,    setErrMsg]    = useState("");
+
+  /* Code flow */
+  const [code, setCode] = useState("");
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  /* Login-by-aliid flow */
+  const [aliId,     setAliId]     = useState("");
+  const [pseudonym, setPseudonym] = useState("");
+
+  /* Register flow */
+  const [regPseudo,   setRegPseudo]   = useState("");
+  const [captchaQ,    setCaptchaQ]    = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAns,  setCaptchaAns]  = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
 
   useEffect(() => {
-    if (phase === "enter-code") {
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
-  }, [phase]);
+    if (flow === "enter-code") setTimeout(() => codeRef.current?.focus(), 300);
+  }, [flow]);
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-    setCode(val);
-  };
+  /* ── helpers ────────────────────────────────────────────────────────── */
 
-  const handleVerify = async () => {
+  const reset = useCallback((target: Flow) => {
+    setErrMsg("");
+    setFlow(target);
+  }, []);
+
+  const doLogin = useCallback(async (token: string, telegramId: string) => {
+    setFlow("success");
+    setTimeout(() => loginNative(token, telegramId), 800);
+  }, [loginNative]);
+
+  /* ── Code verify ─────────────────────────────────────────────────────── */
+
+  const handleVerifyCode = async () => {
     if (code.length < 4) return;
-    setPhase("verifying");
+    setFlow("verifying");
     setErrMsg("");
     try {
-      const res = await apiFetch("/api/auth/verify-code", {
+      const res  = await apiFetch("/api/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
       const data = await res.json() as { token?: string; telegramId?: string; error?: string };
-      if (!res.ok || !data.token || !data.telegramId) {
-        throw new Error(data.error ?? "رمز غير صالح");
-      }
-      setPhase("success");
-      setTimeout(() => loginNative(data.token!, data.telegramId!), 800);
+      if (!res.ok || !data.token || !data.telegramId) throw new Error(data.error ?? "رمز غير صالح");
+      await doLogin(data.token, data.telegramId);
     } catch (e: unknown) {
       setErrMsg(e instanceof Error ? e.message : "فشل التحقق — حاول مجدداً");
-      setPhase("error");
+      setFlow("error");
     }
   };
 
-  const handleRetry = () => {
-    setCode("");
+  /* ── Login by aliId ─────────────────────────────────────────────────── */
+
+  const handleLoginByAliId = async () => {
+    if (!aliId.trim() || !pseudonym.trim()) return;
+    setFlow("verifying");
     setErrMsg("");
-    setPhase("enter-code");
+    try {
+      const res  = await apiFetch("/api/auth/login-by-aliid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aliId: aliId.trim().toUpperCase(), pseudonym: pseudonym.trim() }),
+      });
+      const data = await res.json() as { token?: string; telegramId?: string; error?: string };
+      if (!res.ok || !data.token || !data.telegramId) throw new Error(data.error ?? "فشل تسجيل الدخول");
+      await doLogin(data.token, data.telegramId);
+    } catch (e: unknown) {
+      setErrMsg(e instanceof Error ? e.message : "فشل تسجيل الدخول — حاول مجدداً");
+      setFlow("error");
+    }
   };
 
+  /* ── Fetch CAPTCHA ───────────────────────────────────────────────────── */
+
+  const fetchCaptcha = useCallback(async () => {
+    setCaptchaLoading(true);
+    setCaptchaAns("");
+    try {
+      const res  = await apiFetch("/api/auth/captcha");
+      const data = await res.json() as { token?: string; question?: string; error?: string };
+      if (!res.ok || !data.token || !data.question) throw new Error(data.error ?? "فشل تحميل التحقق");
+      setCaptchaQ(data.question);
+      setCaptchaToken(data.token);
+    } catch {
+      setCaptchaQ("؟");
+      setCaptchaToken("");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  }, []);
+
+  /* ── Navigate to CAPTCHA step ────────────────────────────────────────── */
+
+  const handleGoToCaptcha = async () => {
+    if (regPseudo.trim().length < 3) return;
+    await fetchCaptcha();
+    setFlow("register-captcha");
+  };
+
+  /* ── Register native ─────────────────────────────────────────────────── */
+
+  const handleRegister = async () => {
+    if (!captchaAns.trim() || !captchaToken) return;
+    setFlow("verifying");
+    setErrMsg("");
+    try {
+      const res  = await apiFetch("/api/auth/register-native", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pseudonym:     regPseudo.trim(),
+          captchaToken,
+          captchaAnswer: Number(captchaAns.trim()),
+        }),
+      });
+      const data = await res.json() as { token?: string; telegramId?: string; aliId?: string; error?: string };
+      if (!res.ok || !data.token || !data.telegramId) throw new Error(data.error ?? "فشل التسجيل");
+      await doLogin(data.token, data.telegramId);
+    } catch (e: unknown) {
+      setErrMsg(e instanceof Error ? e.message : "فشل التسجيل — حاول مجدداً");
+      setFlow("error");
+    }
+  };
+
+  /* ── Open bot deep link ──────────────────────────────────────────────── */
+
+  const openBot = () => {
+    window.open("https://t.me/ALI_MDD_BOT?start=login", "_blank");
+  };
+
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* RENDER                                                                  */
+  /* ─────────────────────────────────────────────────────────────────────── */
+
   return (
-    <div
-      className="fixed inset-0 flex flex-col items-center justify-center px-5"
-      style={{ background: BG }}>
+    <div style={{
+      minHeight: "100vh", background: BG, display: "flex",
+      flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: "24px 20px", direction: "rtl",
+    }}>
+      {/* Logo */}
+      <motion.div
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1,   opacity: 1, transition: { duration: 0.5, type: "spring" } }}
+        style={{ marginBottom: 28 }}
+      >
+        <img
+          src="/icon-ali.png"
+          alt="ALI.MDD"
+          style={{ width: 76, height: 76, borderRadius: 20, objectFit: "cover" }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      </motion.div>
 
-      {/* ── Background glow ── */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse 60% 40% at 50% 30%, ${GOLD}08 0%, transparent 70%)`,
-        }} />
+      {/* Card */}
+      <div style={{
+        width: "100%", maxWidth: 380, background: CARD,
+        borderRadius: 24, padding: "28px 24px",
+        border: "1px solid rgba(255,255,255,.07)",
+        boxShadow: "0 24px 80px rgba(0,0,0,.55)",
+      }}>
+        <AnimatePresence mode="wait">
 
-      <AnimatePresence mode="wait">
-
-        {/* ── Instructions screen ── */}
-        {phase === "instructions" && (
-          <motion.div
-            key="instructions"
-            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full max-w-sm text-center"
-            dir="rtl">
-
-            {/* Icon */}
-            <div className="flex items-center justify-center mb-8">
-              <div className="relative">
-                <div
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center"
-                  style={{ background: `${GOLD}12`, border: `2px solid ${GOLD}30` }}>
-                  <Shield size={36} color={GOLD} />
-                </div>
-                <div
-                  className="absolute -bottom-2 -left-2 w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: "#1f2937", border: `1.5px solid ${GOLD}25` }}>
-                  <Smartphone size={16} color={GOLD + "cc"} />
-                </div>
-              </div>
-            </div>
-
-            {/* Title */}
-            <h1 className="font-arabic font-black text-white/90 mb-2" style={{ fontSize: 22 }}>
-              مرحباً بك في A.L.I
-            </h1>
-            <p className="font-arabic text-white/40 text-sm mb-8 leading-relaxed">
-              بوابة التحرير العلوي الرقمية
-            </p>
-
-            {/* Steps */}
-            <div
-              className="rounded-2xl p-5 mb-7 text-right space-y-4"
-              style={{ background: `${GOLD}07`, border: `1px solid ${GOLD}18` }}>
-              <p className="font-arabic text-white/55 text-xs font-bold tracking-wide mb-3">
-                خطوات الدخول
+          {/* ═══════════════════════ WELCOME ═══════════════════════ */}
+          {flow === "welcome" && (
+            <motion.div key="welcome" {...fadeUp}>
+              <h1 style={{ fontSize: 20, fontWeight: 900, color: GOLD, marginBottom: 6, textAlign: "center" }}>
+                بوابة ALI.MDD
+              </h1>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", textAlign: "center", marginBottom: 28, lineHeight: 1.7 }}>
+                اختر طريقة الدخول
               </p>
 
-              {[
-                { n: "١", text: "افتح تطبيق Telegram" },
-                { n: "٢", text: "أرسل الأمر  /login  إلى بوت  @ALI_MDD_BOT" },
-                { n: "٣", text: "انسخ الرمز المكوّن من 8 أحرف" },
-                { n: "٤", text: "أدخله في الشاشة التالية" },
-              ].map(s => (
-                <div key={s.n} className="flex items-center gap-3">
-                  <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-[11px]"
-                    style={{ background: `${GOLD}18`, color: GOLD }}>
-                    {s.n}
-                  </span>
-                  <span className="font-arabic text-white/70 text-sm">{s.text}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Bot mention */}
-            <div
-              className="flex items-center justify-center gap-2 mb-7 px-4 py-2.5 rounded-2xl mx-auto w-fit"
-              style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.2)" }}>
-              <Send size={13} color="#60a5fa" />
-              <span className="font-mono text-[13px] font-bold" style={{ color: "#60a5fa" }}>
-                @ALI_MDD_BOT
-              </span>
-              <span className="font-mono text-[13px]" style={{ color: "rgba(96,165,250,0.6)" }}>
-                /login
-              </span>
-            </div>
-
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setPhase("enter-code")}
-              className="w-full py-4 rounded-2xl font-arabic text-sm font-black transition-all"
-              style={{
-                background: `${GOLD}18`,
-                border: `1.5px solid ${GOLD}45`,
-                color: GOLD,
-              }}>
-              حصلت على الرمز — أدخله الآن
-            </motion.button>
-
-            <p className="font-arabic text-white/20 text-[11px] mt-5 leading-relaxed">
-              الرمز صالح لمدة 10 دقائق فقط
-            </p>
-          </motion.div>
-        )}
-
-        {/* ── Enter code screen ── */}
-        {(phase === "enter-code" || phase === "verifying" || phase === "error") && (
-          <motion.div
-            key="enter-code"
-            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full max-w-sm"
-            dir="rtl">
-
-            {/* Back */}
-            <button
-              onClick={() => { setCode(""); setErrMsg(""); setPhase("instructions"); }}
-              className="flex items-center gap-1.5 mb-8 text-white/30 hover:text-white/60 transition-colors">
-              <ArrowLeft size={14} />
-              <span className="font-arabic text-xs">رجوع</span>
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: `${GOLD}12`, border: `1.5px solid ${GOLD}28` }}>
-                <Shield size={28} color={GOLD} />
-              </div>
-              <h2 className="font-arabic font-black text-white/85 text-lg mb-1">أدخل رمز الدخول</h2>
-              <p className="font-arabic text-white/35 text-xs">
-                الرمز المكوّن من 8 أحرف الذي أرسله البوت
-              </p>
-            </div>
-
-            {/* Code input */}
-            <div className="mb-5">
-              <input
-                ref={inputRef}
-                type="text"
-                value={code}
-                onChange={handleCodeChange}
-                onKeyDown={e => { if (e.key === "Enter" && code.length >= 4) handleVerify(); }}
-                disabled={phase === "verifying"}
-                placeholder="ABCD1234"
-                maxLength={8}
-                className="w-full text-center rounded-2xl py-4 font-mono font-black text-2xl tracking-[0.35em] outline-none transition-all"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: `2px solid ${
-                    phase === "error"
-                      ? "rgba(239,68,68,0.45)"
-                      : code.length === 8
-                      ? GOLD + "55"
-                      : "rgba(255,255,255,0.1)"
-                  }`,
-                  color: phase === "error" ? "#ef4444" : code.length === 8 ? GOLD : "rgba(255,255,255,0.8)",
-                  letterSpacing: "0.35em",
-                }}
-                dir="ltr"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="characters"
+              {/* Option 1: via Telegram bot */}
+              <OptionCard
+                icon={<Send size={20} color={GOLD} />}
+                title="عبر بوت تيليغرام"
+                desc="احصل على رمز دخول تلقائي من البوت"
+                onClick={() => reset("bot-instructions")}
               />
-              {/* Progress dots */}
-              <div className="flex items-center justify-center gap-1.5 mt-3">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full transition-all"
-                    style={{
-                      background: i < code.length
-                        ? (phase === "error" ? "#ef4444" : GOLD)
-                        : "rgba(255,255,255,0.12)",
-                      transform: i < code.length ? "scale(1.2)" : "scale(1)",
-                    }} />
-                ))}
+
+              {/* Option 2: existing member */}
+              <OptionCard
+                icon={<Hash size={20} color={GOLD} />}
+                title="لدي رقم عضوية"
+                desc="ادخل رقم عضويتك واسمك المستعار"
+                onClick={() => reset("login-aliid")}
+              />
+
+              {/* Option 3: new user */}
+              <OptionCard
+                icon={<UserPlus size={20} color={GOLD} />}
+                title="مستخدم جديد"
+                desc="سجّل حساباً جديداً بدون تيليغرام"
+                onClick={() => reset("register")}
+              />
+            </motion.div>
+          )}
+
+          {/* ═════════════════ BOT INSTRUCTIONS ════════════════════ */}
+          {flow === "bot-instructions" && (
+            <motion.div key="bot-instructions" {...fadeUp}>
+              <BackBtn onClick={() => reset("welcome")} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <Send size={22} color={GOLD} />
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>الدخول عبر تيليغرام</h2>
               </div>
-            </div>
+              <StepList steps={[
+                "افتح بوت @ALI_MDD_BOT في تيليغرام",
+                "اضغط على «📱 تحميل تطبيق الأندرويد»",
+                "سيصلك رمز دخول مكون من 8 أحرف",
+                "اضغط «دخول بالرمز» وأدخله أدناه",
+              ]} />
+              <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                <GoldButton onClick={openBot}>فتح @ALI_MDD_BOT</GoldButton>
+                <GhostButton onClick={() => reset("enter-code")}>دخول بالرمز ←</GhostButton>
+              </div>
+            </motion.div>
+          )}
 
-            {/* Error message */}
-            {phase === "error" && errMsg && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 mb-4 px-4 py-3 rounded-2xl"
-                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <AlertCircle size={15} color="#ef4444" />
-                <p className="font-arabic text-sm text-red-400 flex-1">{errMsg}</p>
-              </motion.div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex gap-3">
-              {phase === "error" && (
-                <button
-                  onClick={handleRetry}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-2xl transition-all active:scale-95"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <RefreshCw size={15} color="rgba(255,255,255,0.45)" />
-                </button>
-              )}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleVerify}
-                disabled={code.length < 4 || phase === "verifying"}
-                className="flex-1 py-3.5 rounded-2xl font-arabic text-sm font-black transition-all"
+          {/* ═══════════════════ ENTER CODE ══════════════════════ */}
+          {flow === "enter-code" && (
+            <motion.div key="enter-code" {...fadeUp}>
+              <BackBtn onClick={() => reset("bot-instructions")} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <Smartphone size={22} color={GOLD} />
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>أدخل رمز الدخول</h2>
+              </div>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", marginBottom: 20, lineHeight: 1.7 }}>
+                الرمز مكون من 8 أحرف أرسله البوت إليك
+              </p>
+              <input
+                ref={codeRef}
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                placeholder="XXXXXXXX"
+                dir="ltr"
                 style={{
-                  background: code.length >= 4 ? `${GOLD}18` : "rgba(255,255,255,0.04)",
-                  border: `1.5px solid ${code.length >= 4 ? GOLD + "45" : "rgba(255,255,255,0.07)"}`,
-                  color: code.length >= 4 ? GOLD : "rgba(255,255,255,0.2)",
-                }}>
-                {phase === "verifying" ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 rounded-full animate-spin inline-block"
-                      style={{ borderColor: `${GOLD}30`, borderTopColor: GOLD }} />
-                    جاري التحقق...
-                  </span>
-                ) : "دخول"}
-              </motion.button>
-            </div>
+                  width: "100%", background: "rgba(255,255,255,.06)",
+                  border: `1.5px solid ${code.length === 8 ? GOLD : "rgba(255,255,255,.12)"}`,
+                  borderRadius: 14, padding: "16px 14px",
+                  color: GOLD, fontSize: 24, fontWeight: 900,
+                  fontFamily: "monospace", letterSpacing: ".22em",
+                  textAlign: "center", outline: "none", marginBottom: 20,
+                }}
+              />
+              <GoldButton onClick={handleVerifyCode} disabled={code.length < 4}>
+                تحقق من الرمز
+              </GoldButton>
+            </motion.div>
+          )}
 
-            <button
-              onClick={() => { setCode(""); setErrMsg(""); setPhase("instructions"); }}
-              className="w-full mt-4 font-arabic text-white/25 text-xs text-center py-2 hover:text-white/45 transition-colors">
-              أحتاج مساعدة — العودة للتعليمات
-            </button>
-          </motion.div>
-        )}
+          {/* ═════════════════ LOGIN BY ALI-ID ══════════════════════ */}
+          {flow === "login-aliid" && (
+            <motion.div key="login-aliid" {...fadeUp}>
+              <BackBtn onClick={() => reset("welcome")} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <Hash size={22} color={GOLD} />
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>الدخول برقم العضوية</h2>
+              </div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 20, lineHeight: 1.7 }}>
+                أدخل رقم عضويتك واسمك المستعار كما هو مسجّل في البوابة
+              </p>
 
-        {/* ── Success screen ── */}
-        {phase === "success" && (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", damping: 20, stiffness: 280 }}
-            className="w-full max-w-sm text-center"
-            dir="rtl">
-            <div
-              className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6"
-              style={{ background: `${GREEN}10`, border: `2px solid ${GREEN}30` }}>
-              <CheckCircle size={40} color={GREEN} />
-            </div>
-            <h2 className="font-arabic font-black text-white/90 text-xl mb-2">تم التحقق بنجاح</h2>
-            <p className="font-arabic text-white/40 text-sm">جاري فتح البوابة...</p>
-          </motion.div>
-        )}
+              <Field
+                label="رقم العضوية"
+                value={aliId}
+                onChange={(v) => setAliId(v.toUpperCase().replace(/[^A-Z0-9\-]/g, "").slice(0, 13))}
+                placeholder="ALI-2026-XXXX"
+                mono
+                dir="ltr"
+                maxLength={13}
+              />
+              <Field
+                label="الاسم المستعار"
+                value={pseudonym}
+                onChange={setPseudonym}
+                placeholder="مثال: Nexus-1234"
+                maxLength={30}
+              />
 
-      </AnimatePresence>
+              <div style={{ marginTop: 8 }}>
+                <GoldButton
+                  onClick={handleLoginByAliId}
+                  disabled={aliId.trim().length < 11 || pseudonym.trim().length < 3}
+                >
+                  تسجيل الدخول
+                </GoldButton>
+              </div>
+
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,.2)", textAlign: "center", marginTop: 16, lineHeight: 1.7 }}>
+                رقم العضوية يبدأ بـ ALI-2026- متبوعاً بأربعة أحرف/أرقام
+              </p>
+            </motion.div>
+          )}
+
+          {/* ══════════════════ REGISTER — PICK PSEUDONYM ═══════════ */}
+          {flow === "register" && (
+            <motion.div key="register" {...fadeUp}>
+              <BackBtn onClick={() => reset("welcome")} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <UserPlus size={22} color={GOLD} />
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>إنشاء حساب جديد</h2>
+              </div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 20, lineHeight: 1.7 }}>
+                اختر اسماً مستعاراً فريداً (3–30 حرفاً).<br />
+                سيُولَّد رقم عضويتك تلقائياً.
+              </p>
+
+              <Field
+                label="الاسم المستعار"
+                value={regPseudo}
+                onChange={setRegPseudo}
+                placeholder="مثال: Cipher-7749"
+                maxLength={30}
+              />
+
+              <div style={{
+                background: "rgba(212,175,55,.07)", borderRadius: 12,
+                padding: "12px 14px", marginBottom: 20,
+                border: "1px solid rgba(212,175,55,.15)",
+              }}>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,.5)", lineHeight: 1.7 }}>
+                  يُسمح بالحروف العربية والإنجليزية والأرقام والشرطة والمسافة فقط.
+                </p>
+              </div>
+
+              <GoldButton
+                onClick={handleGoToCaptcha}
+                disabled={regPseudo.trim().length < 3}
+              >
+                التالي — التحقق من الهوية
+              </GoldButton>
+            </motion.div>
+          )}
+
+          {/* ══════════════════ REGISTER — CAPTCHA ══════════════════ */}
+          {flow === "register-captcha" && (
+            <motion.div key="register-captcha" {...fadeUp}>
+              <BackBtn onClick={() => reset("register")} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <Shield size={22} color={GOLD} />
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>التحقق من الهوية</h2>
+              </div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 20, lineHeight: 1.7 }}>
+                حل السؤال التالي لإثبات أنك لست روبوتاً
+              </p>
+
+              {/* CAPTCHA question box */}
+              <div style={{
+                background: "rgba(212,175,55,.08)", border: "1.5px solid rgba(212,175,55,.25)",
+                borderRadius: 16, padding: "22px 0", textAlign: "center", marginBottom: 20,
+              }}>
+                {captchaLoading ? (
+                  <p style={{ color: "rgba(255,255,255,.3)", fontSize: 14 }}>جارٍ التحميل...</p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", marginBottom: 8 }}>
+                      ما هو ناتج
+                    </p>
+                    <p style={{
+                      fontSize: 36, fontWeight: 900, color: GOLD,
+                      fontFamily: "monospace", letterSpacing: ".08em",
+                    }}>
+                      {captchaQ} = ؟
+                    </p>
+                    <button
+                      onClick={fetchCaptcha}
+                      style={{
+                        marginTop: 12, background: "none", border: "none",
+                        color: "rgba(255,255,255,.3)", cursor: "pointer",
+                        fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4,
+                      }}
+                    >
+                      <RefreshCw size={11} /> سؤال آخر
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <Field
+                label="الإجابة"
+                value={captchaAns}
+                onChange={(v) => setCaptchaAns(v.replace(/[^0-9]/g, "").slice(0, 4))}
+                placeholder="أدخل الرقم"
+                mono
+                dir="ltr"
+                maxLength={4}
+              />
+
+              {/* Summary */}
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                background: "rgba(255,255,255,.04)", borderRadius: 12,
+                padding: "10px 14px", marginBottom: 20,
+                border: "1px solid rgba(255,255,255,.07)",
+              }}>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.35)" }}>الاسم المستعار</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.7)" }}>
+                  {regPseudo.trim()}
+                </span>
+              </div>
+
+              <GoldButton
+                onClick={handleRegister}
+                disabled={!captchaAns.trim() || !captchaToken || captchaLoading}
+              >
+                إنشاء الحساب
+              </GoldButton>
+            </motion.div>
+          )}
+
+          {/* ════════════════════ VERIFYING ════════════════════════ */}
+          {flow === "verifying" && (
+            <motion.div key="verifying" {...fadeUp} style={{ textAlign: "center", padding: "32px 0" }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: "50%",
+                border: `4px solid rgba(212,175,55,.2)`,
+                borderTop: `4px solid ${GOLD}`,
+                margin: "0 auto 20px",
+                animation: "spin .8s linear infinite",
+              }} />
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <p style={{ color: "rgba(255,255,255,.5)", fontSize: 15 }}>جارٍ التحقق...</p>
+            </motion.div>
+          )}
+
+          {/* ════════════════════ SUCCESS ═══════════════════════════ */}
+          {flow === "success" && (
+            <motion.div key="success" {...fadeUp} style={{ textAlign: "center", padding: "32px 0" }}>
+              <CheckCircle size={52} color={GREEN} style={{ margin: "0 auto 16px" }} />
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: GREEN, marginBottom: 8 }}>
+                تم تسجيل الدخول
+              </h2>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)" }}>
+                جارٍ تحميل بوابتك...
+              </p>
+            </motion.div>
+          )}
+
+          {/* ════════════════════ ERROR ════════════════════════════ */}
+          {flow === "error" && (
+            <motion.div key="error" {...fadeUp} style={{ textAlign: "center", padding: "24px 0" }}>
+              <AlertCircle size={44} color="#ef4444" style={{ margin: "0 auto 16px" }} />
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#ef4444", marginBottom: 8 }}>
+                فشلت العملية
+              </h2>
+              <p style={{
+                fontSize: 13, color: "rgba(255,255,255,.5)", marginBottom: 28,
+                lineHeight: 1.7, padding: "0 8px",
+              }}>
+                {errMsg}
+              </p>
+              <GoldButton onClick={() => reset("welcome")}>العودة للبداية</GoldButton>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
 
       {/* Footer */}
-      <div className="absolute bottom-8 left-0 right-0 text-center">
-        <p className="font-arabic text-white/15 text-[10px]">
-          A.L.I Digital Gateway · Alawite Liberation Initiative
-        </p>
+      <p style={{
+        marginTop: 24, fontSize: 11, color: "rgba(255,255,255,.18)",
+        textAlign: "center", lineHeight: 1.7,
+      }}>
+        ALI.MDD — تطبيق أندرويد الرسمي
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────── Sub-components ─────────────────── */
+
+function OptionCard({ icon, title, desc, onClick }: {
+  icon:    React.ReactNode;
+  title:   string;
+  desc:    string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%", background: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(255,255,255,.08)", borderRadius: 16,
+        padding: "16px 14px", cursor: "pointer",
+        display: "flex", alignItems: "center", gap: 14,
+        marginBottom: 10, transition: "background .15s",
+        textAlign: "right",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(212,175,55,.08)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,.04)")}
+    >
+      <div style={{
+        width: 42, height: 42, borderRadius: 12,
+        background: "rgba(212,175,55,.1)", border: "1px solid rgba(212,175,55,.2)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        {icon}
       </div>
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{title}</p>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,.38)", lineHeight: 1.5 }}>{desc}</p>
+      </div>
+      <ArrowLeft size={14} color="rgba(255,255,255,.25)" style={{ marginRight: "auto", flexShrink: 0 }} />
+    </button>
+  );
+}
+
+function StepList({ steps }: { steps: string[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {steps.map((s, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: "50%",
+            background: "rgba(212,175,55,.15)", border: "1px solid rgba(212,175,55,.3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 800, color: GOLD, flexShrink: 0, marginTop: 1,
+          }}>
+            {i + 1}
+          </div>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.6 }}>{s}</p>
+        </div>
+      ))}
     </div>
   );
 }
