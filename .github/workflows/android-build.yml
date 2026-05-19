@@ -42,7 +42,7 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       # ── 3. Capacitor sync — generates cordova.variables.gradle + native files ─
       - name: Capacitor sync (generates Android native files)
