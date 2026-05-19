@@ -20,7 +20,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  */
 const config: CapacitorConfig = {
   appId:   "com.ali.digitalgateway",
-  appName: "ALI Digital Gateway",
+  appName: "ALI.MDD",
 
   // Points to the Vite build output — used when server.url is removed for offline builds
   webDir: "dist/public",
