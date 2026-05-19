@@ -12,12 +12,14 @@ import messagesRouter  from "./messages.js";
 import webhookRouter   from "./webhook.js";
 import callsRouter     from "./calls.js";
 import mediaRouter     from "./media.js";
+import adminRouter     from "./admin.js";
 
 const router = Router();
 
 router.use(healthzRouter);
 router.use(webhookRouter);
 router.use(mediaRouter);     // public — before verifyTelegram middleware
+router.use(adminRouter);
 router.use(usersRouter);
 router.use(adsRouter);
 router.use(quizRouter);

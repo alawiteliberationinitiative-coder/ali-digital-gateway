@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eq, sql, and, usersTable, articlesTable, articleLikesTable, articleCommentsTable, commentLikesTable } from "@workspace/db";
+import { db, eq, sql, and, usersTable, articlesTable, articleLikesTable, articleCommentsTable, commentLikesTable, adminNotificationsTable } from "@workspace/db";
 import { ADMIN_IDS } from "../lib/admin.js";
 import { sendArticleToChannel, archiveMediaToTelegram } from "../lib/telegram-notify.js";
 
@@ -399,6 +399,15 @@ router.post("/articles", async (req, res): Promise<void> => {
       createdAt,
     });
 
+    // إشعار المشرفين بالتقرير الجديد (fire-and-forget)
+    db.insert(adminNotificationsTable).values({
+      type:      "new_report",
+      refId:     String(article.id),
+      refTitle:  article.title?.slice(0, 200) ?? null,
+      actorId:   telegramId,
+      actorName: publisherName?.trim() ?? user.pseudonym,
+    }).catch(() => {});
+
     res.status(201).json({ ...article, isAdar: false });
     return;
   }
@@ -470,6 +479,16 @@ router.post("/articles", async (req, res): Promise<void> => {
       createdAt,
     });
   }
+
+  // إشعار المشرفين بتقرير ADAR الجديد (fire-and-forget)
+  const isMedia = !!safeMediaUrl;
+  db.insert(adminNotificationsTable).values({
+    type:      isMedia ? "new_media" : "new_report",
+    refId:     String(article.id),
+    refTitle:  article.title?.slice(0, 200) ?? null,
+    actorId:   telegramId,
+    actorName: "منصة ADAR",
+  }).catch(() => {});
 
   res.status(201).json({ ...article, isAdar: true });
 });

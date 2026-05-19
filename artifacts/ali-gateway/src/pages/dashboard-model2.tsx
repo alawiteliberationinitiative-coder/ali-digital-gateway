@@ -5,7 +5,7 @@ import { useGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, FileText, Radio, Star, MessageSquare, Phone, PhoneOff, PhoneIncoming, Mic } from "lucide-react";
+import { Play, FileText, Radio, Star, MessageSquare, Phone, PhoneOff, PhoneIncoming, Mic, Shield } from "lucide-react";
 
 // ── Lazy-loaded tab sections ──────────────────────────────────────────────────
 const MediaSection         = lazy(() => import("./model2/media").then(m => ({ default: m.MediaSection })));
@@ -15,6 +15,7 @@ const DocumentationSection = lazy(() => import("./model2/documentation").then(m 
 const CommunitySection     = lazy(() => import("./sections/community").then(m => ({ default: m.CommunitySection })));
 const EarnSection          = lazy(() => import("./model2/earn").then(m => ({ default: m.EarnSection })));
 const ProfileSection       = lazy(() => import("./sections/profile").then(m => ({ default: m.ProfileSection })));
+const AdminPanel           = lazy(() => import("./admin/AdminPanel").then(m => ({ default: m.AdminPanel })));
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const GOLD      = "#d4af37";
@@ -238,16 +239,19 @@ function GlassZone({ onClick, label, width = 64, badge = 0, children }: {
 
 // ── Header (fixed height = HEADER_H px, never shifts) ────────────────────────
 const Model2Header = memo(function Model2Header({
-  userData, onOpenProfile, onOpenMessages, onOpenCalls, onOpenAbout,
-  unreadMsgs, missedCalls,
+  userData, onOpenProfile, onOpenMessages, onOpenCalls, onOpenAbout, onOpenAdmin,
+  unreadMsgs, missedCalls, isAdmin, adminBadge,
 }: {
   userData: { pseudonym: string; level: number; rank: string; mddBalance: number; loyaltyPoints: number; aliId: string };
   onOpenProfile:  () => void;
   onOpenMessages: () => void;
   onOpenCalls:    () => void;
   onOpenAbout:    () => void;
+  onOpenAdmin:    () => void;
   unreadMsgs:  number;
   missedCalls: number;
+  isAdmin:     boolean;
+  adminBadge:  number;
 }) {
   return (
     <div className="flex-shrink-0 flex items-stretch" style={{
@@ -287,20 +291,50 @@ const Model2Header = memo(function Model2Header({
         />
       </GlassZone>
 
-      {/* ── Zone 4: ADAR logo ── tap → about page */}
-      <button onClick={onOpenAbout} aria-label="عن المبادرة"
-        className="flex items-center justify-center px-3 flex-shrink-0 active:scale-90 transition-transform"
-        style={{ width: 68 }}>
-        <div style={{
-          width: 46, height: 46, borderRadius: "50%",
-          background: "linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03))",
-          border: `1.5px solid ${GOLD}60`,
-          boxShadow: `0 6px 18px rgba(0,0,0,0.4), 0 0 14px ${GOLD}30, inset 0 1px 0 rgba(255,255,255,0.25)`,
-          padding: 2,
-        }}>
-          <img src="/adar-logo.png" alt="ADAR" className="w-full h-full rounded-full object-cover" />
-        </div>
-      </button>
+      {/* ── Zone 4: Admin shield (admins only) OR ADAR logo ── */}
+      {isAdmin ? (
+        <button onClick={onOpenAdmin} aria-label="لوحة الإدارة"
+          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform relative"
+          style={{ width: 68 }}>
+          <div style={{ position: "relative" }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: "50%",
+              background: "linear-gradient(145deg, rgba(239,68,68,0.22), rgba(185,28,28,0.12))",
+              border: "1.5px solid rgba(239,68,68,0.55)",
+              boxShadow: "0 0 14px rgba(239,68,68,0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Shield size={19} color="#ef4444" style={{ filter: "drop-shadow(0 0 5px rgba(239,68,68,0.7))" }} />
+            </div>
+            {adminBadge > 0 && (
+              <div style={{
+                position: "absolute", top: -4, left: -4,
+                minWidth: 17, height: 17, borderRadius: 9,
+                background: "#ef4444", border: "2px solid rgba(2,14,4,0.97)",
+                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px",
+              }}>
+                <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 9, color: "#fff", lineHeight: 1 }}>
+                  {adminBadge > 99 ? "99+" : adminBadge}
+                </span>
+              </div>
+            )}
+          </div>
+        </button>
+      ) : (
+        <button onClick={onOpenAbout} aria-label="عن المبادرة"
+          className="flex items-center justify-center px-3 flex-shrink-0 active:scale-90 transition-transform"
+          style={{ width: 68 }}>
+          <div style={{
+            width: 46, height: 46, borderRadius: "50%",
+            background: "linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03))",
+            border: `1.5px solid ${GOLD}60`,
+            boxShadow: `0 6px 18px rgba(0,0,0,0.4), 0 0 14px ${GOLD}30, inset 0 1px 0 rgba(255,255,255,0.25)`,
+            padding: 2,
+          }}>
+            <img src="/adar-logo.png" alt="ADAR" className="w-full h-full rounded-full object-cover" />
+          </div>
+        </button>
+      )}
     </div>
   );
 });
@@ -412,6 +446,8 @@ export default function DashboardModel2() {
   const [activeTab,    setActiveTab]    = useState<Tab>("media");
   const [welcomeDone,  setWelcomeDone]  = useState(false);
   const [showProfile,  setShowProfile]  = useState(false);
+  const [showAdmin,    setShowAdmin]    = useState(false);
+  const [adminBadge,   setAdminBadge]  = useState(0);
   const [profileInitialTab, setProfileInitialTab] = useState<"profile" | "inbox" | "friends" | "calls">("profile");
 
   // ── Global incoming-call popup state ─────────────────────────────────────────
@@ -523,6 +559,20 @@ export default function DashboardModel2() {
     userData?.role === "staff"
   );
 
+  // جلب عدد الإشعارات غير المقروءة للمشرف
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchAdminBadge = () => {
+      apiFetch("/api/admin/stats")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.unseenNotifs != null) setAdminBadge(d.unseenNotifs); })
+        .catch(() => {});
+    };
+    fetchAdminBadge();
+    const id = setInterval(fetchAdminBadge, 30_000);
+    return () => clearInterval(id);
+  }, [isAdmin]);
+
   // ── Loading state ────────────────────────────────────────────────────────────
   if (isLoading || !userData) {
     // عرض شاشة إعادة المحاولة عند: انعدام الهوية بعد المهلة، أو فشل الخادم مع هوية موجودة
@@ -557,8 +607,11 @@ export default function DashboardModel2() {
             onOpenMessages={handleOpenMessages}
             onOpenCalls={handleOpenCalls}
             onOpenAbout={() => setActiveTab("about")}
+            onOpenAdmin={() => setShowAdmin(true)}
             unreadMsgs={unreadMsgs}
             missedCalls={missedCalls}
+            isAdmin={isAdmin}
+            adminBadge={adminBadge}
           />
 
           {/* ── Tab content area — fills remaining space ── */}
@@ -587,6 +640,15 @@ export default function DashboardModel2() {
 
           {/* ── Fixed bottom tab bar ── */}
           <Model2TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+
+          {/* ── Admin panel overlay (slide-in from right) ── */}
+          <AnimatePresence>
+            {showAdmin && (
+              <Suspense fallback={null}>
+                <AdminPanel onClose={() => { setShowAdmin(false); setAdminBadge(0); }} />
+              </Suspense>
+            )}
+          </AnimatePresence>
 
           {/* ── Profile overlay (slide-in from left) ── */}
           <AnimatePresence>
