@@ -5,7 +5,7 @@ import { useGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api";
 import { AliEmblem } from "@/components/ui/ali-emblem";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, FileText, Radio, Star, MessageSquare, Phone, Mic } from "lucide-react";
+import { Play, FileText, Radio, Star, MessageSquare, Phone, PhoneOff, PhoneIncoming, Mic } from "lucide-react";
 
 // ── Lazy-loaded tab sections ──────────────────────────────────────────────────
 const MediaSection         = lazy(() => import("./model2/media").then(m => ({ default: m.MediaSection })));
@@ -414,6 +414,35 @@ export default function DashboardModel2() {
   const [showProfile,  setShowProfile]  = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<"profile" | "inbox" | "friends" | "calls">("profile");
 
+  // ── Global incoming-call popup state ─────────────────────────────────────────
+  const [ringingCall, setRingingCall] = useState<{ callId: number; partnerPseudonym: string; partnerId: string } | null>(null);
+  const callActionsRef = useRef<{ answer: () => void; reject: () => void } | null>(null);
+
+  const handleRingStart = useCallback((
+    info: { callId: number; partnerPseudonym: string; partnerId: string },
+    actions: { answer: () => void; reject: () => void },
+  ) => {
+    callActionsRef.current = actions;
+    setRingingCall(info);
+  }, []);
+
+  const handleRingStop = useCallback(() => {
+    setRingingCall(null);
+    callActionsRef.current = null;
+  }, []);
+
+  // ── Presence heartbeat — keeps user "online" always (not just in profile) ────
+  useEffect(() => {
+    if (!telegramId) return;
+    const hb = () => apiFetch("/api/calls/presence", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: "app" }),
+    }).catch(() => {});
+    hb();
+    const id = setInterval(hb, 20_000);
+    return () => clearInterval(id);
+  }, [telegramId]);
+
   // ── Notification badges ──────────────────────────────────────────────────────
   const [unreadMsgs,  setUnreadMsgs]  = useState(0);
   const [missedCalls, setMissedCalls] = useState(0);
@@ -574,8 +603,81 @@ export default function DashboardModel2() {
                     initialChatPartnerId={undefined}
                     initialTab={profileInitialTab}
                     onOpenCommunity={() => { setShowProfile(false); setActiveTab("community"); }}
+                    onRingStart={handleRingStart}
+                    onRingStop={handleRingStop}
                   />
                 </Suspense>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Global 25% incoming-call popup — visible app-wide during ring ── */}
+          <AnimatePresence>
+            {ringingCall && (
+              <motion.div
+                key="incoming-ring-popup"
+                className="fixed bottom-0 left-0 right-0 z-[200] overflow-hidden"
+                style={{
+                  height: "25dvh",
+                  background: "rgba(0,18,10,0.97)",
+                  backdropFilter: "blur(20px)",
+                  borderTop: "1.5px solid rgba(34,197,94,0.45)",
+                  boxShadow: "0 -8px 40px rgba(34,197,94,0.12)",
+                }}
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 360, damping: 36 }}>
+
+                <div className="flex flex-col items-center justify-center h-full gap-5 px-6" dir="rtl">
+
+                  {/* Caller info row */}
+                  <div className="flex items-center gap-4 w-full">
+                    <motion.div
+                      className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.5)" }}
+                      animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.5)", "0 0 0 16px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
+                      transition={{ repeat: Infinity, duration: 1.8 }}>
+                      <PhoneIncoming className="w-7 h-7 text-green-400" />
+                    </motion.div>
+                    <div className="flex flex-col text-right flex-1 min-w-0">
+                      <p className="font-arabic font-black text-white text-lg leading-tight truncate">
+                        {ringingCall.partnerPseudonym}
+                      </p>
+                      <p className="font-arabic text-green-400/60 text-xs mt-0.5">مكالمة صوتية واردة</p>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-10 w-full justify-center">
+                    {/* Reject */}
+                    <div className="flex flex-col items-center gap-1.5">
+                      <button
+                        onClick={() => { callActionsRef.current?.reject(); }}
+                        className="w-[60px] h-[60px] rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                        style={{ background: "rgba(239,68,68,0.25)", border: "2px solid rgba(239,68,68,0.55)" }}>
+                        <PhoneOff className="w-6 h-6 text-red-400" />
+                      </button>
+                      <span className="font-arabic text-[11px] text-white/35">رفض</span>
+                    </div>
+
+                    {/* Accept */}
+                    <div className="flex flex-col items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          callActionsRef.current?.answer();
+                          // open profile → calls tab so user sees active call UI
+                          setProfileInitialTab("calls");
+                          setShowProfile(true);
+                        }}
+                        className="w-[60px] h-[60px] rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                        style={{ background: "rgba(34,197,94,0.25)", border: "2px solid rgba(34,197,94,0.55)" }}>
+                        <Phone className="w-6 h-6 text-green-400" />
+                      </button>
+                      <span className="font-arabic text-[11px] text-white/35">قبول</span>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

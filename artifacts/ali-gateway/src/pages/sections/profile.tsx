@@ -1207,7 +1207,18 @@ function CopyableUsername({ username }: { username: string }) {
 }
 
 // ─── Main Profile Section ─────────────────────────────────────────────────────
-export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity }: { onBack: () => void; userData: UserData; initialChatPartnerId?: string; initialTab?: "profile" | "inbox" | "friends" | "calls"; onOpenCommunity?: (spaceId: number) => void }) {
+interface RingInfo { callId: number; partnerPseudonym: string; partnerId: string }
+interface RingActions { answer: () => void; reject: () => void }
+
+export function ProfileSection({ onBack, userData, initialChatPartnerId, initialTab, onOpenCommunity, onRingStart, onRingStop }: {
+  onBack: () => void;
+  userData: UserData;
+  initialChatPartnerId?: string;
+  initialTab?: "profile" | "inbox" | "friends" | "calls";
+  onOpenCommunity?: (spaceId: number) => void;
+  onRingStart?: (info: RingInfo, actions: RingActions) => void;
+  onRingStop?: () => void;
+}) {
   const { user } = useTelegram();
   const queryClient = useQueryClient();
   const telegramId  = userData.telegramId;
@@ -1243,6 +1254,12 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
   const callTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const signalPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const ringtoneRef       = useRef<{ ctx: AudioContext; interval: ReturnType<typeof setInterval> } | null>(null);
+  const iceBufferRef      = useRef<RTCIceCandidateInit[]>([]);
+  const remoteDescSetRef  = useRef(false);
+  const onRingStartRef    = useRef(onRingStart);
+  const onRingStopRef     = useRef(onRingStop);
+  useEffect(() => { onRingStartRef.current = onRingStart; }, [onRingStart]);
+  useEffect(() => { onRingStopRef.current  = onRingStop;  }, [onRingStop]);
 
   const updateCallState = useCallback((fn: (prev: ActiveCall | null) => ActiveCall | null) => {
     const next = fn(callRef.current);
@@ -1283,22 +1300,40 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     pcRef.current?.close(); pcRef.current = null;
     if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
     if (signalPollRef.current) { clearInterval(signalPollRef.current); signalPollRef.current = null; }
+    iceBufferRef.current = [];
+    remoteDescSetRef.current = false;
     setCallSeconds(0); setCallMuted(false);
   }, [stopRingtone]);
 
+  const drainICEBuffer = useCallback(async (pc: RTCPeerConnection) => {
+    for (const c of iceBufferRef.current) {
+      await pc.addIceCandidate(c).catch(() => {});
+    }
+    iceBufferRef.current = [];
+  }, []);
+
   const setupPeerConnection = useCallback(async (callId: number, isInitiator: boolean): Promise<boolean> => {
     try {
+      iceBufferRef.current = [];
+      remoteDescSetRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+        },
       });
       localStreamRef.current = stream;
       const pc = new RTCPeerConnection({
         iceServers: [
-          { urls: "stun:stun.telegram.org:443" },
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
           { urls: "stun:stun.cloudflare.com:3478" },
+          { urls: "stun:stun.telegram.org:443" },
+          { urls: "stun:stun.stunprotocol.org:3478" },
         ],
+        iceCandidatePoolSize: 10,
       });
       pcRef.current = pc;
       stream.getTracks().forEach(t => pc.addTrack(t, stream));
@@ -1314,8 +1349,11 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
           body: JSON.stringify({ type: "ice", payload: JSON.stringify(e.candidate) }),
         }).catch(() => {});
       };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "failed") pc.restartIce();
+      };
       if (isInitiator) {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
         await pc.setLocalDescription(offer);
         await apiFetch(`/api/calls/${callId}/signal`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1326,15 +1364,17 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
       signalPollRef.current = setInterval(async () => {
         const c = callRef.current;
         if (!c || c.status !== "active") return;
+        const currentPc = pcRef.current;
+        if (!currentPc) return;
         const res = await apiFetch(`/api/calls/${callId}/signals`).catch(() => null);
         if (!res?.ok) return;
         const sigs = await res.json() as { type: string; payload: string }[];
-        const currentPc = pcRef.current;
-        if (!currentPc) return;
         for (const sig of sigs) {
           try {
             if (sig.type === "offer" && !isInitiator && currentPc.signalingState === "stable") {
               await currentPc.setRemoteDescription(JSON.parse(sig.payload));
+              remoteDescSetRef.current = true;
+              await drainICEBuffer(currentPc);
               const ans = await currentPc.createAnswer();
               await currentPc.setLocalDescription(ans);
               await apiFetch(`/api/calls/${callId}/signal`, {
@@ -1343,15 +1383,21 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
               });
             } else if (sig.type === "answer" && isInitiator && currentPc.signalingState === "have-local-offer") {
               await currentPc.setRemoteDescription(JSON.parse(sig.payload));
+              remoteDescSetRef.current = true;
+              await drainICEBuffer(currentPc);
             } else if (sig.type === "ice") {
-              await currentPc.addIceCandidate(JSON.parse(sig.payload));
+              if (remoteDescSetRef.current) {
+                await currentPc.addIceCandidate(JSON.parse(sig.payload)).catch(() => {});
+              } else {
+                iceBufferRef.current.push(JSON.parse(sig.payload));
+              }
             }
           } catch { /* WebRTC errors are non-fatal */ }
         }
-      }, 800);
+      }, 500);
       return true;
     } catch { return false; }
-  }, []);
+  }, [drainICEBuffer]);
 
   const handleInitiateCall = useCallback(async (partnerId: string, partnerPseudonym: string) => {
     if (callRef.current) return;
@@ -1374,6 +1420,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     const c = callRef.current;
     if (!c || c.status !== "ringing") return;
     stopRingtone();
+    onRingStopRef.current?.();
     const res = await apiFetch(`/api/calls/${c.callId}/answer`, { method: "POST" });
     if (!res.ok) return;
     updateCallState(p => p ? { ...p, status: "active" } : null);
@@ -1385,6 +1432,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
     const c = callRef.current;
     if (!c) return;
     await apiFetch(`/api/calls/${c.callId}/reject`, { method: "POST" }).catch(() => {});
+    onRingStopRef.current?.();
     cleanupCall(); callRef.current = null; setCallState(null);
   }, [cleanupCall]);
 
@@ -1420,6 +1468,16 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         const d = JSON.parse(e.data) as { callId: number; callerId: string; callerPseudonym: string };
         updateCallState(() => ({ callId: d.callId, partnerId: d.callerId, partnerPseudonym: d.callerPseudonym, status: "ringing", isInitiator: false }));
         startRingtone();
+        // Notify Dashboard so it can show the global 25% popup
+        // We use a small timeout to let callRef settle first
+        setTimeout(() => {
+          const cur = callRef.current;
+          if (!cur) return;
+          onRingStartRef.current?.(
+            { callId: d.callId, partnerPseudonym: d.callerPseudonym, partnerId: d.callerId },
+            { answer: handleAnswerCall, reject: handleRejectCall },
+          );
+        }, 0);
       });
 
       es.addEventListener("call_accepted", async (e) => {
@@ -1435,6 +1493,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         const d = JSON.parse(e.data) as { callId: number };
         const c = callRef.current;
         if (!c || c.callId !== d.callId) return;
+        onRingStopRef.current?.();
         cleanupCall();
         updateCallState(() => ({ ...c, status: "rejected" }));
         setTimeout(() => { callRef.current = null; setCallState(null); }, 2500);
@@ -1444,6 +1503,7 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         const d = JSON.parse(e.data) as { callId: number };
         const c = callRef.current;
         if (!c || c.callId !== d.callId) return;
+        onRingStopRef.current?.();
         cleanupCall();
         updateCallState(() => ({ ...c, status: "ended" }));
         setTimeout(() => { callRef.current = null; setCallState(null); }, 2500);
@@ -1457,6 +1517,8 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
         try {
           if (d.type === "offer" && !c.isInitiator && pc.signalingState === "stable") {
             await pc.setRemoteDescription(JSON.parse(d.payload));
+            remoteDescSetRef.current = true;
+            await drainICEBuffer(pc);
             const ans = await pc.createAnswer();
             await pc.setLocalDescription(ans);
             await apiFetch(`/api/calls/${c.callId}/signal`, {
@@ -1465,8 +1527,14 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             });
           } else if (d.type === "answer" && c.isInitiator && pc.signalingState === "have-local-offer") {
             await pc.setRemoteDescription(JSON.parse(d.payload));
+            remoteDescSetRef.current = true;
+            await drainICEBuffer(pc);
           } else if (d.type === "ice") {
-            await pc.addIceCandidate(JSON.parse(d.payload));
+            if (remoteDescSetRef.current) {
+              await pc.addIceCandidate(JSON.parse(d.payload)).catch(() => {});
+            } else {
+              iceBufferRef.current.push(JSON.parse(d.payload));
+            }
           }
         } catch { /* non-fatal */ }
       });
@@ -1670,47 +1738,6 @@ export function ProfileSection({ onBack, userData, initialChatPartnerId, initial
             const isInChat = chatPartner?.telegramId === callState.partnerId;
             const showGlobal = !isInChat || callState.status === "calling";
             if (!showGlobal) return null;
-
-            if (callState.status === "ringing") {
-              return (
-                <motion.div key="global-ring"
-                  className="absolute inset-0 z-[60] flex items-center justify-center px-6"
-                  style={{ background: "rgba(0,20,12,0.95)", backdropFilter: "blur(16px)" }}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <div className="w-full max-w-xs flex flex-col items-center gap-6 text-center">
-                    <motion.div
-                      className="w-28 h-28 rounded-full flex items-center justify-center"
-                      style={{ background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.5)" }}
-                      animate={{ boxShadow: ["0 0 0 0 rgba(34,197,94,0.45)", "0 0 0 28px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
-                      transition={{ repeat: Infinity, duration: 1.8 }}>
-                      <PhoneIncoming className="w-12 h-12 text-green-400" />
-                    </motion.div>
-                    <div>
-                      <p className="font-arabic font-black text-white text-xl">{callState.partnerPseudonym}</p>
-                      <p className="font-arabic text-white/45 text-sm mt-1">مكالمة صوتية واردة</p>
-                    </div>
-                    <div className="flex items-center gap-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <button onClick={handleRejectCall}
-                          className="w-18 h-18 w-[72px] h-[72px] rounded-full flex items-center justify-center active:scale-90 transition-all"
-                          style={{ background: "rgba(239,68,68,0.3)", border: "2px solid rgba(239,68,68,0.6)" }}>
-                          <PhoneOff className="w-8 h-8 text-red-400" />
-                        </button>
-                        <span className="font-arabic text-[11px] text-white/35">رفض</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-2">
-                        <button onClick={handleAnswerCall}
-                          className="w-[72px] h-[72px] rounded-full flex items-center justify-center active:scale-90 transition-all"
-                          style={{ background: "rgba(34,197,94,0.3)", border: "2px solid rgba(34,197,94,0.6)" }}>
-                          <Phone className="w-8 h-8 text-green-400" />
-                        </button>
-                        <span className="font-arabic text-[11px] text-white/35">قبول</span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            }
 
             if (callState.status === "calling") {
               return (
