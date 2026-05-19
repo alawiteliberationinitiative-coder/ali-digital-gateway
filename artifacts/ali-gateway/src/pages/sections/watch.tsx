@@ -1,10 +1,148 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Star, CheckCircle, Play, Clock, XCircle } from "lucide-react";
+import { Star, CheckCircle, Play, Clock, XCircle, Download, X } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { useRewardedAd } from "../../hooks/use-rewarded-ad";
-import { useState } from "react";
+import aliEmblem from "@assets/1778653138813_1779158145086.png";
+
+// ── زر إضافة التطبيق للشاشة الرئيسية (PWA) ────────────────────────────────────
+function PwaInstallBanner() {
+  type Prompt = { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+  const [prompt, setPrompt]           = useState<Prompt | null>(null);
+  const [showIosTip, setShowIosTip]   = useState(false);
+  const [installed,  setInstalled]    = useState(false);
+  const [dismissed,  setDismissed]    = useState(
+    () => sessionStorage.getItem("ali_pwa_dismissed") === "1"
+  );
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // قراءة الحدث المحفوظ مسبقاً في main.tsx
+    const stored = (window as Window & { __pwaPrompt?: Prompt }).__pwaPrompt;
+    if (stored) setPrompt(stored);
+
+    // استمع أيضاً في حال وصل متأخراً
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setPrompt(e as unknown as Prompt);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  // اكتمل التثبيت
+  useEffect(() => {
+    const handler = () => setInstalled(true);
+    window.addEventListener("appinstalled", handler);
+    return () => window.removeEventListener("appinstalled", handler);
+  }, []);
+
+  const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+                    || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  // لا نعرضه إذا مثبّت بالفعل أو تم تجاهله أو مفتوح كـ standalone
+  if (installed || dismissed || isStandalone) return null;
+
+  async function handleClick() {
+    if (prompt) {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice.outcome === "accepted") setInstalled(true);
+      return;
+    }
+    if (isIOS) {
+      setShowIosTip(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setShowIosTip(false), 8_000);
+      return;
+    }
+    // متصفح لا يدعم الحدث — افتح في متصفح خارجي
+    window.open("https://t.me/ALI_MDD_BOT/app", "_blank");
+  }
+
+  function dismiss(e: React.MouseEvent) {
+    e.stopPropagation();
+    sessionStorage.setItem("ali_pwa_dismissed", "1");
+    setDismissed(true);
+  }
+
+  return (
+    <div className="flex-shrink-0 px-3 pt-3 pb-1" dir="rtl">
+      <motion.button
+        onClick={handleClick}
+        whileTap={{ scale: 0.97 }}
+        className="relative w-full flex items-center gap-3 rounded-2xl px-4 py-3 overflow-hidden text-right"
+        style={{
+          background: "linear-gradient(135deg, #14532d 0%, #166534 40%, #15803d 80%, #16a34a 100%)",
+          border: "1.5px solid rgba(212,175,55,0.55)",
+          boxShadow: "0 4px 24px rgba(212,175,55,0.22), 0 1px 8px rgba(0,0,0,0.4)",
+        }}
+      >
+        {/* توهج ذهبي متحرك */}
+        <motion.div
+          className="absolute inset-0 pointer-events-none rounded-2xl"
+          style={{ background: "linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.12) 50%, transparent 100%)" }}
+          animate={{ x: ["-100%", "100%"] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: "linear", repeatDelay: 1.2 }}
+        />
+
+        {/* صورة الشعار */}
+        <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden"
+          style={{ border: "1.5px solid rgba(212,175,55,0.5)", boxShadow: "0 0 12px rgba(212,175,55,0.3)" }}>
+          <img src={aliEmblem} alt="ALI" className="w-full h-full object-cover" />
+        </div>
+
+        {/* النص */}
+        <div className="flex-1 min-w-0">
+          <p className="font-arabic font-bold text-[13px] leading-snug text-white">
+            لوصول أسرع إلى التطبيق
+          </p>
+          <p className="font-arabic text-[11px] leading-tight mt-0.5" style={{ color: "#d4af37" }}>
+            أضف التطبيق إلى شاشة هاتفك — اضغط هنا
+          </p>
+        </div>
+
+        {/* أيقونة التحميل */}
+        <Download size={18} color="#d4af37" className="flex-shrink-0 opacity-80" />
+
+        {/* زر إغلاق الشريط */}
+        <button
+          onClick={dismiss}
+          className="flex-shrink-0 p-1 rounded-full"
+          style={{ background: "rgba(0,0,0,0.25)" }}
+          aria-label="إغلاق"
+        >
+          <X size={12} color="rgba(255,255,255,0.55)" />
+        </button>
+      </motion.button>
+
+      {/* تلميح iOS */}
+      <AnimatePresence>
+        {showIosTip && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mt-2 rounded-xl px-4 py-3"
+            style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)" }}
+          >
+            <p className="font-arabic text-xs text-white/80 leading-relaxed text-center">
+              في Safari: اضغط على زر المشاركة{" "}
+              <span style={{ color: "#d4af37" }}>↑</span>
+              {" "}ثم اختر{" "}
+              <span style={{ color: "#d4af37" }}>«إضافة إلى الشاشة الرئيسية»</span>
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 const AD_POINTS = 10;
 const COOLDOWN_MS = 25_000;
@@ -70,24 +208,18 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
       exit={{ x: 40, opacity: 0 }}
       transition={{ duration: 0.3 }}>
 
-      {/* ── Header ── */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <div className="flex-1">
-          <h1 className="font-arabic font-bold text-primary text-lg leading-tight">شاهد وادعم</h1>
-          <p className="font-arabic text-muted-foreground text-xs">مشاهدتك تدعم المبادرة وتزيد رصيدك</p>
-        </div>
-        {totalEarned > 0 && (
+      {/* ── زر إضافة للشاشة الرئيسية (بدلاً من الشريط المعطّل) ── */}
+      <PwaInstallBanner />
+
+      {/* ── نقاط مكتسبة — تظهر فقط بعد أول مشاهدة ── */}
+      {totalEarned > 0 && (
+        <div className="flex-shrink-0 flex justify-end px-4 py-1">
           <div className="flex items-center gap-1 bg-[#d4af37]/15 border border-[#d4af37]/40 rounded-full px-3 py-1">
             <Star className="w-3.5 h-3.5 text-[#d4af37]" fill="#d4af37" />
             <span className="font-mono text-[#d4af37] text-sm font-bold">+{totalEarned}</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto flex flex-col items-center px-5 py-5 gap-6">
