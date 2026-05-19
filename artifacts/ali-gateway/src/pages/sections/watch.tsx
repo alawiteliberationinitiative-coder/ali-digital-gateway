@@ -1,114 +1,155 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, CheckCircle, Play, Clock, XCircle, Download, X } from "lucide-react";
+import { Star, CheckCircle, Play, Clock, XCircle, Smartphone, Plus, X } from "lucide-react";
 import { useTelegram } from "../../lib/telegram";
 import { useRewardedAd } from "../../hooks/use-rewarded-ad";
 import aliEmblem from "@assets/1778653138813_1779158145086.png";
 
-// ── زر إضافة التطبيق للشاشة الرئيسية (Mini App shortcut) ──────────────────────
-//
-// الهدف: إضافة اختصار يفتح المني آب مباشرةً داخل Telegram (مثل رابط الدعوة تماماً)
-// وليس PWA مستقلاً يفتح الرابط في المتصفح بلا سياق Telegram.
-//
-// الأولوية:
-//   1. WebApp.addToHomeScreen()  — Telegram ≥ 7.10  (يضيف المني آب للشاشة مباشرةً)
-//   2. WebApp.openTelegramLink() — يفتح t.me/ALI_MDD_BOT/app داخل Telegram
-//   3. احتياطي: window.open()   — للمتصفح العادي (نادراً)
-//
-const MINI_APP_LINK = "https://t.me/ALI_MDD_BOT/app";
+// ── روابط التطبيق ────────────────────────────────────────────────────────────
+// رابط APK أندرويد — حدّثه عند نشر الإصدار الأول في القناة
+const ANDROID_APK_URL = "https://t.me/ALI_MDD_BOT";
+const MINI_APP_LINK   = "https://t.me/ALI_MDD_BOT/app";
 
-function PwaInstallBanner() {
+function AppInstallBanner() {
   const [dismissed, setDismissed] = useState(
-    () => sessionStorage.getItem("ali_pwa_dismissed") === "1"
+    () => sessionStorage.getItem("ali_install_dismissed") === "1"
   );
-  const [done, setDone] = useState(false);
+  const [shortcutDone, setShortcutDone] = useState(false);
 
   const isStandalone = window.matchMedia("(display-mode: standalone)").matches
                     || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-  if (dismissed || done || isStandalone) return null;
+  if (dismissed || isStandalone) return null;
 
-  function handleClick() {
+  // ── خيار ١: تحميل تطبيق أندرويد ────────────────────────────────────────────
+  function handleAndroid() {
+    window.open(ANDROID_APK_URL, "_blank");
+  }
+
+  // ── خيار ٢: اختصار الشاشة الرئيسية (Telegram shortcut) ────────────────────
+  function handleShortcut() {
     const tg = window.Telegram?.WebApp as (typeof window.Telegram.WebApp & {
       addToHomeScreen?: () => void;
       openTelegramLink?: (url: string) => void;
     }) | undefined;
 
-    // الأولوية 1: Telegram native shortcut (Mini App → شاشة الهاتف)
     if (tg?.addToHomeScreen) {
       tg.addToHomeScreen();
-      setDone(true);
-      return;
-    }
-
-    // الأولوية 2: فتح رابط t.me/ALI_MDD_BOT/app داخل Telegram
-    if (tg?.openTelegramLink) {
+    } else if (tg?.openTelegramLink) {
       tg.openTelegramLink(MINI_APP_LINK);
-      setDone(true);
-      return;
+    } else {
+      window.open(MINI_APP_LINK, "_blank");
     }
-
-    // الأولوية 3: احتياطي للمتصفح العادي
-    window.open(MINI_APP_LINK, "_blank");
-    setDone(true);
+    setShortcutDone(true);
   }
 
   function dismiss(e: React.MouseEvent) {
     e.stopPropagation();
-    sessionStorage.setItem("ali_pwa_dismissed", "1");
+    sessionStorage.setItem("ali_install_dismissed", "1");
     setDismissed(true);
   }
 
   return (
     <div className="flex-shrink-0 px-3 pt-3 pb-1" dir="rtl">
-      <motion.button
-        onClick={handleClick}
-        whileTap={{ scale: 0.97 }}
-        className="relative w-full flex items-center gap-3 rounded-2xl px-4 py-3 overflow-hidden text-right"
+      <div
+        className="relative rounded-2xl overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #14532d 0%, #166534 40%, #15803d 80%, #16a34a 100%)",
-          border: "1.5px solid rgba(212,175,55,0.55)",
-          boxShadow: "0 4px 24px rgba(212,175,55,0.22), 0 1px 8px rgba(0,0,0,0.4)",
-        }}
-      >
+          background: "linear-gradient(135deg, #0d2818 0%, #0f3520 60%, #0b2014 100%)",
+          border: "1.5px solid rgba(212,175,55,0.45)",
+          boxShadow: "0 4px 20px rgba(212,175,55,0.15), 0 1px 6px rgba(0,0,0,0.5)",
+        }}>
+
         {/* توهج ذهبي متحرك */}
         <motion.div
-          className="absolute inset-0 pointer-events-none rounded-2xl"
-          style={{ background: "linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.12) 50%, transparent 100%)" }}
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.07) 50%, transparent 100%)" }}
           animate={{ x: ["-100%", "100%"] }}
-          transition={{ duration: 2.8, repeat: Infinity, ease: "linear", repeatDelay: 1.2 }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
         />
 
-        {/* صورة الشعار */}
-        <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden"
-          style={{ border: "1.5px solid rgba(212,175,55,0.5)", boxShadow: "0 0 12px rgba(212,175,55,0.3)" }}>
-          <img src={aliEmblem} alt="ALI" className="w-full h-full object-cover" />
+        {/* رأس البانر */}
+        <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
+          <div className="flex-shrink-0 w-9 h-9 rounded-xl overflow-hidden"
+            style={{ border: "1.5px solid rgba(212,175,55,0.45)" }}>
+            <img src={aliEmblem} alt="ALI" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-arabic font-bold text-[12px] text-white/90 leading-snug">
+              وصول أسرع إلى البوابة
+            </p>
+            <p className="font-arabic text-[10px] leading-tight mt-0.5" style={{ color: "rgba(212,175,55,0.7)" }}>
+              اختر طريقة الوصول المفضلة لديك
+            </p>
+          </div>
+          <button
+            onClick={dismiss}
+            className="flex-shrink-0 p-1.5 rounded-full"
+            style={{ background: "rgba(0,0,0,0.3)" }}
+            aria-label="إغلاق">
+            <X size={11} color="rgba(255,255,255,0.45)" />
+          </button>
         </div>
 
-        {/* النص */}
-        <div className="flex-1 min-w-0">
-          <p className="font-arabic font-bold text-[13px] leading-snug text-white">
-            لوصول أسرع إلى التطبيق
-          </p>
-          <p className="font-arabic text-[11px] leading-tight mt-0.5" style={{ color: "#d4af37" }}>
-            أضف التطبيق إلى شاشة هاتفك — اضغط هنا
-          </p>
+        {/* خطّ فاصل */}
+        <div className="mx-4 h-px" style={{ background: "rgba(212,175,55,0.15)" }} />
+
+        {/* الزرَّان */}
+        <div className="flex gap-2.5 px-3 py-3">
+
+          {/* ── زر تحميل أندرويد ── */}
+          <motion.button
+            onClick={handleAndroid}
+            whileTap={{ scale: 0.96 }}
+            className="flex-1 flex flex-col items-center gap-1.5 rounded-xl py-3 px-2 relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.10) 100%)",
+              border: "1.5px solid rgba(212,175,55,0.45)",
+            }}>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(212,175,55,0.15)" }}>
+              <Smartphone size={17} color="#d4af37" />
+            </div>
+            <p className="font-arabic font-bold text-[11px] text-white/90 text-center leading-tight">
+              تحميل تطبيق
+            </p>
+            <p className="font-arabic text-[10px] leading-tight" style={{ color: "#d4af37" }}>
+              أندرويد APK
+            </p>
+          </motion.button>
+
+          {/* ── زر اختصار الشاشة ── */}
+          <motion.button
+            onClick={handleShortcut}
+            whileTap={{ scale: 0.96 }}
+            className="flex-1 flex flex-col items-center gap-1.5 rounded-xl py-3 px-2 relative overflow-hidden"
+            style={{
+              background: shortcutDone
+                ? "rgba(34,197,94,0.12)"
+                : "rgba(255,255,255,0.05)",
+              border: shortcutDone
+                ? "1.5px solid rgba(34,197,94,0.4)"
+                : "1.5px solid rgba(255,255,255,0.12)",
+            }}>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: shortcutDone ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.07)" }}>
+              {shortcutDone
+                ? <CheckCircle size={17} color="#22c55e" />
+                : <Plus size={17} color="rgba(255,255,255,0.6)" />}
+            </div>
+            <p className="font-arabic font-bold text-[11px] text-white/90 text-center leading-tight">
+              {shortcutDone ? "تمّ!" : "اختصار"}
+            </p>
+            <p className="font-arabic text-[10px] leading-tight"
+              style={{ color: shortcutDone ? "#22c55e" : "rgba(255,255,255,0.4)" }}>
+              {shortcutDone ? "أُضيف للشاشة" : "الشاشة الرئيسية"}
+            </p>
+          </motion.button>
+
         </div>
-
-        {/* أيقونة التحميل */}
-        <Download size={18} color="#d4af37" className="flex-shrink-0 opacity-80" />
-
-        {/* زر إغلاق الشريط */}
-        <button
-          onClick={dismiss}
-          className="flex-shrink-0 p-1 rounded-full"
-          style={{ background: "rgba(0,0,0,0.25)" }}
-          aria-label="إغلاق"
-        >
-          <X size={12} color="rgba(255,255,255,0.55)" />
-        </button>
-      </motion.button>
+      </div>
     </div>
   );
 }
@@ -177,8 +218,8 @@ export function WatchSection({ onBack }: { onBack: () => void }) {
       exit={{ x: 40, opacity: 0 }}
       transition={{ duration: 0.3 }}>
 
-      {/* ── زر إضافة للشاشة الرئيسية (بدلاً من الشريط المعطّل) ── */}
-      <PwaInstallBanner />
+      {/* ── بانر تحميل التطبيق / اختصار الشاشة ── */}
+      <AppInstallBanner />
 
       {/* ── نقاط مكتسبة — تظهر فقط بعد أول مشاهدة ── */}
       {totalEarned > 0 && (
