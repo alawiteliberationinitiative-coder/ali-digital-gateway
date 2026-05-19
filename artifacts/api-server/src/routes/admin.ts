@@ -161,7 +161,6 @@ router.get("/admin/content", async (req, res): Promise<void> => {
         authorPseudonym: articlesTable.authorPseudonym,
         authorAliId:     articlesTable.authorAliId,
         authorTelegramId:articlesTable.authorTelegramId,
-        category:        articlesTable.category,
         viewCount:       articlesTable.viewCount,
         createdAt:       articlesTable.createdAt,
       })

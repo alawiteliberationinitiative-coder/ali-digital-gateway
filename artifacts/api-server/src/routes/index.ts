@@ -13,12 +13,14 @@ import webhookRouter   from "./webhook.js";
 import callsRouter     from "./calls.js";
 import mediaRouter     from "./media.js";
 import adminRouter     from "./admin.js";
+import authRouter      from "./auth.js";
 
 const router = Router();
 
 router.use(healthzRouter);
 router.use(webhookRouter);
 router.use(mediaRouter);     // public — before verifyTelegram middleware
+router.use(authRouter);      // public — native app auth (no Telegram initData required)
 router.use(adminRouter);
 router.use(usersRouter);
 router.use(adsRouter);

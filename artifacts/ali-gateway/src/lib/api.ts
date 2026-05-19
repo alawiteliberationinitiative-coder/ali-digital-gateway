@@ -1,22 +1,39 @@
 /**
- * Centralized fetch utility that automatically attaches Telegram auth headers.
- * x-telegram-init-data is the authoritative identity signal validated by the server.
+ * Centralized fetch utility that automatically attaches auth headers.
+ *
+ * Auth priority:
+ *  1. x-telegram-init-data  — Telegram Mini App context (HMAC-validated server-side)
+ *  2. Authorization: Bearer — Native-app context (JWT issued after one-time code exchange)
  *
  * Timeout: applied to every request (default 12 s).
  * Retries:  only for safe, idempotent methods (GET, HEAD).
- *           POST / PUT / PATCH / DELETE are never retried — retrying side-effecting
- *           requests could duplicate rewards, invites, signaling writes, etc.
+ *           POST / PUT / PATCH / DELETE are never retried.
  */
 
 let _initData   = "";
 let _telegramId = "";
+let _nativeJwt  = "";
 
-export function configureApi(telegramId: string, initData: string) {
+export function configureApi(telegramId: string, initData: string): void {
   _telegramId = telegramId;
   _initData   = initData;
+  _nativeJwt  = "";     // clear native JWT when Telegram auth is active
 }
 
-export function getInitData(): string { return _initData; }
+export function configureApiNative(jwt: string): void {
+  _nativeJwt  = jwt;
+  _initData   = "";     // clear Telegram auth when native JWT is active
+  _telegramId = "";
+}
+
+export function clearApiAuth(): void {
+  _initData   = "";
+  _telegramId = "";
+  _nativeJwt  = "";
+}
+
+export function getInitData(): string  { return _initData; }
+export function getNativeJwt(): string { return _nativeJwt; }
 
 interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
@@ -40,25 +57,31 @@ export async function apiFetch(
   { timeoutMs = 12_000, retries = 2, ...init }: ApiFetchOptions = {},
 ): Promise<Response> {
   const headers = new Headers(init.headers);
-  // x-telegram-init-data is the only header the server trusts for identity.
-  // x-telegram-id is not sent — the server derives the ID from verified initData only.
-  if (_initData) headers.set("x-telegram-init-data", _initData);
 
-  // Auto-set Content-Type for JSON string bodies so express.json() parses them
+  // Attach the appropriate auth header based on context
+  if (_nativeJwt) {
+    // Native-app context: Bearer JWT
+    headers.set("authorization", `Bearer ${_nativeJwt}`);
+  } else if (_initData) {
+    // Telegram Mini App context: validated initData
+    headers.set("x-telegram-init-data", _initData);
+  }
+
+  // Auto-set Content-Type for JSON string bodies
   if (typeof init.body === "string" && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
 
   const reqInit: RequestInit = { ...init, headers };
 
-  // Only retry safe, idempotent methods — never retry side-effecting requests
-  const method = (reqInit.method ?? "GET").toUpperCase();
+  const method      = (reqInit.method ?? "GET").toUpperCase();
   const maxAttempts = SAFE_METHODS.has(method) ? retries + 1 : 1;
 
   let lastError: unknown;
   for (let i = 0; i < maxAttempts; i++) {
-    // Exponential backoff with jitter: 600ms, 1.8s, 4.5s … (max 8s)
-    if (i > 0) await new Promise(r => setTimeout(r, Math.min(600 * Math.pow(2, i - 1) + Math.random() * 300, 8_000)));
+    if (i > 0) await new Promise(r =>
+      setTimeout(r, Math.min(600 * Math.pow(2, i - 1) + Math.random() * 300, 8_000))
+    );
     try {
       return await doFetch(input, reqInit, timeoutMs);
     } catch (err) {

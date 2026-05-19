@@ -262,9 +262,29 @@ function silentDelete(bot, chatId, messageId) {
   bot.deleteMessage(chatId, messageId).catch(() => {});
 }
 
+// ── Native-app login code generator ──────────────────────────────────────────
+// Calls the API server (same container) to create a one-time 8-char code.
+// Returns the code string or null on failure.
+async function generateNativeLoginCode(telegramId) {
+  try {
+    const apiBase = 'http://localhost:80';
+    const res = await fetch(`${apiBase}/api/auth/generate-code`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ telegramId: String(telegramId), botSecret: token }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.code || null;
+  } catch (err) {
+    console.error('[login] generate-code error:', err?.message);
+    return null;
+  }
+}
+
 // ── Register all bot event handlers ──────────────────────────────────────────
 function registerHandlers(bot, isPolling) {
-  // /start handler
+  // /start and /login handler
   bot.on('message', async (msg) => {
     try {
       const chatId = msg.chat.id;
@@ -272,7 +292,34 @@ function registerHandlers(bot, isPolling) {
 
       silentDelete(bot, chatId, msg.message_id);
 
-      if (!text?.startsWith('/start')) return;
+      const isStart = text?.startsWith('/start');
+      const isLogin = text?.startsWith('/login');
+
+      if (!isStart && !isLogin) return;
+
+      // ── /login: generate a one-time native-app login code ─────────────────
+      if (isLogin) {
+        const code = await generateNativeLoginCode(chatId);
+        if (!code) {
+          bot.sendMessage(chatId,
+            '⚠️ تعذّر إنشاء رمز الدخول. يرجى المحاولة مرة أخرى.',
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
+          return;
+        }
+        bot.sendMessage(chatId,
+`🔑 *رمز دخول التطبيق*
+
+\`${code}\`
+
+أدخل هذا الرمز في تطبيق A.L.I على هاتفك.
+_⏳ صالح لمدة 10 دقائق فقط — لا تشاركه مع أحد._`,
+          { parse_mode: 'Markdown' }
+        ).catch(() => {});
+        return;
+      }
+
+      // ── /start: existing captcha + app launch flow ────────────────────────
 
       const parts   = text.trim().split(/\s+/);
       const refCode = parts[1] || null;
@@ -406,6 +453,7 @@ function registerHandlers(bot, isPolling) {
 async function setupBot(bot) {
   await bot.setMyCommands([
     { command: 'start', description: 'فتح البوابة الرقمية A.L.I' },
+    { command: 'login', description: 'الحصول على رمز دخول التطبيق الأصلي (Android/iOS)' },
   ]).catch(() => {});
 
   if (webAppUrl) {

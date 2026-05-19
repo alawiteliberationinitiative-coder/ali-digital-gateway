@@ -17,7 +17,7 @@ declare global {
  * expired, or unparseable, req.telegramId remains undefined; protected routes
  * that check for it will return 401. No header fallback is trusted.
  */
-export function verifyTelegram(req: Request, res: Response, next: NextFunction): void {
+export async function verifyTelegram(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token    = process.env.TELEGRAM_BOT_TOKEN;
   const initData = req.headers["x-telegram-init-data"] as string | undefined;
 
@@ -75,11 +75,31 @@ export function verifyTelegram(req: Request, res: Response, next: NextFunction):
     }
   }
 
-  // ── 2. No fallback ────────────────────────────────────────────────────────────
-  // x-telegram-id is a caller-controlled header — any HTTP client can forge it.
-  // The API is publicly reachable behind a reverse proxy, so socket-address checks
-  // are not a reliable trust boundary. Identity is only set from a verified
-  // initData payload above; protected routes that require req.telegramId will
-  // return 401 to unauthenticated callers.
+  // ── 2. Native-app fallback: Bearer JWT ───────────────────────────────────────
+  // When the request comes from the Capacitor native wrapper (Android/iOS), there
+  // is no Telegram initData. The native app authenticates via a JWT issued by
+  // POST /api/auth/verify-code after a one-time code exchange with the Telegram bot.
+  const authHeader = req.headers["authorization"];
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    try {
+      // Lazy import to keep the main auth path free of JWT overhead on every request
+      const { verifyNativeJwt } = await import("../lib/jwt.js");
+      const payload = verifyNativeJwt(token);
+      if (payload) {
+        req.telegramId = payload.telegramId;
+        next();
+        return;
+      } else {
+        logger.warn({ url: req.url }, "native JWT invalid or expired");
+      }
+    } catch (err) {
+      logger.warn({ err }, "native JWT verification error");
+    }
+  }
+
+  // ── 3. No trusted identity found ─────────────────────────────────────────────
+  // Protected routes that check req.telegramId will return 401 to unauthenticated
+  // callers. This is the correct behaviour for both Telegram and native contexts.
   next();
 }
