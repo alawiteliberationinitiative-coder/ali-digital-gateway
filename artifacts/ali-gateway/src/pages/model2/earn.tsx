@@ -36,73 +36,83 @@ export function EarnSection({ telegramId: _telegramId }: { telegramId: string })
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="flex-shrink-0 overflow-hidden"
             style={{ borderBottom: "1px solid rgba(212,175,55,0.14)" }}>
-            <div className="flex items-center gap-2 px-3 py-2.5"
+            <div className="flex items-center gap-3 px-3 py-3"
               style={{ background: "rgba(2,14,4,0.97)" }}>
 
               {/* شاهد وادعم */}
               <motion.button
                 onClick={() => setTab("watch")}
-                whileTap={{ scale: 0.94 }}
-                className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden transition-all"
+                whileTap={{ scale: 0.96 }}
+                className="relative flex-1 flex items-center justify-center gap-2.5 rounded-2xl px-4 py-4 overflow-hidden transition-all"
                 style={{
                   background: tab === "watch"
-                    ? "linear-gradient(135deg, rgba(139,92,246,0.28) 0%, rgba(109,40,217,0.18) 100%)"
+                    ? "linear-gradient(135deg, rgba(212,175,55,0.22) 0%, rgba(180,140,20,0.12) 60%, rgba(212,175,55,0.08) 100%)"
                     : "rgba(255,255,255,0.04)",
                   border: tab === "watch"
-                    ? "1.5px solid rgba(139,92,246,0.55)"
+                    ? "1.5px solid rgba(212,175,55,0.65)"
                     : "1.5px solid rgba(255,255,255,0.08)",
                   boxShadow: tab === "watch"
-                    ? "0 0 16px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.12)"
+                    ? "0 0 22px rgba(212,175,55,0.35), 0 0 8px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.14)"
                     : "none",
+                  backdropFilter: tab === "watch" ? "blur(8px)" : "none",
                 }}>
                 {tab === "watch" && (
                   <motion.div layoutId="earn-tab-pill"
                     className="absolute inset-0 rounded-2xl pointer-events-none"
-                    style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.12),transparent)" }}
+                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.1),transparent)" }}
                     transition={{ type: "spring", stiffness: 420, damping: 38 }} />
                 )}
-                <Tv size={15}
-                  color={tab === "watch" ? "#a78bfa" : "rgba(255,255,255,0.35)"}
-                  style={{ filter: tab === "watch" ? "drop-shadow(0 0 5px rgba(167,139,250,0.7))" : "none", flexShrink: 0 }} />
+                <Tv size={18}
+                  color={tab === "watch" ? GOLD : "rgba(255,255,255,0.35)"}
+                  style={{ filter: tab === "watch" ? `drop-shadow(0 0 6px ${GOLD}90)` : "none", flexShrink: 0 }} />
                 <div className="relative z-10 text-right">
-                  <p className="font-arabic font-black text-[11px] leading-tight"
-                    style={{ color: tab === "watch" ? "#c4b5fd" : "rgba(255,255,255,0.55)" }}>شاهد الآن وادعم المبادرة</p>
-                  <p className="font-arabic text-[9px] leading-tight"
-                    style={{ color: tab === "watch" ? "rgba(196,181,253,0.7)" : "rgba(255,255,255,0.25)" }}>الإعلانات الطوعية</p>
+                  <p className="font-arabic font-black text-[13px] leading-snug"
+                    style={{ color: tab === "watch" ? "#16a34a" : "rgba(255,255,255,0.55)" }}>
+                    شاهد الآن وادعم المبادرة
+                  </p>
+                  <p className="font-arabic text-[10px] leading-tight mt-0.5"
+                    style={{ color: tab === "watch" ? "#15803d" : "rgba(255,255,255,0.25)" }}>
+                    الإعلانات الطوعية
+                  </p>
                 </div>
               </motion.button>
 
-              {/* طريق النحل */}
+              {/* اربح */}
               <motion.button
                 onClick={() => setTab("play")}
-                whileTap={{ scale: 0.94 }}
-                className="relative flex-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2.5 overflow-hidden transition-all"
+                whileTap={{ scale: 0.96 }}
+                className="relative flex-1 flex items-center justify-center gap-2.5 rounded-2xl px-4 py-4 overflow-hidden transition-all"
                 style={{
                   background: tab === "play"
-                    ? "linear-gradient(135deg, rgba(34,197,94,0.22) 0%, rgba(0,80,30,0.28) 100%)"
+                    ? "linear-gradient(135deg, rgba(212,175,55,0.22) 0%, rgba(180,140,20,0.12) 60%, rgba(212,175,55,0.08) 100%)"
                     : "rgba(255,255,255,0.04)",
                   border: tab === "play"
-                    ? `1.5px solid rgba(34,197,94,0.5)`
+                    ? "1.5px solid rgba(212,175,55,0.65)"
                     : "1.5px solid rgba(255,255,255,0.08)",
                   boxShadow: tab === "play"
-                    ? `0 0 16px rgba(34,197,94,0.2), inset 0 1px 0 rgba(255,255,255,0.12)`
+                    ? "0 0 22px rgba(212,175,55,0.35), 0 0 8px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.14)"
                     : "none",
+                  backdropFilter: tab === "play" ? "blur(8px)" : "none",
                 }}>
                 {tab === "play" && (
                   <motion.div layoutId="earn-tab-pill"
                     className="absolute inset-0 rounded-2xl pointer-events-none"
-                    style={{ background: "linear-gradient(135deg,rgba(34,197,94,0.1),transparent)" }}
+                    style={{ background: "linear-gradient(135deg,rgba(212,175,55,0.1),transparent)" }}
                     transition={{ type: "spring", stiffness: 420, damping: 38 }} />
                 )}
-                <Zap size={15}
-                  color={tab === "play" ? GREEN : "rgba(255,255,255,0.35)"}
-                  fill={tab === "play" ? `${GREEN}50` : "none"}
-                  style={{ filter: tab === "play" ? `drop-shadow(0 0 5px ${GREEN}80)` : "none", flexShrink: 0 }} />
+                <Zap size={18}
+                  color={tab === "play" ? GOLD : "rgba(255,255,255,0.35)"}
+                  fill={tab === "play" ? `${GOLD}40` : "none"}
+                  style={{ filter: tab === "play" ? `drop-shadow(0 0 6px ${GOLD}90)` : "none", flexShrink: 0 }} />
                 <div className="relative z-10 text-right">
-                  <p className="font-arabic font-black text-[11px] leading-tight"
-                    style={{ color: tab === "play" ? "#4ade80" : "rgba(255,255,255,0.55)" }}>اربح 🐝</p>
-                  <p className="font-arabic text-[9px] leading-tight"
-                    style={{ color: tab === "play" ? "rgba(74,222,128,0.7)" : "rgba(255,255,255,0.25)" }}>طريق النحل</p>
+                  <p className="font-arabic font-black text-[13px] leading-snug"
+                    style={{ color: tab === "play" ? "#16a34a" : "rgba(255,255,255,0.55)" }}>
+                    اربح 🐝
+                  </p>
+                  <p className="font-arabic text-[10px] leading-tight mt-0.5"
+                    style={{ color: tab === "play" ? "#15803d" : "rgba(255,255,255,0.25)" }}>
+                    طريق النحل
+                  </p>
                 </div>
               </motion.button>
             </div>
