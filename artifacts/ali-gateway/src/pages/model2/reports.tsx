@@ -906,7 +906,7 @@ export function ReportsSection({ telegramId, isAdmin: isAdminProp = false }: {
                     border: tab === t.key ? `1px solid ${(t.key === "adar" ? GOLD : PURPLE)}30` : "1px solid transparent",
                   }}>
                   {t.label}
-                  {t.count > 0 && (
+                  {t.key !== "adar" && t.count > 0 && (
                     <span className="mr-1 opacity-60 text-[10px]">({t.count})</span>
                   )}
                 </button>
