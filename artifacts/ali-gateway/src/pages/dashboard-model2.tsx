@@ -535,7 +535,7 @@ export default function DashboardModel2() {
                 transition={{ duration: 0.18, ease: "easeOut" }}>
                 <Suspense fallback={<TabLoading />}>
                   {activeTab === "media"     && <MediaSection        telegramId={telegramId} isAdmin={isAdmin} />}
-                  {activeTab === "reports"  && <ReportsSection      telegramId={telegramId} />}
+                  {activeTab === "reports"  && <ReportsSection      telegramId={telegramId} isAdmin={isAdmin} />}
                   {activeTab === "field"    && <FieldDocsHub telegramId={telegramId} />}
                   {activeTab === "community"&& <CommunitySection    onBack={() => setActiveTab("media")} />}
                   {activeTab === "earn"     && <EarnSection         telegramId={telegramId} />}

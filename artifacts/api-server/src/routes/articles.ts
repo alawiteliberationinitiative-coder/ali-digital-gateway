@@ -17,7 +17,6 @@ function canPublish(telegramId: string, role: string | null | undefined): boolea
 
 // ── GET /api/articles ─────────────────────────────────────────────────────────
 router.get("/articles", async (_req, res): Promise<void> => {
-  // Try with viewCount first; if migration not yet run, fall back gracefully
   try {
     const rows = await db
       .select({
@@ -30,14 +29,14 @@ router.get("/articles", async (_req, res): Promise<void> => {
         viewCount:       articlesTable.viewCount,
         downloadCount:   articlesTable.downloadCount,
         shareCount:      articlesTable.shareCount,
+        likeCount:       sql<number>`(SELECT COALESCE(COUNT(*),0)::int FROM article_likes WHERE article_id = ${articlesTable.id})`,
         createdAt:       articlesTable.createdAt,
         updatedAt:       articlesTable.updatedAt,
       })
       .from(articlesTable)
-      .orderBy(articlesTable.createdAt);
+      .orderBy(sql`${articlesTable.createdAt} DESC`);
     res.json(rows);
   } catch {
-    // view_count column may not exist yet — fall back without it
     const rows = await db
       .select({
         id:              articlesTable.id,
@@ -50,8 +49,24 @@ router.get("/articles", async (_req, res): Promise<void> => {
         updatedAt:       articlesTable.updatedAt,
       })
       .from(articlesTable)
-      .orderBy(articlesTable.createdAt);
-    res.json(rows.map(r => ({ ...r, viewCount: 0 })));
+      .orderBy(sql`${articlesTable.createdAt} DESC`);
+    res.json(rows.map(r => ({ ...r, viewCount: 0, shareCount: 0, likeCount: 0 })));
+  }
+});
+
+// ── GET /api/articles/me/likes ────────────────────────────────────────────────
+// Returns the list of article IDs liked by the current user.
+router.get("/articles/me/likes", async (req, res): Promise<void> => {
+  const telegramId = req.telegramId;
+  if (!telegramId) { res.json({ likedIds: [] }); return; }
+  try {
+    const rows = await db
+      .select({ articleId: articleLikesTable.articleId })
+      .from(articleLikesTable)
+      .where(eq(articleLikesTable.telegramId, telegramId));
+    res.json({ likedIds: rows.map(r => r.articleId) });
+  } catch {
+    res.json({ likedIds: [] });
   }
 });
 
@@ -91,6 +106,7 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
 
   // iOS returns empty file.type for many formats — fall back to extension lookup
   const EXT_MIME: Record<string, string> = {
+    pdf:  "application/pdf",
     mp4: "video/mp4",  mov: "video/quicktime",  avi: "video/x-msvideo",
     webm: "video/webm", "3gp": "video/3gpp",   "3g2": "video/3gpp2",
     mkv: "video/x-matroska", mpeg: "video/mpeg", mpg: "video/mpeg",
@@ -145,6 +161,7 @@ router.post("/articles/upload-token", async (req, res): Promise<void> => {
   // ── 2. Build a safe file extension ──────────────────────────────────────
   // Map common MIME types to canonical extensions mobile players accept
   const MIME_EXT: Record<string, string> = {
+    "application/pdf": "pdf",
     "video/mp4": "mp4", "video/quicktime": "mov", "video/x-msvideo": "avi",
     "video/webm": "webm", "video/3gpp": "3gp", "video/3gpp2": "3g2",
     "video/x-matroska": "mkv", "video/mpeg": "mpeg",
@@ -211,6 +228,7 @@ router.put("/articles/upload-media", async (req, res): Promise<void> => {
   }
 
   const EXT_MIME: Record<string, string> = {
+    pdf: "application/pdf",
     mp4: "video/mp4", mov: "video/quicktime", avi: "video/x-msvideo",
     webm: "video/webm", "3gp": "video/3gpp", "3g2": "video/3gpp2",
     mkv: "video/x-matroska", mpeg: "video/mpeg", mpg: "video/mpeg",

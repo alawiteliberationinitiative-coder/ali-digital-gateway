@@ -1,3 +1,5 @@
+import { EXTENDED_QUESTIONS } from "./questions-extended";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ALI Digital Gateway — Question Bank
 // 50% Imam Ali & the 12 Imams | 50% varied: poetry, philosophy, geography,
@@ -1460,6 +1462,7 @@ export const QUESTION_BANK: Question[] = [
     options:["10 سنوات","60 سنة","نحو 69 سنة (260–329 هـ)","100 سنة"], correct:2,
     explain:"الغيبة الصغرى امتدت من 260 إلى 329 هـ (نحو 69 سنة)، وبعدها بدأت الغيبة الكبرى" },
 
+  ...EXTENDED_QUESTIONS,
 ];
 
 // ─── Helper functions ────────────────────────────────────────────────────────
