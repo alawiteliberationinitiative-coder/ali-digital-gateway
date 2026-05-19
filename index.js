@@ -226,33 +226,25 @@ async function sendAppMessage(bot, chatId, refCode = null) {
     ? `${webAppUrl}?startapp=${encodeURIComponent(refCode)}`
     : webAppUrl;
 
-  // Direct deep link → https://t.me/BOT/app?startapp=code
-  // Opens the Mini App without going through the bot chat (requires BotFather /newapp setup)
-  const directLink = refCode
-    ? `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=${encodeURIComponent(refCode)}`
-    : `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}`;
-
   await bot.sendMessage(chatId,
-`🟢 *مبادرة التحرير العلوي — A.L.I*
+`🟢 <b>مبادرة التحرير العلوي — A.L.I</b>
 
 أهلاً بك في البوابة الرقمية السيادية.
 
 هذه المنصة حكر على أعضاء مبادرة التحرير العلوي المسجّلين.
 ستحصل على هويّة رقمية فريدة ومفاتيح التشفير الثلاثة لحماية حسابك.
 
-🔗 رابطك المباشر:
-\`${directLink}\`
+<i>"حق لا يموت"</i>
 
-_"حق لا يموت"_
-
-🔰 *Alawite Liberation Initiative — A.L.I*
-_Management of Diversified Development · $MDD_`,
+🔰 <b>Alawite Liberation Initiative — A.L.I</b>
+<i>Management of Diversified Development · $MDD</i>`,
     {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [[
-          { text: '🚀 إطلاق البوابة الآمنة', web_app: { url: webAppBtnUrl } }
-        ]]
+        inline_keyboard: [
+          [{ text: '🚀 فتح البوابة في تيليغرام', web_app: { url: webAppBtnUrl } }],
+          [{ text: '📱 تحميل تطبيق الأندرويد', callback_data: `dl_android:${chatId}` }]
+        ]
       }
     }
   ).catch(() => {});
@@ -297,8 +289,10 @@ function registerHandlers(bot, isPolling) {
 
       if (!isStart && !isLogin) return;
 
-      // ── /login: generate a one-time native-app login code ─────────────────
-      if (isLogin) {
+      // ── /login أو /start login: generate a one-time native-app login code ──
+      // t.me/ALI_MDD_BOT?start=login يُرسل "/start login" إلى البوت
+      const startParam = text?.trim().split(/\s+/)[1]?.toLowerCase();
+      if (isLogin || (isStart && startParam === 'login')) {
         const code = await generateNativeLoginCode(chatId);
         if (!code) {
           bot.sendMessage(chatId,
@@ -357,11 +351,47 @@ _⏳ صالح لمدة 10 دقائق فقط — لا تشاركه مع أحد._`
     }
   });
 
-  // Captcha callback_query handler
+  // Captcha + download callback_query handler
   bot.on('callback_query', async (query) => {
     try {
       const { data, from, message } = query;
       const chatId = from.id;
+
+      // ── Download Android APK ─────────────────────────────────────────────
+      if (data.startsWith('dl_android:')) {
+        const targetId = Number(data.split(':')[1]);
+        if (chatId !== targetId) {
+          bot.answerCallbackQuery(query.id, { text: '❌ هذا الزر ليس لك.', show_alert: true }).catch(() => {});
+          return;
+        }
+
+        await bot.answerCallbackQuery(query.id, { text: '📱 جاري إعداد رابط التحميل...' });
+
+        const code = await generateNativeLoginCode(chatId);
+        const serverBase = webAppUrl || 'https://secret-manager-alawiteliberati.replit.app';
+        const apkUrl = 'https://github.com/alawiteliberationinitiative-coder/ali-digital-gateway/releases/latest/download/ALI-Gateway.apk';
+
+        if (!code) {
+          bot.sendMessage(chatId, '⚠️ تعذّر إنشاء رمز الدخول. يرجى المحاولة لاحقاً.').catch(() => {});
+          return;
+        }
+
+        const magicLink = `${serverBase}/api/auth/magic/${code}`;
+
+        await bot.sendMessage(chatId,
+`📱 <b>تحميل تطبيق ALI.MDD للأندرويد</b>
+
+<b>الخطوة ١ — حمّل التطبيق:</b>
+<a href="${apkUrl}">⬇️ تحميل ALI.MDD APK</a>
+
+<b>الخطوة ٢ — بعد التثبيت، افتح رابط الدخول التلقائي:</b>
+<a href="${magicLink}">🔓 دخول تلقائي إلى حسابك</a>
+
+<i>⚠️ رابط الدخول صالح ١٠ دقائق فقط — لا تشاركه مع أحد.</i>`,
+          { parse_mode: 'HTML', disable_web_page_preview: true }
+        ).catch(() => {});
+        return;
+      }
 
       if (!data.startsWith('captcha:')) {
         bot.answerCallbackQuery(query.id).catch(() => {});
