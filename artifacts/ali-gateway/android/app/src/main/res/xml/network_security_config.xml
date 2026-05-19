@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Config — يُفرض HTTPS فقط ويمنع cleartext traffic بشكل صريح.
+  يُضاف في AndroidManifest.xml كـ android:networkSecurityConfig="@xml/network_security_config"
+-->
+<network-security-config>
+    <!-- الإعداد الافتراضي: HTTPS فقط، لا cleartext مسموح به -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- النطاق الرئيسي للخادم: HTTPS إلزامي -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">secret-manager-alawiteliberati.replit.app</domain>
+        <domain includeSubdomains="true">replit.app</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
