@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "ali-digital-gateway",
+    "slug": "ali-mobile",
+    "version": "1.0.0",
+    "platforms": ["android"],
+    "android": {
+      "package": "com.ali.gateway"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8627b0c3-f0a9-4672-870d-5847424b94f1"
+      }
+    }
+  }
+}
