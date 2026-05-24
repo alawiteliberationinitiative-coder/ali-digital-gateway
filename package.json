@@ -1,13 +1,18 @@
 {
-  "name": "telegram-bot",
+  "name": "ali-digital-gateway",
   "version": "1.0.0",
-  "private": true,
-  "type": "commonjs",
+  "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "android": "expo run:android"
   },
   "dependencies": {
+    "expo": "^51.0.0",
+    "react": "18.2.0",
+    "react-native": "0.74.2",
+    "node-telegram-bot-api": "^0.66.0",
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.1.0"
-  }
+  },
+  "private": true
 }
