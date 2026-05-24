@@ -1,18 +1,15 @@
 {
   "name": "ali-digital-gateway",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "expo start",
     "android": "expo run:android"
   },
   "dependencies": {
     "expo": "^51.0.0",
     "react": "18.2.0",
     "react-native": "0.74.2",
-    "node-telegram-bot-api": "^0.66.0",
-    "@ton/crypto": "^3.3.0",
-    "@ton/ton": "^15.1.0"
-  },
-  "private": true
+    "expo-status-bar": "~1.12.1"
+  }
 }
