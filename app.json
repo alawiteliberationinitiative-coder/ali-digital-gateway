@@ -8,7 +8,7 @@
     "android": {
       "package": "com.ali.gateway",
       "adaptiveIcon": {
-        "foregroundImage": "./icon.png",
+        "foregroundImage": "./logo.png",
         "backgroundColor": "#ffffff"
       }
     },
