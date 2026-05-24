@@ -3,6 +3,7 @@
     "name": "ali-digital-gateway",
     "slug": "ali-mobile",
     "version": "1.0.0",
+    "sdkVersion": "51.0.0",
     "platforms": ["android"],
     "android": {
       "package": "com.ali.gateway"
