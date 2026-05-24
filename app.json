@@ -6,7 +6,16 @@
     "sdkVersion": "51.0.0",
     "platforms": ["android"],
     "android": {
-      "package": "com.ali.gateway"
+      "package": "com.ali.gateway",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "splash": {
+      "image": "./src/assets/splash.jpg",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffffff"
     },
     "extra": {
       "eas": {
