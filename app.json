@@ -8,12 +8,12 @@
     "android": {
       "package": "com.ali.gateway",
       "adaptiveIcon": {
-        "foregroundImage": "./logo.png",
+        "foregroundImage": "logo.png",
         "backgroundColor": "#ffffff"
       }
     },
     "splash": {
-      "image": "./splash.png",
+      "image": "splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
