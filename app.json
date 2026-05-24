@@ -8,19 +8,14 @@
     "android": {
       "package": "com.ali.gateway",
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logo.png",
+        "foregroundImage": "./logo.png",
         "backgroundColor": "#ffffff"
       }
     },
     "splash": {
-      "image": "./src/assets/splash.jpg",
+      "image": "./splash.jpg",
       "resizeMode": "cover",
       "backgroundColor": "#ffffff"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "30c3ac5d-fe81-4a55-ba54-bd4d57d4c5f4"
-      }
     }
   }
 }
